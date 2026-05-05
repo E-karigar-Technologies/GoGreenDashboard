@@ -46,15 +46,19 @@ const ProductVariants = ({
     try {
       await addFormRef.current.validateFields();
       const formValues = addFormRef.current.getFieldsValue();
-      // Ensure size is properly included in the variant
-      // Always save size as lowercase for consistency
-      const normalizedSize = formValues.size ? formValues.size.toLowerCase() : '';
-      saveNewVariant({
-        size: normalizedSize,
-        price: formValues.price,
-        type: 'size',
-        value: normalizedSize
-      });
+      // Map UI fields to required variant structure
+      const sizeValue = formValues.size ? String(formValues.size).toLowerCase() : '';
+      const sizeLabel = (sizeOptions.find(s => s.value === sizeValue)?.label) || sizeValue;
+      const priceNum = Number(formValues.price || 0);
+      const variant = {
+        // id can be assigned by backend; using temp id locally
+        id: Date.now(),
+        type: sizeLabel, // e.g., 'Full', 'Half'
+        value: String(formValues.price), // e.g., '250'
+        price: priceNum.toFixed(2), // e.g., '250.00'
+        discount_percentage: 0,
+      };
+      saveNewVariant(variant);
       // Debug: log variants after add
       setTimeout(() => {
         if (typeof window !== 'undefined') {
@@ -72,13 +76,17 @@ const ProductVariants = ({
     try {
       await editFormRef.current.validateFields();
       const formValues = editFormRef.current.getFieldsValue();
-      // Ensure size is properly included when saving edits
-      saveEditVariant({
-        ...newVariantDraft,
-        size: formValues.size,
-        price: formValues.price,
-        value: formValues.size || newVariantDraft.value
-      });
+      const sizeValue = formValues.size ? String(formValues.size).toLowerCase() : (newVariantDraft.size || newVariantDraft.value || '');
+      const sizeLabel = (sizeOptions.find(s => s.value === sizeValue)?.label) || sizeValue;
+      const priceNum = Number(formValues.price || newVariantDraft.price || 0);
+      const updated = {
+        id: newVariantDraft.id,
+        type: sizeLabel,
+        value: String(formValues.price ?? newVariantDraft.value ?? ''),
+        price: priceNum.toFixed(2),
+        discount_percentage: 0,
+      };
+      saveEditVariant(updated);
     } catch (err) {
       console.error('Validation failed:', err);
     }
@@ -157,9 +165,8 @@ const ProductVariants = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Space size="large">
                       <div>
-                        <Tag color="blue">Size</Tag>
-                        {/* <Tag color="blue">Size</Tag> */}
-                        <Text strong>{variant?.size || variant?.value}</Text>
+                        <Tag color="blue">{"size" || 'Type'}</Tag>
+                        <Text strong style={{ marginLeft: 8 }}>{variant?.type}</Text>
                       </div>
                       <div>
                         <Text strong style={{ color: '#52c41a', fontSize: 16 }}>

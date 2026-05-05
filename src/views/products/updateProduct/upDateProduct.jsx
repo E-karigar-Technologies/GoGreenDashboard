@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Card, Row, Col, Modal, Button as BsButton } from "react-bootstrap";
-import { Form, Input, Select, Upload, Button, Space, message, Checkbox, Switch } from "antd";
+import { Card, Row, Col } from "react-bootstrap";
+import { Form, Input, Select, Upload, Button, Space, message, Checkbox, Switch, InputNumber, Modal as AntModal, Slider } from "antd";
 import { PlusOutlined, MinusCircleOutlined, UploadOutlined, DollarOutlined } from "@ant-design/icons";
 import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct, getProductById } from "../../../services/apiService";
+import Cropper from 'react-easy-crop';
+import imageCompression from 'browser-image-compression';
 // import useAddProductHook from "./hooks/useAddProductHook";
 import ProductVariants from "../components/ProductVariants";
 // import InputWithSuggestions from "./components/InputWithSuggestions";
@@ -13,6 +15,8 @@ import { useParams } from "react-router-dom";
 import { formatPrice } from "../../../services/utils/gen_utility";
 import "../../../assets/scss/pages/uploder_override.scss"
 import useUpdateProduct from "./hooks/useUpdateProduct";
+import PricePreview from "../viewSingleProduct/components/PricePreview";
+import { useWatch } from "antd/es/form/Form";
 const { Option } = Select;
 const { Dragger } = Upload;
 
@@ -98,7 +102,7 @@ const UpdateProduct = () => {
     selectedUnit,
     setSelectedUnit,
     normFile,
-    handleUnitChange, validateFileUpload,uploadProps,discountPercent, setDiscountPercent
+    handleUnitChange, validateFileUpload,uploadProps,discountPercent, setDiscountPercent,checkvarient
   } = useUpdateProduct(form,productdata);
 
   // Add common unit options
@@ -109,6 +113,87 @@ const UpdateProduct = () => {
   // Track discount percent for preview and logic
 
  
+  const enableDiscount = useWatch('enable_discount', form); // 👈 WATCHING THE FIELD
+  const price = useWatch('price', form); // 👈 WATCHING THE FIELD
+  const discountPrice = useWatch('discount_price', form); // 👈 WATCHING THE FIELD
+  const hasvarientcheck = useWatch('has_variants', form); // 👈 WATCHING THE FIELD
+  const discount_Percent_watch = useWatch('discount_percent', form); // 👈 WATCHING THE FIELD
+
+  // Cropper (3:2, output 1156px width) for updating product images
+  const ASPECT_RATIO = 3 / 2;
+  const OUTPUT_WIDTH = 1156;
+  const OUTPUT_HEIGHT = Math.round(OUTPUT_WIDTH / ASPECT_RATIO);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [rawImageUrl, setRawImageUrl] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [cropContext, setCropContext] = useState({ type: null }); // 'featured' | 'gallery'
+  const CROP_CONTAINER_WIDTH = 640;
+  const CROP_CONTAINER_HEIGHT = 400;
+  const [cropScale, setCropScale] = useState(0.8);
+
+  const onCropComplete = (_, croppedPixels) => setCroppedAreaPixels(croppedPixels);
+
+  const getCroppedBlob = (imageSrc, cropPixels) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Canvas not supported')); return; }
+      const { width, height, x, y } = cropPixels;
+      canvas.width = OUTPUT_WIDTH;
+      canvas.height = OUTPUT_HEIGHT;
+      ctx.drawImage(image, x, y, width, height, 0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Canvas is empty')), 'image/jpeg', 0.92);
+    };
+    image.onerror = reject;
+    image.src = imageSrc;
+  });
+
+  const openCropperForFile = (type, file) => {
+    const url = URL.createObjectURL(file);
+    setRawImageUrl(url);
+    setCrop({ x: 0, y: 0 });
+    const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 576;
+    setCropScale(isSmallScreen ? 0.4 : 0.8);
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setCropContext({ type, file });
+    setCropModalOpen(true);
+  };
+
+  const handleCropConfirm = async () => {
+    try {
+      if (!rawImageUrl || !croppedAreaPixels || !cropContext?.file) return;
+      const croppedBlob = await getCroppedBlob(rawImageUrl, croppedAreaPixels);
+      const compressedBlob = await imageCompression(croppedBlob, { maxSizeMB: 0.5, useWebWorker: true, maxWidthOrHeight: 2000 });
+      const compressedFile = new File([compressedBlob], cropContext.file.name || 'image.jpg', { type: 'image/jpeg' });
+
+      if (cropContext.type === 'featured') {
+        // feed into hook's handler
+        const fileList = [{ uid: `${Date.now()}`, name: compressedFile.name, status: 'done', url: URL.createObjectURL(compressedFile), originFileObj: compressedFile }];
+        handleImageChange({ fileList });
+      } else if (cropContext.type === 'gallery') {
+        handleGalleryDraggerChange({ fileList: [{ originFileObj: compressedFile }] });
+      }
+
+      setCropModalOpen(false);
+      URL.revokeObjectURL(rawImageUrl);
+      setRawImageUrl(null);
+      setCropContext({ type: null });
+    } catch (e) {
+      message.error('Failed to process image. Try another file.');
+    }
+  };
+
+  const handleCropCancel = () => {
+    if (rawImageUrl) URL.revokeObjectURL(rawImageUrl);
+    setRawImageUrl(null);
+    setCropModalOpen(false);
+    setCropContext({ type: null });
+  };
 
 
 
@@ -116,6 +201,7 @@ const UpdateProduct = () => {
     <div className="p2 d-flex justify-content-center">
       <div style={{ width: '100%', maxWidth: 700 }}>
         <Card className="borderless w-100">
+          {/* {`${hasvarientcheck}`} */}
           <Card.Body>
             <h4 className="mb-3 f-w-400 text-center">Update Product</h4>
             <Form
@@ -234,12 +320,23 @@ const UpdateProduct = () => {
                       <Dragger
                         name="product_image"
                         maxCount={1}
-                        // multiple={false} // Allow only single file upload
-
-                        fileList={productImage} // 👈 External fileList
-                        onChange={handleImageChange}
+                        fileList={productImage}
                         accept="image/*"
-                        {...uploadProps}
+                        beforeUpload={(file) => {
+                          const isImage = file.type.startsWith('image/');
+                          if (!isImage) {
+                            message.error('You can only upload image files!');
+                            return Upload.LIST_IGNORE;
+                          }
+                          const isLt5M = file.size / 1024 / 1024 < 5;
+                          if (!isLt5M) {
+                            message.error('Image must be smaller than 5MB!');
+                            return Upload.LIST_IGNORE;
+                          }
+                          openCropperForFile('featured', file);
+                          return Upload.LIST_IGNORE;
+                        }}
+                        showUploadList={false}
                         style={{ 
                           width: '100%',
                           minHeight: 120,
@@ -256,6 +353,37 @@ const UpdateProduct = () => {
                         <p className="ant-upload-text">Click or drag image to upload</p>
                         <p className="ant-upload-hint">Max file size: 5MB</p>
                       </Dragger>
+                      {/* Product image preview (old/gallery style) */}
+                      {(() => {
+                        const list = (productImage || []);
+                        if (!list.length) return null;
+                        const file = list[0];
+                        const url = file.url || file.thumbUrl;
+                        if (!url) return null;
+                        return (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, minHeight: 60, marginTop: 8 }}>
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                              <img
+                                src={url}
+                                alt={file.name || 'Product Preview'}
+                                style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4, border: '1px solid #d9d9d9' }}
+                              />
+                              <Button
+                                type="text"
+                                style={{ position: 'absolute', top: -5, right: -5, background: '#ff4d4f', color: 'white', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px', border: '2px solid white', zIndex: 1, padding: 0 }}
+                                onClick={() => {
+                                  handleImageChange({ fileList: [] });
+                                  setTimeout(() => {
+                                    form.validateFields(['product_image']);
+                                  }, 50);
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {/* <div 
                         style={{ 
                           display: 'flex', 
@@ -277,10 +405,18 @@ const UpdateProduct = () => {
                     required
                   >
                     <Dragger
-  {...galleryDraggerProps}
-  fileList={galleryImages}
-  onChange={handleGalleryDraggerChange}
->
+                      multiple
+                      accept="image/*"
+                      showUploadList={false}
+                      beforeUpload={(file) => {
+                        if (galleryImages.length >= 5) {
+                          message.warning('Maximum 5 images allowed.');
+                          return Upload.LIST_IGNORE;
+                        }
+                        openCropperForFile('gallery', file);
+                        return Upload.LIST_IGNORE;
+                      }}
+                    >
                       <p className="ant-upload-drag-icon">
                         <UploadOutlined />
                       </p>
@@ -326,7 +462,7 @@ const UpdateProduct = () => {
                 <div style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 0' }}>
                             <Form.Item name="has_variants" valuePropName="checked" style={{ margin: 0, marginRight: 12 }}>
                               <Checkbox 
-                                checked={hasVariants || hasAddOns}
+                                checked={checkvarient()}
                                 onChange={(e) => {setHasVariants(e.target.checked); setHasAddOns(e.target.checked)}}
                               />
                             </Form.Item>
@@ -336,7 +472,7 @@ const UpdateProduct = () => {
                             </div>
                           </div>
                             </Col>
-                {hasVariants && (
+                {hasvarientcheck && (
                   <Col md={24} xs={24}>
                     <ProductVariants
                       variants={variants}
@@ -354,7 +490,7 @@ const UpdateProduct = () => {
                   </Col>
                 )}
                
-{hasAddOns && (
+{hasvarientcheck && (
   <Col md={24} xs={24}>
     <Addons
       addons={addons}
@@ -369,7 +505,7 @@ const UpdateProduct = () => {
     />
   </Col>
 )}
-{hasVariants && (
+{hasvarientcheck && (
   <Col md={6} xs={24}>
     <Form.Item
       label="Is this product available"
@@ -385,7 +521,7 @@ const UpdateProduct = () => {
   </Col>
 )}
                 {/* Unit/Quantity fields */}
-                {!hasVariants && (
+                {!hasvarientcheck && (
                   <>
                      <Col md={6} xs={24}>
                   <Form.Item
@@ -401,61 +537,129 @@ const UpdateProduct = () => {
                         const price = Number(e.target.value);
                         const discount = Number(form.getFieldValue('discount_price'));
                         form.setFieldsValue({ price: price });
-                        if (discount && discount > price) {
-                          form.setFieldsValue({ discount_price: price });
-                        }
-                        const percent = price && discount && discount <= price ? Math.round(((price - discount) / price) * 100) : 0;
-                        setDiscountPercent(percent);
+                        form.setFieldsValue({ discount_price: price });
+                        form.setFieldsValue({ discount_percent: 0 });
+                        // if (discount && discount > price) {
+                        //   form.setFieldsValue({ discount_price: price });
+                        // }
+                        // const percent = price && discount && discount <= price ? Math.round(((price - discount) / price) * 100) : 0;
+                        // setDiscountPercent(percent);
                       }} 
                     />
                   </Form.Item>
                 </Col>
+
+
                 <Col md={6} xs={24}>
-                  <Form.Item
-                    label="Discount Price"
-                    name="discount_price"
-                    rules={[{ required: true, message: "Please enter discount price" }]}
-                  >
-                    <Input type="number" placeholder="Discount Price" onChange={e => {
-                      const discount = Number(e.target.value);
-                      const price = Number(form.getFieldValue('price'));
-                      if (discount > price) {
-                        form.setFieldsValue({ discount_price: price });
-                        setDiscountPercent(0);
-                        return;
-                      }
-                      form.setFieldsValue({ discount_price: discount });
-                      const percent = price && discount && discount <= price ? Math.round(((price - discount) / price) * 100) : 0;
-                      setDiscountPercent(percent);
-                    }} />
-                  </Form.Item>
-                </Col>
-                {/* Price Preview Section */}
-                <Col md={12} xs={24}>
-                  <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Price Preview:</span>
-                    {[1].map(idx => {
-                      const price = Number(form.getFieldValue('price'));
-                      const discount = Number(form.getFieldValue('discount_price'));
-                      const percent = price && discount && discount <= price ? Math.round(((price - discount) / price) * 100) : 0;
-                      return (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ textDecoration: 'line-through', color: '#888' }}>
-                            {price ? formatPrice(price) : '$0.00'}
-                          </span>
-                          <span style={{ color: '#52c41a', fontWeight: 600, fontSize: 16 }}>
-                            {discount && discount <= price ? formatPrice(discount) : '$0.00'}
-                          </span>
-                          {percent > 0 && (
-                            <span style={{ color: '#ff4d4f', fontSize: 12, background: '#fff2f0', padding: '2px 6px', borderRadius: 10 }}>
-                              Save {percent}%
-                            </span>
-                          )}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 0' }}>
+                        <Form.Item name="enable_discount" valuePropName="checked" initialValue={false} style={{ margin: 0, marginRight: 12 }}>
+                          <Checkbox
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const price = Number(form.getFieldValue('price'));
+
+                              if (checked) {
+                                form.setFieldsValue({ discount_price: price, discount_percent: 0 });
+                              } else {
+                                form.setFieldsValue({ discount_price: undefined, discount_percent: undefined });
+                              }
+                            }}
+                          />
+                        </Form.Item>
+                        <div>
+                          <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                            Do you want to add a discount?{' '}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#666' }}>
+                            Enable this to add discount for your product
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </Col>
+                      </div>
+                    </Col>
+
+{enableDiscount && (
+  <>
+                        <Col md={6} xs={24}>
+                        <Form.Item
+        label="Selling Price"
+        name="discount_price"
+        rules={[
+          { required: true, message: 'Please enter selling price' },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              const productPrice = getFieldValue('price');
+              if (value === undefined || value === null || value === '') {
+                return Promise.reject('Please enter selling price');
+              }
+              if (Number(value) > Number(productPrice)) {
+                return Promise.reject('Selling price (discount) cannot be greater than product price');
+              }
+              return Promise.resolve();
+            }
+          })
+        ]}
+      >
+        <InputNumber
+          style={{ width: '100%' }}
+          placeholder="Discount Price"
+          prefix={<DollarOutlined />}
+          min={0}
+          onChange={(discount) => {
+            if (price && Number(discount) <= Number(price)) {
+              const percent = parseFloat((((Number(price) - discount) / Number(price)) * 100).toFixed(2));
+              form.setFieldsValue({ discount_percent: percent });
+              setDiscountPercent(percent);
+            } else {
+              form.setFieldsValue({ discount_percent: 0 });
+              setDiscountPercent(0);
+            }
+          }}
+        />
+      </Form.Item>
+    </Col>
+
+    {/* <Col>
+      <div style={{ fontWeight: 600, paddingTop: 30 }}>or</div>
+    </Col> */}
+
+<Col md={6} xs={24}>
+<Form.Item
+        label="Discount Percent"
+        name="discount_percent"
+        rules={[{ required: true, message: 'Please enter discount percent' }]}
+      >
+        <InputNumber
+          style={{ width: '100%' }}
+          placeholder="Discount Percent"
+          // prefix={<PercentageOutlined />}
+          min={0}
+          max={100}
+          onChange={(percent) => {
+            const price = Number(form.getFieldValue('price'));
+            if (!price || percent > 100) {
+              form.setFieldsValue({ discount_percent: 0, discount_price: price });
+              setDiscountPercent(0);
+              return;
+            }
+            const discount = parseFloat((price - (price * percent) / 100).toFixed(2));
+            form.setFieldsValue({ discount_percent: percent, discount_price: discount });
+            setDiscountPercent(percent);
+          }}
+        />
+      </Form.Item>
+    </Col>
+  </>
+)}
+
+
+                    {/* Price Preview Section */}
+                    <Col md={12} xs={24}>
+  <PricePreview
+    price={price || 0}
+    discountPrice={discountPrice || 0}
+    enableDiscount={enableDiscount}
+  />
+</Col>
                     <Col md={6} xs={24}>
                       <Form.Item
                         label="Unit"
@@ -555,20 +759,73 @@ const UpdateProduct = () => {
           </Card.Body>
         </Card>
       </div>
-      {/* Success Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Product Updated Successfully</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+      {/* Success Modal (Ant Design) */}
+      <AntModal
+        open={showModal}
+        onCancel={() => setShowModal(false)}
+        footer={null}
+        centered
+      >
+        <div style={{ textAlign: 'center' }}>
+          <h4>Product Updated Successfully</h4>
           <p>The Product has been updated successfully!</p>
-        </Modal.Body>
-        <Modal.Footer>
-          <BsButton variant="success" onClick={() => setShowModal(false)}>
+          <Button type="primary" onClick={() => setShowModal(false)}>
             OK
-          </BsButton>
-        </Modal.Footer>
-      </Modal>
+          </Button>
+        </div>
+      </AntModal>
+
+      {/* Crop Modal for product & gallery images */}
+      <AntModal
+        open={cropModalOpen}
+        onCancel={handleCropCancel}
+        onOk={handleCropConfirm}
+        okText="Crop & Use"
+        centered
+        destroyOnClose
+        width={700}
+      >
+        <div style={{ position: 'relative', width: '100%', height: 400, background: '#333' }}>
+          {rawImageUrl && (
+            <Cropper
+              image={rawImageUrl}
+              crop={crop}
+              zoom={zoom}
+              minZoom={0.4}
+              maxZoom={3}
+              aspect={ASPECT_RATIO}
+              cropSize={{
+                width: Math.round(CROP_CONTAINER_WIDTH * cropScale),
+                height: Math.round(CROP_CONTAINER_HEIGHT * cropScale)
+              }}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+              onMediaLoaded={({ naturalWidth, naturalHeight }) => {
+                const targetW = CROP_CONTAINER_WIDTH * cropScale;
+                const targetH = CROP_CONTAINER_HEIGHT * cropScale;
+                const fitZoom = Math.max(targetW / naturalWidth, targetH / naturalHeight);
+                const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 576;
+                const initialZoom = isSmallScreen ? Math.max(0.4, fitZoom) : Math.max(fitZoom, 1);
+                setZoom(initialZoom);
+              }}
+              restrictPosition={false}
+              showGrid
+            />
+          )}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ marginBottom: 6 }}>Zoom</div>
+          <Slider min={0.4} max={3} step={0.01} value={zoom} onChange={setZoom} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ marginBottom: 6 }}>Crop size</div>
+          <Slider min={0.4} max={1} step={0.01} value={cropScale} onChange={setCropScale} />
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
+          Final output: 1156×{OUTPUT_HEIGHT} (3:2), compressed to ≤500KB.
+        </div>
+      </AntModal>
     </div>
   );
 };

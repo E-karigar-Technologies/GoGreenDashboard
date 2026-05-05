@@ -57,7 +57,11 @@ export function convertTimeRange(start, end) {
     return `${symbol}${formatted}`;
   };
   
-
+ export function calculateDiscountPercentage(totalPrice, discountPercentage=0) {
+  const discount = (totalPrice * discountPercentage) / 100;
+  const finalPrice = totalPrice - discount;
+  return parseFloat(finalPrice.toFixed(2)); // number with 2 decimals
+  }
 
 
 //normalize attributes

@@ -155,9 +155,9 @@
   content: '\e83b';
 }
 
-.icon-box:before {
+/* .icon-box:before {
   content: '\e83c';
-}
+} */
 
 .icon-camera:before {
   content: '\e83d';

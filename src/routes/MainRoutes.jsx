@@ -2,10 +2,15 @@ import { lazy } from 'react';
 
 import AdminLayout from 'layouts/AdminLayout';
 import GuestLayout from 'layouts/GuestLayout';
-import SingleVendor from '../views/dashboard/VENDORS/AllVendors/SingleVendor';
-import UpdateProduct from '../views/products/updateProduct/upDateProduct';
-import SingleProduct from '../views/products/viewSingleProduct/singleProduct';
-import DashSales2 from '../views/dashboard/DashSales/index2';
+
+//lazy import components
+const DashSales2 = lazy(() => import('../views/dashboard/DashSales/index2'));
+const UpdateProduct = lazy(() => import('../views/products/updateProduct/upDateProduct'));
+const SingleProduct = lazy(() => import('../views/products/viewSingleProduct/singleProduct'));
+const SingleVendor = lazy(() => import('../views/dashboard/VENDORS/singleVendor/SingleVendor'));
+
+
+import ProtectedRoute from '../components/ProtectedRoute';
 
 
 // import Orders from '../views/dashboard/ORDERS/Orders';
@@ -13,9 +18,9 @@ import DashSales2 from '../views/dashboard/DashSales/index2';
 // import VendorTable from '../views/dashboard/VENDORS/AllVendors/vendorTabel';
 const Orders = lazy(() => import('../views/dashboard/ORDERS/Orders'));
 const VendorTypeList = lazy(() => import('../views/dashboard/VENDORS/vendorType/vendorTypeList'));
+const VendorTable = lazy(() => import('../views/dashboard/VENDORS/AllVendors/vendorTabel'));
 const RiderTable = lazy(() => import('../views/dashboard/RIDER/RiderTabel'));
 const SingleRider = lazy(() => import('../views/dashboard/RIDER/SingleRider'));
-const VendorTable = lazy(() => import('../views/dashboard/VENDORS/AllVendors/vendorTabel'));
 
 const DashboardSales = lazy(() => import('../views/dashboard/DashSales/index'));
 
@@ -173,6 +178,14 @@ const MainRoutes = {
           element: <AllAppBanner />
         },
         
+        // {
+        //   path: '/vendor-type',
+        //   element:<ProtectedRoute><VendorTypeList /></ProtectedRoute>
+        // },
+        // {
+        //   path: '/vendors/',
+        //   element:<ProtectedRoute allowedRoles={["admin"]}><VendorTable /></ProtectedRoute>
+        // },
         {
           path: '/vendor-type',
           element: <VendorTypeList />

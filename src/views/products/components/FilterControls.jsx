@@ -1,17 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input, Select, Button as AntButton, Row, Col } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import { set } from 'lodash-es';
 
 function FilterControls({
-  nameFilter, setNameFilter,
-  categoryFilter, setCategoryFilter,
-  subCategoryFilter, setSubCategoryFilter,
-  isFeaturedFilter, setIsFeaturedFilter,
-  isTodayDealFilter, setIsTodayDealFilter,
+  // nameFilter, setNameFilter,
+  // categoryFilter, setCategoryFilter,
+  // subCategoryFilter, setSubCategoryFilter,
+  // isFeaturedFilter, setIsFeaturedFilter,
+  // isTodayDealFilter, setIsTodayDealFilter,
   categories, subCategories,
+  filters={name:"", categories:[], subCategories:[], isFeatured:null, isTodayDeal:null},
   handleResetFilters,
-  vertical = false
+  vertical = false,
+  setDrawerOpen,
+  setFilters=()=>{},
+ 
 }) {
+
+  const [nameFilter, setNameFilter] = useState(filters.name ||"");
+  const [categoryFilter, setCategoryFilter] = useState(filters.categories || []);
+  const [subCategoryFilter, setSubCategoryFilter] = useState(filters.subCategories || []);
+  const [isFeaturedFilter, setIsFeaturedFilter] = useState(filters.isFeatured ?? null);
+  const [isTodayDealFilter, setIsTodayDealFilter] = useState(filters.isTodayDeal ?? null);
+  // ✅ Common Apply Function
+  const handleApplyFilters = () => {
+    const filters = {
+      name: nameFilter || "",
+      categories: categoryFilter || [],
+      subCategories: subCategoryFilter || [],
+      isFeatured: isFeaturedFilter ?? null,
+      isTodayDeal: isTodayDealFilter ?? null,
+    };
+
+  setFilters(filters);
+    
+    console.log("Applied Filters:", filters);
+
+    if (vertical && setDrawerOpen) {
+      setDrawerOpen(false);
+    }
+  };
+
   if (vertical) {
     // Mobile/Drawer: stack vertically
     return (
@@ -75,12 +105,27 @@ function FilterControls({
           <Select.Option value={1}>Yes</Select.Option>
           <Select.Option value={0}>No</Select.Option>
         </Select>
-        <AntButton size="middle" className=" btn-danger " icon={<ReloadOutlined />} onClick={handleResetFilters} style={{ marginLeft: 0 }}>
+        <AntButton
+          type="primary"
+          block
+          style={{ marginTop: 16 }}
+          onClick={handleApplyFilters}
+        >
+          Apply Filters
+        </AntButton>
+        <AntButton
+          size="middle"
+          className="btn-danger"
+          icon={<ReloadOutlined />}
+          onClick={handleResetFilters}
+          style={{ marginLeft: 0 }}
+        >
           Reset Filters
         </AntButton>
       </div>
     );
   }
+
   // Desktop: row layout
   return (
     <Row gutter={16} align="middle">
@@ -153,8 +198,21 @@ function FilterControls({
           <Select.Option value={0}>No</Select.Option>
         </Select>
       </Col>
+      <AntButton
+        type="primary"
+        style={{ marginTop: 16 }}
+        onClick={handleApplyFilters}
+      >
+        Apply Filters
+      </AntButton>
       <Col span={4} style={{ textAlign: 'right' }}>
-        <AntButton size="middle" className=" btn-danger " icon={<ReloadOutlined />} onClick={handleResetFilters} style={{ marginLeft: 8 }}>
+        <AntButton
+          size="middle"
+          className="btn-danger"
+          icon={<ReloadOutlined />}
+          onClick={handleResetFilters}
+          style={{ marginLeft: 8 }}
+        >
           Reset Filters
         </AntButton>
       </Col>
@@ -162,4 +220,4 @@ function FilterControls({
   );
 }
 
-export default FilterControls; 
+export default React.memo(FilterControls);

@@ -128,7 +128,7 @@ const AllCategory = () => {
   return (
     <div className="p2">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h4 style={{ margin: 0 }}>All Categories</h4>
+        <h4 style={{ margin: 0 }}>All Product Categories</h4>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/product-category/addCategory')}>
           Add Category
         </Button>

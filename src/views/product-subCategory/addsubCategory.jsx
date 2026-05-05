@@ -94,7 +94,7 @@ const AddSubCategory = () => {
 
   return (
     <div style={{ maxWidth: 650, margin: "40px auto" }}>
-      <Card title="Add Sub-Category" bordered={false}>
+      <Card title="Add Product Sub-Category" bordered={false}>
         <Form
           form={form}
           layout="vertical"

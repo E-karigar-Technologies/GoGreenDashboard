@@ -150,7 +150,7 @@ const AllSubCategory = () => {
 
   return (
     <div className="p2">
-      <h4 style={{ marginBottom: 16 }}>All Subcategories</h4>
+      <h4 style={{ marginBottom: 16 }}>All Product Subcategories</h4>
       <Space style={{ marginBottom: 16 }}>
         <Input.Search
           placeholder="Search subcategories"

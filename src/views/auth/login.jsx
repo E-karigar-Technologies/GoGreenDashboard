@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { Card, Row, Col, Button, Form, InputGroup } from 'react-bootstrap';
 import FeatherIcon from 'feather-icons-react';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import logoDark from 'assets/images/logo1.svg';
 import { jwtDecode } from "jwt-decode";
+import useAuth from '../../store/useAuth';
 
 // Access environment variable properly
 const API_URL = import.meta.env.VITE_API_URL;
@@ -14,6 +15,16 @@ export default function SignIn1() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  const login = useAuth((state) => state.login); // 👈 hook se login function nikala
+
+
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    navigate("/dashboard");
+  }
+}, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,6 +45,8 @@ export default function SignIn1() {
           localStorage.setItem("token", data.token);
           const decoded = jwtDecode(token);
           console.log("logged in user:",decoded)
+          login(token, decoded);    
+          console.log("useAuth")
           localStorage.setItem("role_id", decoded.role_id);
           localStorage.setItem("role", decoded.role);
           localStorage.setItem("username", decoded.username);
@@ -42,10 +55,13 @@ export default function SignIn1() {
           //console.log("token is not defined");
         }
         navigate("/dashboard"); // Redirect to dashboard
+        window.location.reload();
       } else {
         setError(data.message || "Invalid credentials");
       }
     } catch (err) {
+      console.log(err);
+      
       setError("Something went wrong. Please try again.");
     }
   };

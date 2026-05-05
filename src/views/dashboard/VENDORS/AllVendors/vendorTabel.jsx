@@ -55,44 +55,13 @@ export default function VendorTable() {
       width: 140,
       render: (text) => <span style={{ minWidth: 120, display: 'inline-block',fontSize: 12 }}>{text}</span>,
     },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 50,
-      render: (status) => (
-        <Tag
-          color={status === 1 ? 'green' : 'error'}
-          style={{ minWidth: 50, textAlign: 'center' }}
-        >
-          {status === 1 ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
-      // render: (status) => (
-      //   <span
-      //     style={{
-      //       display: 'inline-block',
-      //       minWidth: 60,
-      //       padding: '2px 12px',
-      //       borderRadius: 12,
-      //       backgroundColor: status === 1 ? 'rgba(82,196,26,0.15)' : 'rgba(180,180,180,0.15)',
-      //       color: status === 1 ? '#52c41a' : '#888',
-      //       fontWeight: 500,
-      //       border: `1px solid ${status === 1 ? 'rgba(82,196,26,0.4)' : 'rgba(180,180,180,0.4)'}`,
-      //       opacity: 0.7,
-      //       textAlign: 'center',
-      //     }}
-      //   >
-      //     {status === 1 ? 'Active' : 'Inactive'}
-      //   </span>
-      // ),
-    },
+   
     {
       title: 'Timing',
       dataIndex: 'vendor_timing',
       key: 'timing',
       width: 140,
-      render: (timing,row) => <span style={{ minWidth: 120, display: 'inline-block' }}>{row?.vendor_start_time && row.vendor_close_time && convertTimeRange(row.vendor_start_time, row.vendor_close_time) || '-'}</span>,
+      render: (timing,row) => <span style={{ minWidth: 120, display: 'inline-block',fontSize: 12 }}>{row?.vendor_start_time && row.vendor_close_time && convertTimeRange(row.vendor_start_time, row.vendor_close_time) || '-'}</span>,
     },
     {
       title: 'Phone',
@@ -114,37 +83,74 @@ export default function VendorTable() {
     //   dataIndex: 'vendor_id',
     //   key: 'storeid',
     // },
+    // {
+    //   title: 'Action',
+    //   key: 'action',
+    //   width: 180,
+    //   render: (_, record) => (
+    //     <Space>
+    //       <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
+    //         <Switch
+    //           checked={record.status === 1}
+    //           // onChange={...} // TODO: implement status toggle handler
+    //           checkedChildren="Active"
+    //           unCheckedChildren="Inactive"
+    //           onChange={checked => handleToggleStatus(record.vendor_id, checked ? 1 : 0)}
+
+    //         />
+    //       </Tooltip>
+    //       <Tooltip title="View">
+    //         <Button
+    //           size="small"
+    //           type="link"
+    //           icon={<EyeOutlined />}
+    //           onClick={() => navigate(`/vendors/${record.vendor_id}`)}
+    //         />
+    //       </Tooltip>
+    //       <Tooltip title="Edit">
+    //         <Button size="small" type="link" icon={<EditOutlined />} />
+    //       </Tooltip>
+    //       <Tooltip title="Delete">
+    //         <Button size="small" type="link" danger icon={<DeleteOutlined />} />
+    //       </Tooltip>
+    //     </Space>
+    //   ),
+    // },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'Status',
+      align: 'center',
+
+      render: (_, record) => (
+        <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
+          <Switch
+            checked={record.status === 1}
+            // onChange={...} // TODO: implement status toggle handler
+            checkedChildren="Active"
+            unCheckedChildren="Inactive"
+            onChange={checked => handleToggleStatus(record.vendor_id, checked ? 1 : 0)}
+
+          />
+        </Tooltip>)
+    },
     {
       title: 'Action',
       key: 'action',
-      width: 180,
+      // width: 180,
+      align: 'center',
       render: (_, record) => (
-        <Space>
-          <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
-            <Switch
-              checked={record.status === 1}
-              // onChange={...} // TODO: implement status toggle handler
-              checkedChildren="Active"
-              unCheckedChildren="Inactive"
-              onChange={checked => handleToggleStatus(record.vendor_id, checked ? 1 : 0)}
-
-            />
-          </Tooltip>
+        // </Space>
           <Tooltip title="View">
             <Button
-              size="small"
-              type="link"
+              // size="small"
+              type="primary"rider_id
               icon={<EyeOutlined />}
-              onClick={() => navigate(`/vendors/${record.vendor_id}`)}
-            />
-          </Tooltip>
-          <Tooltip title="Edit">
-            <Button size="small" type="link" icon={<EditOutlined />} />
-          </Tooltip>
-          <Tooltip title="Delete">
-            <Button size="small" type="link" danger icon={<DeleteOutlined />} />
-          </Tooltip>
-        </Space>
+              href={`/vendors/${record.vendor_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >view</Button>
+          </Tooltip> 
       ),
     },
   ];
@@ -171,6 +177,7 @@ export default function VendorTable() {
         columns={columns}
         dataSource={vendors}
         loading={loading}
+        size="small"
         rowKey="storeid"
         pagination={{
           current: page,

@@ -26,7 +26,12 @@ const VendorTypeList = () => {
     handleEdit,
     editRecord,
     handleStatusSwitch,
-    handleDelete,
+    // delete helpers
+    deleteConfirmOpen,
+    deletingId,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
   } = useVendorType();
 
   // Calculate paged data for current page (now handled by hook)
@@ -81,9 +86,15 @@ const VendorTypeList = () => {
             unCheckedChildren="Inactive"
           />
           <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} size="small">Edit</Button>
-          <Popconfirm title="Delete this vendor type?" onConfirm={() => handleDelete(record._id || record.id)} okText="Yes" cancelText="No">
-            <Button icon={<DeleteOutlined />} danger size="small">Delete</Button>
-          </Popconfirm>
+          <Button
+            icon={<DeleteOutlined />}
+            danger
+            size="small"
+            loading={deletingId === (record._id || record.id)}
+            onClick={() => requestDelete(record._id || record.id)}
+          >
+            Delete
+          </Button>
         </Space>
       ),
     },
@@ -206,6 +217,20 @@ const VendorTypeList = () => {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Delete Confirm Modal */}
+      <Modal
+        open={deleteConfirmOpen}
+        onOk={confirmDelete}
+        onCancel={cancelDelete}
+        okText="Delete"
+        okButtonProps={{ danger: true, loading: !!deletingId }}
+        cancelText="Cancel"
+        title="Delete vendor type?"
+        zIndex={2100}
+      >
+        <p>Are you sure you want to delete this vendor type? This action cannot be reverted.</p>
       </Modal>
     </div>
   );

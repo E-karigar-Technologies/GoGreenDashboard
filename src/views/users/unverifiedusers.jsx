@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Modal, Button, Input, Badge, Space } from "antd";
+import { Table, Button, Input, Space, Tag } from "antd";
 import useUnverifiedUsers from "./unverifieduserhook";
 import UserPreview from "./components/UserPreview";
 import { formatPhone } from "../../services/utils/gen_utility";
@@ -21,6 +21,8 @@ const UnverifiedUsers = ({user="vendors"}) => {
     getBadgeStatus,
     viewLoading,
   } = useUnverifiedUsers(user);   
+
+  
 
   const columns = [
     {
@@ -66,7 +68,7 @@ const UnverifiedUsers = ({user="vendors"}) => {
       key: "is_verified",
       render: (val) => {
         const badge = getBadgeStatus(val);
-        return <Badge color={badge.color} text={badge.text} />;
+        return <Tag color={badge.color}  >{badge.text}</Tag>;
       },
     },
     {
@@ -120,49 +122,18 @@ const UnverifiedUsers = ({user="vendors"}) => {
         pagination={{ pageSize: 10 }}
         scroll={{ x: 'max-content' }}
       />
-      {/* View Modal */}
-      <Modal
-        open={showViewModal}
-        onCancel={handleCloseModal}
-        title={null}
-        closable={false}    // 👈 this will hide the top-right close button
-
-        footer={
-          <div style={{ textAlign: 'right', padding: '16px 0', background: '#fff' }}>
-            <Button 
-              onClick={handleCloseModal} 
-              style={{ marginRight: 12, borderRadius: '8px', padding: '8px 20px' }}
-            >
-              Close
-            </Button>
-            <Button 
-              type="primary" 
-              onClick={() => handleApprove(selectedUser)}
-              disabled={selectedUser?.is_verified === 1}
-              style={{ marginRight: 12, borderRadius: '8px', padding: '8px 20px' }}
-            >
-              Approve
-            </Button>
-            <Button 
-              danger 
-              onClick={() => handleReject(selectedUser)}
-              disabled={selectedUser?.is_verified === 2}
-              style={{ borderRadius: '8px', padding: '8px 20px' }}
-            >
-              Reject
-            </Button>
-          </div>
-        }
-        centered
-        width={window.innerWidth >= 1200 ? 900 : window.innerWidth >= 768 ? 700 : '98%'}
-        zIndex={2000}
-        style={{ zIndex: 3000 }}
-        // bodyStyle={{ padding: 0, background: '#fff', overflow: 'hidden' }}
-      >
-        {selectedUser ? (
-          <UserPreview user={selectedUser} userType={userType} loading={viewLoading} />
-        ) : null}
-      </Modal>
+      {/* View Drawer now handled inside UserPreview */}
+      {selectedUser ? (
+        <UserPreview 
+          user={selectedUser} 
+          userType={userType} 
+          loading={viewLoading} 
+          open={showViewModal}
+          onClose={handleCloseModal}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      ) : null}
     </div>
   );
 };

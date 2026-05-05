@@ -29,7 +29,7 @@ const PricePreview = ({ price = 0, discountPrice = 0, enableDiscount = false }) 
           ${price.toFixed(2)}
         </span>
         <span style={{ color: "#52c41a", fontWeight: 600, fontSize: 16 }}>
-          ${discountPrice.toFixed(2)}
+          ${Number(discountPrice).toFixed(2)}
         </span>
         <span
           style={{

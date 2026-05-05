@@ -3,6 +3,7 @@ import { message } from "antd";
 import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct, getAllVendors, updateProduct, saveOrUpdateDiscount } from "../../../../services/apiService";
 import { normalizeAttributes, priceParsed } from "../../../../services/utils/gen_utility";
 import axios from "axios";
+import { useWatch } from "antd/es/form/Form";
 // import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct } from "../../services/apiService";
 
 export default function useUpdateProduct(form,data) {
@@ -29,6 +30,10 @@ export default function useUpdateProduct(form,data) {
 
   const [productImage, setProductImage] = useState([]);
 
+
+  const discount_Percent_watch = useWatch('discount_percent', form); // 👈 WATCHING THE FIELD
+
+
  useEffect(() => {
   if(data){
     
@@ -38,7 +43,7 @@ export default function useUpdateProduct(form,data) {
 
           // const {attributes,extraAttributes} = normalizeAttributes(data?.attributes);
         
-          setHasVariants(data?.variants?.length > 0);
+          setHasVariants(data?.variants?.length > 0 );
           setHasAddOns(data?.addons?.length > 0);
           setVariants(data?.variants);
           setAddons(data?.addons);
@@ -80,7 +85,9 @@ export default function useUpdateProduct(form,data) {
             name: data.name,
             description: data.description,
             price: data.price,
+            enable_discount: data.discount_percent > 0 ? true : false,
             discount_price: data.discount_price || data.discounted_value,
+
             discount_percent: data.discount_percent,
           
             quantity: data.product_quantity,
@@ -474,7 +481,7 @@ export default function useUpdateProduct(form,data) {
         // if (values.unit) formData.append("unit", values.unit);
         // if (values.quantity !== undefined && values.quantity !== null && values.quantity !== "") formData.append("quantity", values.quantity);
         if (values.price !== undefined && values.price !== null && values.price !== "") formData.append("price", values.price);
-        formData.append("stock", values.stock);
+        formData.append("stock", values.stock||0);
 
       } else {
         formData.append("is_available", values.is_available ? 1 : 0);
@@ -520,8 +527,9 @@ export default function useUpdateProduct(form,data) {
 
      if(values.attributes?.length > 0) formData.append("attributes", JSON.stringify(values.attributes));
       // Variants
-      if (hasVariants && variants.length > 0) {
-        formData.append("product_unit", "unit");
+      if (variants.length > 0) {
+        // Align with mobile app behavior: when variants exist, send unit/qty empty and price as smallest variant
+        formData.append("product_unit", "pcs");
         formData.append("product_quantity", "1");
         formData.append("variants", JSON.stringify(variants.map(variant => ({
           ...variant,
@@ -531,13 +539,13 @@ export default function useUpdateProduct(form,data) {
         }))));
       }else{
         formData.append("variants", JSON.stringify([]));
-        formData.append("product_unit", values.unit);
-        formData.append("product_quantity", values.quantity);
+        formData.append("product_unit", values.unit||"unit");
+        formData.append("product_quantity", values.quantity||"1");
       } 
       // Add-ons
-      if (addons.length > 0 && hasAddOns) {
+      if (addons.length > 0 ) {
         formData.append("addons", JSON.stringify(addons));
-      }else{
+      } else {
         formData.append("addons", JSON.stringify([]));
       }
       // const result = await addProduct(formData);
@@ -545,11 +553,15 @@ export default function useUpdateProduct(form,data) {
       const result = await updateProduct(formData);
 
       if (result.success) {
+        console.log("discountPercent",discount_Percent_watch,result?.data?.product?.id)
 
-       await saveOrUpdateDiscount({
-        product_id: data.id,
-        discount_percent: productData?.product_discount_percentage
-       })
+        // if(!hasVariants && discount_Percent_watch && discount_Percent_watch > 0 && result?.data?.product?.id){
+          console.log("discountPercent",discount_Percent_watch)
+              await saveOrUpdateDiscount({
+                      product_id: result?.data?.product?.id,
+                      discount_percent: discount_Percent_watch||0
+                     })
+                    // }
         console.log(result);
 
         setShowModal(true);
@@ -619,7 +631,7 @@ export default function useUpdateProduct(form,data) {
     normFile,
     handleUnitChange, validateFileUpload,uploadProps,
     discountPercent, setDiscountPercent,
-    
+    checkvarient:()=>{hasVariants||hasAddOns}
 
   };
 } 

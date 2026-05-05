@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pencil, Trash,Eye } from 'react-bootstrap-icons';
 import { Modal, Button, Form, Card, Divider } from "antd";
 import { Table, Select, Input, Row, Col, Switch, Button as AntButton, Drawer, Grid, Upload } from 'antd';
 import { ReloadOutlined, FilterOutlined } from '@ant-design/icons';
 import useProductTable from './hooks/producthook';
 import ProductPreview from './components/ProductPreview';
+import MobileProductPreview from './components/MobileProductPreview';
+import MobileProductSheet from './components/MobileProductSheet';
 import FilterControls from './components/FilterControls';
 import ProductUpdateModal from './components/ProductUpdateModal';
 // import { Eye } from '@ant-design/icons';
@@ -13,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatPrice } from "../../services/utils/gen_utility";
 const { useBreakpoint } = Grid;
 const { Dragger } = Upload;
-export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview,navigate) => [
+export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview, navigate, handleMobileSheet) => [
   {
     title: '#',
     dataIndex: 'index',
@@ -41,12 +43,12 @@ export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagina
     sorter: true,
     width: 140,
   },
-  {
-    title: 'Sub Category Name',
-    dataIndex: 'sub_category_name',
-    sorter: true,
-    width: 140,
-  },
+  // {
+  //   title: 'Sub Category Name',
+  //   dataIndex: 'sub_category_name',
+  //   sorter: true,
+  //   width: 140,
+  // },
   // {
   //   title: 'Manufacturer Details',
   //   dataIndex: 'manufacturer_details',
@@ -144,7 +146,7 @@ export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagina
     render: (_, record) => (
 
       <div className="d-flex align-items-center">
-        <Button type="text" icon={<Eye style={{ color: '#52c41a', fontSize: 18 }} />} onClick={() =>navigate(`/products/${record.id}`)} style={{ marginRight: 8 }} />
+        <Button type="text" icon={<Eye style={{ color: '#52c41a', fontSize: 18 }} />} onClick={() => handleMobileSheet(record.id)} style={{ marginRight: 8 }} />
         <Button type="text" icon={<Pencil className="text-primary" style={{ fontSize: 18 }} />} onClick={() => navigate(`/products/update/${record.id}`)} />
         <Button type="text" icon={<Trash style={{ color: '#ff4d4f', fontSize: 18 }} />} onClick={() => handleDelete(record)} />
       </div>
@@ -174,17 +176,42 @@ const ProductList = () => {
   // Preview modal state
   const [previewProduct, setPreviewProduct] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [showMobileSheet, setShowMobileSheet] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(null);
 
   const handlePreview = (product) => {
     setPreviewProduct(product);
     setShowPreview(true);
   };
+  
+  const handleMobilePreview = (product) => {
+    setPreviewProduct(product);
+    setShowMobilePreview(true);
+  };
+  
+  const handleMobileSheet = (productId) => {
+    console.log('handleMobileSheet called with productId:', productId);
+    setSelectedProductId(productId);
+    setShowMobileSheet(true);
+  };
+  
   const handleClosePreview = () => {
     setShowPreview(false);
     setPreviewProduct(null);
   };
+  
+  const handleCloseMobilePreview = () => {
+    setShowMobilePreview(false);
+    setPreviewProduct(null);
+  };
+  
+  const handleCloseMobileSheet = useCallback(() => {
+    setShowMobileSheet(false);
+    setSelectedProductId(null);
+  }, [setShowMobileSheet, setSelectedProductId]);
 
-  const columns = productTableColumns(BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview,navigate);
+  const columns = productTableColumns(BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview, navigate, handleMobileSheet);
 
   const handleResetFilters = () => {
     setNameFilter("");
@@ -195,8 +222,8 @@ const ProductList = () => {
   };
 
   return (
-    <div className="pt-4 p-3">
-      <div className="mb-3 p-2 bg-white">
+    <div className="p2">
+      <div className="pb-2 p-2 bg-white">
       {/* filters */}
         {screens.md ? (
           <FilterControls
@@ -258,15 +285,18 @@ const ProductList = () => {
         <Table
           columns={columns}
           dataSource={data}
+          size="small"
+          scroll={{ x: 'max-content', y: "66vh" }} // Enable both horizontal and vertical scroll
+
           loading={loading}
           pagination={pagination}
           onChange={onTableChange}
           rowKey={record => record.id || record._id}
-          scroll={{ x: 'max-content' }}
+          // scroll={{ x: 'max-content' }}
         />
         </div>
       {/* Update Modal */}
-      <ProductUpdateModal
+      {/* <ProductUpdateModal
         open={show}
         onClose={handleClose}
         onSave={handleSave}
@@ -282,7 +312,7 @@ const ProductList = () => {
         brands={brands}
         subCategories={subCategories}
         loading={loading}
-      />
+      /> */}
       {/* Delete Modal */}
       <Modal
         open={showDeleteModal}
@@ -296,10 +326,26 @@ const ProductList = () => {
         Are you sure you want to delete this product?
       </Modal>
       {/* Product Preview Modal */}
-      <ProductPreview
+      {/* <ProductPreview
         open={showPreview}
         onClose={handleClosePreview}
         product={previewProduct}
+        BASE_URL={BASE_URL}
+      /> */}
+      
+      {/* Mobile Product Preview Modal */}
+      {/* <MobileProductPreview
+        open={showMobilePreview}
+        onClose={handleCloseMobilePreview}
+        product={previewProduct}
+        BASE_URL={BASE_URL}
+      /> */}
+      
+      {/* Mobile Product Sheet */}
+      <MobileProductSheet
+        open={showMobileSheet}
+        onClose={handleCloseMobileSheet}
+        productId={selectedProductId}
         BASE_URL={BASE_URL}
       />
     </div>

@@ -3,13 +3,36 @@ import { useEffect } from 'react';
 import { notification } from 'antd';
 import useNotificationStore from '../../store/useNotificationStore';
 import socket from '../../services/socket'; // ✅ Your singleton socket instance
-
+import { useNavigate } from 'react-router-dom';
+import useAuth from '../../store/useAuth';
+import { jwtDecode } from 'jwt-decode';
 const useDashboard = () => {
+
   const addNotification = useNotificationStore((state) => state.addNotification);
   const clearNotifications = useNotificationStore((state) => state.clearNotifications);
   const notifications = useNotificationStore((state) => state.notifications);
 
+  // const login = useAuth((state) => state.login);
+  // const token = localStorage.getItem("token");
+
+// useEffect(() => {
+//   const token = localStorage.getItem("token");
+//   if(token){
+//     console.log("token",token);
+//     console.log("jwtDecode(token)",jwtDecode(token));
+//     // login(token, jwtDecode(token));
+//   }
+ 
+// }, []);
+
+
+
   useEffect(() => {
+
+    // const { token } = useAuth();
+    // if(!token){
+    //   navigate("/login");
+    // }
     if (!socket) {
       console.warn("🚫 Socket not initialized.");
       return;
@@ -55,7 +78,7 @@ const useDashboard = () => {
         message: type === 'vendor' ? 'Vendor Verification' : 'Notification',
         description: message,
         placement: 'topRight',
-        duration: 4,
+        duration: 10,
         onClick: () => {
           if (url) window.open(url, '_blank');
         },

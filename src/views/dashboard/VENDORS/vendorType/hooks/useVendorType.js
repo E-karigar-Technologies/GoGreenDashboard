@@ -17,6 +17,9 @@ export default function useVendorType() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [formValues, setFormValues] = useState({ vendor_type: '', vendor_type_image: null, status: 'active' });
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Fetch all vendor types once
   useEffect(() => {
@@ -200,16 +203,30 @@ export default function useVendorType() {
   };
 
   // Delete handler
-  const handleDelete = async (id) => {
-    setLoading(true);
-    const res = await deleteVendorType(id);
-    setLoading(false);
+  const requestDelete = (id) => {
+    setDeleteTargetId(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setDeleteTargetId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+    setDeletingId(deleteTargetId);
+    const res = await deleteVendorType(deleteTargetId);
+    setDeletingId(null);
+    setDeleteConfirmOpen(false);
     if (res.success) {
       message.success('Vendor type deleted');
       // Remove the deleted item from local state
-      setAllVendorTypes(prev => prev.filter(vt => (vt._id || vt.id) !== id));
-      setFilteredVendorTypes(prev => prev.filter(vt => (vt._id || vt.id) !== id));
+      setAllVendorTypes(prev => prev.filter(vt => (vt._id || vt.id) !== deleteTargetId));
+      setFilteredVendorTypes(prev => prev.filter(vt => (vt._id || vt.id) !== deleteTargetId));
+      setDeleteTargetId(null);
     } else {
+      setDeleteTargetId(null);
       message.error(res.error || 'Failed to delete vendor type');
     }
   };
@@ -243,6 +260,11 @@ export default function useVendorType() {
     handleEdit,
     editRecord,
     handleStatusSwitch,
-    handleDelete,
+    // delete helpers
+    deleteConfirmOpen,
+    deletingId,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
   };
 }

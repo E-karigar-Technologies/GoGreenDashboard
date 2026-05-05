@@ -51,7 +51,7 @@
 // }
 
 import React, { useContext, useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 // Ant Design components
 import { Menu, Layout, Avatar, Typography, Badge, Tooltip, Button } from 'antd';
 import {
@@ -118,7 +118,7 @@ const convertMenuItems = (items) => {
       return [{
         key: item.id,
         icon: getIcon(item.iconname),
-        label: item.title,
+        label: item.url ? <Link to={item.url}>{item.title}</Link> : item.title,
         url: item.url
       }];
     }
@@ -205,7 +205,7 @@ export default function ModernNavigation() {
   const handleMenuClick = (e) => {
     const item = findMenuItem(navigation.items, e.key);
     if (item && item.url) {
-      navigate(item.url); // Use React Router navigation
+      // navigate(item.url); // Use React Router navigation
     }
   };
 
@@ -352,7 +352,7 @@ export default function ModernNavigation() {
                 width: '100%',
                 borderRadius: '6px',
                 minWidth:"32px",
-                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                background: 'linear-gradient(135deg, #088B46 0%,rgb(4, 143, 69) 100%)',
                 border: 'none'
               }}
             >
@@ -436,26 +436,26 @@ const navigationStyles = `
   width: 4px;
 }
 
-.modern-sidebar::-webkit-scrollbar-track {
+.ant-menu-root::-webkit-scrollbar-track {
   background: #141414;
 }
 
-.modern-sidebar::-webkit-scrollbar-thumb {
+.ant-menu-root::-webkit-scrollbar-thumb {
   background: #1890ff;
   border-radius: 2px;
 }
 
-.modern-sidebar::-webkit-scrollbar-thumb:hover {
+.ant-menu-root::-webkit-scrollbar-thumb:hover {
   background: #096dd9;
 }
 
 @media (max-width: 768px) {
-  .modern-sidebar {
+  .ant-menu-root {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
   
-  .modern-sidebar.mob-sidebar-active {
+  .ant-menu-root.mob-sidebar-active {
     transform: translateX(0);
   }
 }

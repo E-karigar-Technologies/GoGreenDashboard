@@ -70,7 +70,7 @@ const AddCategory = () => {
 
   return (
     <div style={{ maxWidth: 600, margin: "40px auto" }}>
-      <Card title="Add Category" bordered={false}>
+      <Card title="Add Product Category" bordered={false}>
         <Form
           form={form}
           layout="vertical"

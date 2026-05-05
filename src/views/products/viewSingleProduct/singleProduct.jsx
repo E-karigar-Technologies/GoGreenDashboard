@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Row, Col, Badge, Button, Image, Typography, Divider, Tag, Space } from 'antd';
+import { Card, Row, Col, Badge, Button, Image, Typography, Divider, Tag, Space, Modal } from 'antd';
 import { 
   ShoppingCartOutlined, 
   HeartOutlined, 
@@ -10,8 +10,9 @@ import {
   DollarOutlined
 } from '@ant-design/icons';
 import { getProductById } from '../../../services/apiService';
-import { normalizeAttributes } from '../../../services/utils/gen_utility';
+import { calculateDiscountPercentage, normalizeAttributes } from '../../../services/utils/gen_utility';
 import '../../../assets/scss/singleProduct.scss';
+import MobileProductPreview from '../components/MobileProductPreview';
 const { Title, Text, Paragraph } = Typography;
 
 const SingleProduct = () => {
@@ -21,6 +22,7 @@ const SingleProduct = () => {
   const [selectedImage, setSelectedImage] = useState('');
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [parsedAttributes, setParsedAttributes] = useState({ attributes: [], extraAttributes: {} });
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -28,6 +30,7 @@ const SingleProduct = () => {
     }
   }, [id]);
 
+  const parentRef = useRef(null);
   const fetchProduct = async () => {
     try {
       setLoading(true);
@@ -106,7 +109,15 @@ const SingleProduct = () => {
   const hasSingleVariant = product.variants && product.variants.length === 1;
 
   return (
-    <div className="single-product p2" style={{ backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+    <div id='previewHost' ref={parentRef} className="single-product p2"
+     style={{
+       backgroundColor: '#f5f5f5',
+        minHeight: '100vh',
+        position:"relative",
+        overflow: "hidden",
+        //  border: "2px solid #1890ff",
+         height: "100%",  width: "100%",
+         }}>
       <Card style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <Row gutter={[24, 24]}>
           {/* Image Gallery Section */}
@@ -119,9 +130,16 @@ const SingleProduct = () => {
                   alt={product.name}
                   className="main-image"
                   fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
+                
+                  preview={{
+                    maskClassName: "pcoded-content ", // custom mask css
+                    className: "custom-preview-img", // img par css
+                    getContainer: () => parentRef.current ||false, // yaha parent ko pass kar rahe hain
+                    
+
+                  }}
                 />
               </div>
-              
               {/* Thumbnail Images */}
               {product.gallery_images && product.gallery_images.length > 0 && (
                 <div className="thumbnail-gallery">
@@ -199,7 +217,7 @@ const SingleProduct = () => {
                 ) : (
                   <div>
                     <Text className="current-price">
-                      {formatPrice(getCurrentPrice())}
+                      {formatPrice(calculateDiscountPercentage(product.price,product.discount_percent))}
                     </Text>
                     {product.discount_percent > 0 && (
                       <div>
@@ -397,26 +415,44 @@ const SingleProduct = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="action-buttons">
-                <Button 
-                  type="primary" 
-                  size="large" 
-                  icon={<ShoppingCartOutlined />}
-                  disabled={product.status !== 1}
-                >
-                  Add to Cart
-                </Button>
-                <Button 
-                  size="large" 
-                  icon={<HeartOutlined />}
-                >
-                  Add to Wishlist
-                </Button>
+              <div style={{ marginTop: 24 }}>
+                <Space>
+                  <Button 
+                    type="primary" 
+                    icon={<ShoppingCartOutlined />}
+                    size="large"
+                  >
+                    Add to Cart
+                  </Button>
+                  <Button 
+                    type="default" 
+                    icon={<HeartOutlined />}
+                    size="large"
+                  >
+                    Add to Wishlist
+                  </Button>
+                  <Button 
+                    type="default" 
+                    onClick={() => setShowMobilePreview(true)}
+                    size="large"
+                  >
+                    Mobile Preview
+                  </Button>
+                </Space>
               </div>
+            
             </div>
           </Col>
         </Row>
       </Card>
+      
+      {/* Mobile Product Preview Modal */}
+      <MobileProductPreview
+        open={showMobilePreview}
+        onClose={() => setShowMobilePreview(false)}
+        product={product}
+        BASE_URL=""
+      />
     </div>
   );
 };

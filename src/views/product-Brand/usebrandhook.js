@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { productfetchBrands, getAllCategories } from '../../services/apiService';
-import axios from 'axios';
+import { productfetchBrands, getAllCategories, addProductBrand, updateProductBrand, deleteProductBrand } from '../../services/apiService';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL;
@@ -107,30 +106,44 @@ export default function useBrandHook() {
     setSelectedBrand((prev) => ({ ...prev, brand_logo: file }));
   };
 
+
+const updateStatus = async (brandId, isActive) => {
+  setFormLoading(true);
+  try {
+    const formData = new FormData();
+    formData.append("id", brandId);
+    formData.append("status", isActive ? 1 : 0);
+    const response = await updateProductBrand(formData);
+    if (response.success && response.data && response.data.productBrand) {
+      setData((prev) => prev.map((brand) => brand.id === brandId ? response.data.productBrand : brand));
+    }
+  } catch (err) {
+    setError("Failed to update brand status.");
+  } finally {
+    setFormLoading(false);
+  }
+}
+
   // Edit save
   const handleEditSave = async (values, fileObj) => {
     setFormLoading(true);
+    // console.log(values, fileObj,selectedBrand);return;
     try {
       if (selectedBrand) {
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        };
         const formData = new FormData();
         formData.append("id", selectedBrand.id);
         formData.append("name", values.name);
         formData.append("description", values.description);
         formData.append("categoryid", values.categoryid);
         formData.append("status", values.status ? 1 : 0);
-        if (fileObj instanceof File) {
-          formData.append("brand_logo", fileObj);
-        } else if (selectedBrand.brand_logo) {
-          formData.append("existing_brand_logo", selectedBrand.brand_logo);
+        if (selectedBrand.brand_logo instanceof File) {
+          formData.append("brand_logo", selectedBrand.brand_logo );
         }
-        const response = await axios.put(`${API_URL}/product-brands`, formData, config);
-        if (response.data && response.data.productBrand) {
+        //  else if (selectedBrand.brand_logo) {
+        //   formData.append("brand_logo", selectedBrand.brand_logo);
+        // }
+        const response = await updateProductBrand(formData);
+        if (response.success && response.data && response.data.productBrand) {
           setData((prev) =>
             prev.map((brand) =>
               brand.id === selectedBrand.id ? response.data.productBrand : brand
@@ -151,11 +164,7 @@ export default function useBrandHook() {
     setFormLoading(true);
     try {
       if (selectedBrand) {
-        const config = {
-          headers: { Authorization: `Bearer ${token}` },
-          data: { id: selectedBrand.id },
-        };
-        await axios.delete(`${API_URL}/product-brands`, config);
+        await deleteProductBrand(selectedBrand.id);
         setData((prev) => prev.filter((brand) => brand.id !== selectedBrand.id));
         closeDeleteModal();
       }
@@ -190,5 +199,6 @@ export default function useBrandHook() {
     closeDeleteModal,
     handleEditSave,
     handleDelete,
+    updateStatus,
   };
 } 

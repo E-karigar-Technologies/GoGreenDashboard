@@ -3,6 +3,7 @@ import { message } from "antd";
 import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct, getAllVendors, saveOrUpdateDiscount } from "../../../services/apiService";
 import { has } from "lodash-es";
 import { priceParsed } from "../../../services/utils/gen_utility";
+import { useWatch } from "antd/es/form/Form";
 // import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct } from "../../services/apiService";
 
 export default function useAddProductHook(form,data) {
@@ -26,6 +27,16 @@ export default function useAddProductHook(form,data) {
   const [newAddonDraft, setNewAddonDraft] = useState({ name: '', price: '' });
   const [selectedUnit, setSelectedUnit] = useState();
   const [discountPercent, setDiscountPercent] = useState(0);
+
+
+
+
+  const enableDiscount = useWatch('enable_discount', form); // 👈 WATCHING THE FIELD
+  const price = useWatch('price', form); // 👈 WATCHING THE FIELD
+  const discountPrice = useWatch('discount_price', form); // 👈 WATCHING THE FIELD
+  const discount_Percent_watch = useWatch('discount_percent', form); // 👈 WATCHING THE FIELD
+
+
   useEffect(() => {
     getAllCategories().then((response) => {
       if (response.success) setCategories(response.data);
@@ -336,7 +347,7 @@ export default function useAddProductHook(form,data) {
       });
   
       // if (values.price !== "" && values.price !== undefined && values.price !== null) {
-        formData.append("price", hasVariants ? priceParsed(variants, values.price) : values.price);
+        formData.append("price", hasVariants ? priceParsed(variants, values.price) : price);
       // }
   
 
@@ -407,10 +418,11 @@ export default function useAddProductHook(form,data) {
       if (result.success) {
   console.log(result)
 
-  if(!hasVariants && discountPercent && discountPercent > 0 && result?.data?.product_id){
+  if(!hasVariants && discount_Percent_watch && discount_Percent_watch > 0 && result?.data?.product_id){
+    console.log("discountPercent",discount_Percent_watch)
         await saveOrUpdateDiscount({
                 product_id: result?.data?.product_id,
-                discount_percent: discountPercent
+                discount_percent: discount_Percent_watch
                })
               }
         setShowModal(true);
@@ -489,7 +501,10 @@ export default function useAddProductHook(form,data) {
     handleUnitChange,
 
     discountPercent, setDiscountPercent,
-    selectedUnit, setSelectedUnit
+    selectedUnit, setSelectedUnit,
+    enableDiscount,
+    price,
+    discountPrice
   };
 } 
 

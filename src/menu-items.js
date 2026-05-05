@@ -169,7 +169,7 @@ const menuItems = {
       children: [
         {
           id: 'manage-category',
-          title: 'Categories',
+          title: 'Product Categories',
           type: 'collapse',
           icon: 'material-icons-two-tone',
           iconname: 'history_edu',
@@ -196,7 +196,7 @@ const menuItems = {
         },
         {
           id: 'manage-subcategory',
-          title: 'Sub-Categories',
+          title: 'Product Sub-Categories',
           type: 'collapse',
           icon: 'material-icons-two-tone',
           iconname: 'history_edu',

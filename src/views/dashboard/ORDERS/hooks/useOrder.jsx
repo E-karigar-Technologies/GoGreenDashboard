@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import dayjs from 'dayjs';
 
 export const getOrderStatus = (status) => {
   switch (status) {
@@ -20,6 +21,12 @@ const useOrder = () => {
   const [limit, setLimit] = useState(5);
   const [search, setSearch] = useState('');
   const [vendorId, setVendorId] = useState('');
+  const [status, setStatus] = useState(null);
+  const [dateRange, setDateRange] = useState({
+    preset: 'this_month',
+    start: dayjs().startOf('month'),
+    end: dayjs().endOf('month')
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const API_URL = import.meta.env.VITE_API_URL;
@@ -34,6 +41,9 @@ const useOrder = () => {
         page,
         limit,
         vendor_id: vendorId || undefined,
+        status: status !== null ? status : undefined,
+        start_date: dateRange.start.format('YYYY-MM-DD'),
+        end_date: dateRange.end.format('YYYY-MM-DD')
       };
       const config = {
         headers: { Authorization: token ? `Bearer ${token}` : '' },
@@ -46,18 +56,18 @@ const useOrder = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, page, limit, vendorId, API_URL, token]);
+  }, [search, page, limit, vendorId, status, dateRange.start, dateRange.end, API_URL, token]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Reset page to 1 when search or vendorId changes
+  // Reset page to 1 when search, vendorId, status, or dateRange changes
   useEffect(() => {
     if (page !== 1) {
       setPage(1);
     }
-  }, [search, vendorId]);
+  }, [search, vendorId, status, dateRange.start, dateRange.end]);
 
   return {
     orders,
@@ -66,12 +76,16 @@ const useOrder = () => {
     limit,
     search,
     vendorId,
+    status,
+    dateRange,
     loading,
     error,
     setPage,
     setLimit,
     setSearch,
     setVendorId,
+    setStatus,
+    setDateRange,
     refetch: fetchOrders,
   };
 };

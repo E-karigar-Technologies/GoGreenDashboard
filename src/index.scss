@@ -208,10 +208,82 @@ img.logo.logo-lg {
   padding-bottom: 2px !important;
 }
 
+/* Blur background for Ant Design Image Preview */
+.ant-image-preview-mask {
+    background: rgba(133, 131, 131, 0.637) !important; /* Semi-transparent background */
+    backdrop-filter: blur(8px); /* Blur intensity */
+    -webkit-backdrop-filter: blur(8px); /* Safari support */
+  }
 
+  .ant-image-preview-operations{
+    background-color: black !important;
+  }
 
 @media (min-width: 576px) {
     .p2 {
       padding: 1.5rem; /* Adjust the value as needed */
     }
+
+
+    #previewHost .ant-image-preview-wrap {
+        position: absolute ;
+        inset: 0 ;            /* top/right/bottom/left = 0 */
+      //   top: 10px;
+      }
+
   }
+
+.ant-select-clear .anticon svg {
+  width: 1.4em !important;
+  height: 1.4em !important;
+}
+
+
+
+
+
+
+
+  /* 2) fixed ko absolute/inset:0 me badal do taaki parent follow ho */
+// #previewHost .ant-image-preview-root,
+// #previewHost .ant-image-preview-wrap {
+//   position: absolute ;
+//   inset: 0 ;            /* top/right/bottom/left = 0 */
+// //   top: 10px;
+// }
+
+#previewHost .ant-image-preview-root-hidden {
+    display: none !important; /* close hone ke baad forcefully remove dikhai de */
+  }
+  #previewHost .ant-image-preview-root[aria-hidden="true"],
+#previewHost .ant-image-preview-wrap[aria-hidden="true"] {
+  display: none !important;
+}
+/* Preview container ko parent ke andar fit karao */
+#previewHost .ant-image-preview {
+  inset: 0 ;
+  padding: 0 ;
+}
+
+// /* Blur background just inside the parent area */
+#previewHost .ant-image-preview-mask {
+  background: rgba(226, 222, 222, 0.801) ;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+// /* Toolbar positioning thoda trim */
+#previewHost .ant-image-preview-operations {
+  top: 8px;
+  right: 8px;
+}
+
+/* Optional: scrollbar hide/clip jitna parent allow kare */
+#previewHost .ant-image-preview-body {
+  overflow: hidden;
+}
+
+.ant-image-preview-close{
+    top:100px ;
+    background-color: rgba(0, 0, 0, 0.747);
+}

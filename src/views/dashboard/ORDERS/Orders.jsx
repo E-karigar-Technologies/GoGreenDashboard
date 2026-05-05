@@ -1,8 +1,13 @@
 import React, { useState } from 'react'
-import { Table, Input, Alert, Select, Button, Space, Tag } from 'antd';
+import { Table, Alert, Space, Button,Tag } from 'antd';
+import dayjs from 'dayjs';
 import useOrder, { getOrderStatus } from './hooks/useOrder';
 import useVendors from './hooks/useVendors';
 import SingleOrder from './SingleOrder';
+import DateRangeSelector from '../../../components/DateRangeSelector';
+import OrderFilters from './OrderFilters';
+import useDebounce from '../../../hooks/useDebounce';
+import styles from './orders.module.scss';
 
 const Orders = () => {
   const {
@@ -12,15 +17,29 @@ const Orders = () => {
     limit,
     search,
     vendorId,
+    status,
+    dateRange,
     loading,
     error,
     setPage,
     setLimit,
     setSearch,
     setVendorId,
+    setStatus,
+    setDateRange,
   } = useOrder();
   const { vendors, loading: vendorsLoading } = useVendors();
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [searchInput, setSearchInput] = useState(search);
+  
+  const debouncedSearch = useDebounce(searchInput, 500); // 500ms debounce for search
+  
+  // Update the search state when debounced search changes
+  React.useEffect(() => {
+    setSearch(debouncedSearch);
+  }, [debouncedSearch, setSearch]);
+  
+  
 
   const columns = [
     {
@@ -88,34 +107,21 @@ const Orders = () => {
   }
 
   return (
-    <div className='p2'> 
+    <div className="p2"> 
       <h2>Orders</h2>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-        <Input.Search
-          placeholder="Search orders"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          onSearch={val => setSearch(val)}
-          style={{ width: 300 }}
-          allowClear
-        />
-        <Select
-          showSearch
-          allowClear
-          loading={vendorsLoading}
-          placeholder="Filter by Vendor"
-          value={vendorId || undefined}
-          onChange={val => setVendorId(val || '')}
-          style={{ width: 250 }}
-          optionFilterProp="children"
-        >
-          {vendors.map(vendor => (
-            <Select.Option key={vendor.id} value={vendor.id}>
-              {vendor.name}
-            </Select.Option>
-          ))}
-        </Select>
-      </div>
+      <OrderFilters
+        searchInput={searchInput}
+        onSearchInputChange={setSearchInput}
+        onSearchSubmit={setSearch}
+        vendorId={vendorId}
+        onVendorChange={setVendorId}
+        status={status}
+        onStatusChange={setStatus}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        vendors={vendors}
+        vendorsLoading={vendorsLoading}
+      />
       {error && <Alert type="error" message="Error loading orders" description={error.message || String(error)} showIcon style={{ marginBottom: 16 }} />}
       <Table
         columns={columns}
@@ -132,7 +138,7 @@ const Orders = () => {
             setLimit(pageSize);
           },
           showSizeChanger: true,
-          pageSizeOptions: ['5', '10', '20', '50'],
+          pageSizeOptions: ['10', '25', '50',"100","200","500"],
         }}
       />
     </div>

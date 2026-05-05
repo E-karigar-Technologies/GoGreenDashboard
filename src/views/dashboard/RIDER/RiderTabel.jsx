@@ -92,42 +92,42 @@ export default function VendorTable() {
       render: (text) => <span style={{ minWidth: 120, display: 'inline-block' }}>{text}</span>,
     },
     // Address column removed, address shown under Store Name
-    // {
-    //   title: 'Store ID',
-    //   dataIndex: 'vendor_id',
-    //   key: 'storeid',
-    // },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      align: 'center',
+
+      key: 'Status',
+      render: (_, record) => (
+        <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
+          <Switch
+            checked={record.status === 1}
+            // onChange={...} // TODO: implement status toggle handler
+            checkedChildren="Active"
+            unCheckedChildren="Inactive"
+            onChange={checked => handleToggleStatus(record.rider_id, checked ? 1 : 0)}
+
+          />
+        </Tooltip>)
+    },
     {
       title: 'Action',
       key: 'action',
-      width: 180,
+      // width: 180,
+      align: 'center',
       render: (_, record) => (
-        <Space>
-          <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
-            <Switch
-              checked={record.status === 1}
-              // onChange={...} // TODO: implement status toggle handler
-              checkedChildren="Active"
-              unCheckedChildren="Inactive"
-              onChange={checked => handleToggleStatus(record.rider_id, checked ? 1 : 0)}
-
-            />
-          </Tooltip>
+        // </Space>
           <Tooltip title="View">
             <Button
-              size="small"
-              type="link"rider_id
+              // size="small"
+              type="primary"rider_id
               icon={<EyeOutlined />}
-              onClick={() => navigate(`/riders/${record.rider_id}`)}
-            />
+              href={`/riders/${record.rider_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >view</Button>
           </Tooltip>
-          <Tooltip title="Edit">
-            <Button size="small" type="link" icon={<EditOutlined />} />
-          </Tooltip>
-          <Tooltip title="Delete">
-            <Button size="small" type="link" danger icon={<DeleteOutlined />} />
-          </Tooltip>
-        </Space>
+        
       ),
     },
   ];
@@ -154,6 +154,7 @@ export default function VendorTable() {
         columns={columns}
         dataSource={vendors}
         loading={loading}
+        size="small"
         rowKey="storeid"
         pagination={{
           current: page,

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import  "/src/assets/scss/pages/usermodal.scss";
-import { Spin, Badge, Tag, Image } from "antd";
+import { Spin, Badge, Tag, Image, Drawer, Button } from "antd";
 import { 
   User, 
   FileText, 
@@ -20,84 +20,323 @@ import {
 } from "lucide-react";
 import { formatPhone } from "../../../services/utils/gen_utility";
 
-const UserPreview = ({ user, userType, loading }) => {
+import { ArrowLeft, Check, X as XIcon, XCircle } from "lucide-react";
+
+const UserPreview = ({ user, userType, loading, open = false, onClose, onApprove, onReject }) => {
   if (!user) return null;
 
   const InfoCard = ({ icon: IconComponent, label, value, className = "" }) => (
-    <div className={`info-card ${className}`}>
-      <div className="info-card-content">
-        <div className="info-icon">
-          <IconComponent size={16} />
+    <div className={`modern-info-card ${className}`} style={{
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      border: '1px solid #e2e8f0',
+      borderRadius: '16px',
+      padding: '20px',
+      transition: 'all 0.3s ease',
+      cursor: 'pointer',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '4px',
+        background: 'linear-gradient(90deg, #088B46 0%, #0a5d32 100%)'
+      }}></div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: '0 4px 12px rgba(8, 139, 70, 0.3)'
+        }}>
+          <IconComponent size={20} color="white" />
         </div>
-        <div className="info-text">
-          <div className="info-label">{label}</div>
-          <div className="info-value">{value || '-'}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#64748b',
+            marginBottom: '6px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>{label}</div>
+          <div style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#1e293b',
+            wordBreak: 'break-word',
+            lineHeight: '1.5'
+          }}>{value || '-'}</div>
         </div>
       </div>
     </div>
   );
 
+  const isSmall = typeof window !== 'undefined' && window.innerWidth < 768;
+  const drawerWidth = typeof window !== 'undefined' 
+    ? (window.innerWidth >= 1200 
+        ? 1000 
+        : window.innerWidth >= 768 
+          ? 800 
+          : '100%') 
+    : 1000;
+  const avatarSize = isSmall ? 52 : 64;
+  const nameFontSize = isSmall ? 18 : 22;
+  const headerPadding = isSmall ? '10px 10px' : '12px 12px';
+  const tagColor = user?.is_verified === 1 ? 'success' : user?.is_verified === 2 ? 'error' : 'processing';
 
+  const HeaderContent = (
+    <div style={{ 
+      margin: '-16px -24px -16px -56px', 
+      padding: headerPadding, 
+      background: 'linear-gradient(135deg, #088B46 0%, #065a30 100%)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        opacity: 0.3
+      }}></div>
+
+      <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
+        <Button
+          type="text"
+          size="middle"
+          onClick={onClose}
+          icon={<ArrowLeft size={20} />}
+          style={{
+            color: '#fff',
+            background: 'transparent',
+            border: 'none',
+            padding: '0 4px',
+            lineHeight: 1
+          }}
+        />
+      </div>
+
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        position: 'relative',
+        zIndex: 1,
+        paddingLeft: 28,
+        flexWrap: 'nowrap'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isSmall ? '12px' : '16px', minWidth: 0, flex: 1 }}>
+          <div style={{ 
+            position: 'relative',
+            padding: isSmall ? '2px' : '3px',
+            background: 'linear-gradient(45deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
+            borderRadius: '50%',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.25)'
+          }}>
+            {user.profile_pic ? (
+              <Image
+                src={user.profile_pic}
+                alt="Profile Picture"
+                style={{
+                  width: `${avatarSize}px`,
+                  height: `${avatarSize}px`,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid white'
+                }}
+                preview={{
+                  mask: 'Click to preview'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: `${avatarSize}px`,
+                height: `${avatarSize}px`,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))',
+                border: '2px solid white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: isSmall ? '20px' : '24px',
+                fontWeight: '800',
+                color: 'white'
+              }}>
+                {user.firstname?.charAt(0)?.toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div style={{ color: '#fff', minWidth: 0 }}>
+            <h2 style={{ 
+              margin: 0, 
+              fontSize: `${nameFontSize}px`, 
+              fontWeight: 800,
+              letterSpacing: '-0.3px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {user.firstname} {user.lastname}
+            </h2>
+            {userType === 'vendors' && (user.storename || user.store_name) ? (
+              <div style={{ 
+                marginTop: 2,
+                color: '#fff',
+                fontSize: isSmall ? '12px' : '13px',
+                fontWeight: 600,
+                opacity: 0.95,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {(user.storename || user.store_name)}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: isSmall ? 4 : 6, marginLeft: 'auto' }}>
+          <Tag 
+            color={tagColor}
+            type="primary"
+            bordered={false}
+          >
+            {user?.is_verified === 1 ? (
+              <>Verified</>
+            ) : user?.is_verified === 2 ? (
+              <>Rejected</>
+            ) : (
+              <>Pending</>
+            )}
+          </Tag>
+          <div style={{
+            padding: isSmall ? '2px 6px' : '2px 8px',
+            background: 'rgba(255,255,255,0.18)',
+            borderRadius: '14px',
+            fontSize: isSmall ? '11px' : '12px',
+            fontWeight: 600,
+            border: '1px solid rgba(255,255,255,0.25)',
+            color: '#fff'
+          }}>
+            ID: {user.user_id || user.custom_id || 'N/A'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <>
-    
-
-      <Spin spinning={loading}>
-        <div className="user-preview-container">
-          {/* Header Section */}
-          <div className="header-section">
-            <div className="profile-header">
-              <div className="profile-avatar">
-                {user.profile_pic ? (
-                  <Image
-                    src={user.profile_pic}
-                    alt="Profile Picture"
-                    className="avatar-image"
-                    preview={{
-                      mask: 'Click to preview'
-                    }}
-                    width={100}
-                    height={100}
-                  />
-                ) : (
-                  <div className="avatar-placeholder">
-                    {user.firstname?.charAt(0)?.toUpperCase()}
-                  </div>
-                )}
-                <div className="online-indicator"></div>
-              </div>
-              
-              <div className="profile-info">
-                <h2>{user.firstname} {user.lastname}</h2>
-                <div className="profile-meta">
-                  <Shield size={16} />
-                  <Tag 
-                    color={userType === 'vendors' ? 'blue' : 'green'}
-                    style={{ margin: 0 }}
-                  >
-                    {userType === 'vendors' ? 'Vendor' : 'Rider'}
-                  </Tag>
-                </div>
-                <div className="profile-location">
-                  <MapPin size={16} />
-                  <span>{user.address || user.store_address || 'Location not provided'}</span>
-                </div>
-              </div>
-            </div>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      closable={true}
+      placement="right"
+      width={drawerWidth}
+      zIndex={9999}
+      title={HeaderContent}
+      footer={
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          padding: '12px 0',
+          borderTop: '1px solid #f0f0f0',
+          background: 'white'
+        }}>
+          <div style={{ color: '#666', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {user?.is_verified === 1 ? (
+              <>Verified User</>
+            ) : user?.is_verified === 2 ? (
+              <>Rejected User</>
+            ) : (
+              <>Pending Verification</>
+            )}
           </div>
-
-        
-
-          {/* Content */}
-          <div className="content-section">
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button 
+              onClick={onClose}
+              size="middle"
+              type="default"
+              icon={<ArrowLeft size={16} />}
+            >
+              Close
+            </Button>
+            <Button 
+              type="primary" 
+              onClick={() => onApprove?.(user)}
+              disabled={user?.is_verified === 1}
+              size="middle"
+              icon={<Check size={16} />}
+              style={{ background: '#088B46', borderColor: '#088B46' }}
+            >
+              {user?.is_verified === 1 ? 'Already Approved' : 'Approve'}
+            </Button>
+            <Button 
+              danger 
+              onClick={() => onReject?.(user)}
+              disabled={user?.is_verified === 2}
+              size="middle"
+              icon={<XCircle size={16} />}
+              type="primary"
+              ghost
+            >
+              {user?.is_verified === 2 ? 'Already Rejected' : 'Reject'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <Spin spinning={loading}>
+        <div style={{
+          background: '#ffffff',
+          minHeight: '100%'
+        }}>
+          <div style={{
+            background: '#ffffff'
+          }}>
             {/* Basic Information */}
-            <div className="section-divider">
-              <h4 className="section-header">
-                <User size={20} />
+            <div style={{ marginBottom: '40px' }}>
+              <h4 style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '24px',
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#1e293b',
+                borderBottom: '3px solid #088B46',
+                paddingBottom: '12px'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <User size={20} color="white" />
+                </div>
                 Basic Information
               </h4>
-              <div className="info-grid">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+                gap: '20px',
+                marginBottom: '32px',
+                width: '100%'
+              }}>
                 <InfoCard
                   icon={User}
                   label="Username"
@@ -136,12 +375,38 @@ const UserPreview = ({ user, userType, loading }) => {
             {userType === 'vendors' ? (
               <>
                 {/* Business Information */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <Building size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Building size={20} color="white" />
+                    </div>
                     Business Information
                   </h4>
-                  <div className="info-grid">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+                    gap: '20px',
+                    marginBottom: '32px',
+                    width: '100%'
+                  }}>
                     <InfoCard
                       icon={Store}
                       label="Store Name"
@@ -180,13 +445,33 @@ const UserPreview = ({ user, userType, loading }) => {
                 </div>
 
                 {/* Documents & Images */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <ImageIcon size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <ImageIcon size={20} color="white" />
+                    </div>
                     Documents & Images
                   </h4>
                   
-                  <Image.PreviewGroup>
+                  <Image.PreviewGroup >
                     <div className="image-grid">
                       {user.store_image && (
                         <Image src={user.store_image} alt="Store Image" />
@@ -207,12 +492,38 @@ const UserPreview = ({ user, userType, loading }) => {
             ) : (
               <>
                 {/* Personal Information */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <User size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <User size={20} color="white" />
+                    </div>
                     Personal Information
                   </h4>
-                  <div className="info-grid">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+                    gap: '20px',
+                    marginBottom: '32px',
+                    width: '100%'
+                  }}>
                     <InfoCard
                       icon={Calendar}
                       label="Date of Birth"
@@ -247,12 +558,38 @@ const UserPreview = ({ user, userType, loading }) => {
                 </div>
 
                 {/* License Information */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <CreditCard size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <CreditCard size={20} color="white" />
+                    </div>
                     License Information
                   </h4>
-                  <div className="info-grid">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+                    gap: '20px',
+                    marginBottom: '32px',
+                    width: '100%'
+                  }}>
                     <InfoCard
                       icon={CreditCard}
                       label="License Number"
@@ -267,12 +604,38 @@ const UserPreview = ({ user, userType, loading }) => {
                 </div>
 
                 {/* Vehicle Information */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <Bike size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Bike size={20} color="white" />
+                    </div>
                     Vehicle Information
                   </h4>
-                  <div className="info-grid">
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isSmall ? '1fr' : '1fr 1fr',
+                    gap: '20px',
+                    marginBottom: '32px',
+                    width: '100%'
+                  }}>
                     <InfoCard
                       icon={User}
                       label="Vehicle Owner Name"
@@ -297,9 +660,29 @@ const UserPreview = ({ user, userType, loading }) => {
                 </div>
 
                 {/* Documents & Images */}
-                <div className="section-divider">
-                  <h4 className="section-header">
-                    <FileImage size={20} />
+                <div style={{ marginBottom: '40px' }}>
+                  <h4 style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '24px',
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    borderBottom: '3px solid #088B46',
+                    paddingBottom: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: 'linear-gradient(135deg, #088B46 0%, #0a5d32 100%)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <FileImage size={20} color="white" />
+                    </div>
                     Documents & Images
                   </h4>
                   <Image.PreviewGroup>
@@ -356,7 +739,7 @@ const UserPreview = ({ user, userType, loading }) => {
           </div>
         </div>
       </Spin>
-    </>
+    </Drawer>
   );
 };
 

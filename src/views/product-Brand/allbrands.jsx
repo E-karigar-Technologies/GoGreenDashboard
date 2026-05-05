@@ -2,7 +2,7 @@ import React from "react";
 import { Table, Input, Select, Button, Space, Modal, Form, Upload, Switch } from "antd";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import useBrandHook from "./usebrandhook";
-
+import "../../assets/scss/pages/productbrand.scss"
 const { Option } = Select;
 
 const AllBrands = () => {
@@ -29,7 +29,8 @@ const AllBrands = () => {
     openDeleteModal,
     closeDeleteModal,
     handleEditSave,
-    handleDelete,
+    handleDelete, 
+    updateStatus,
   } = useBrandHook();
 
   const [form] = Form.useForm();
@@ -69,14 +70,13 @@ const AllBrands = () => {
     // Optionally, call an API to persist
     // setData(prev => prev.map(b => b.id === brandId ? { ...b, status: isActive ? 1 : 0 } : b));
     // For now, just call handleEditSave with status change
+    console.log(brandId, isActive,data);
+    
     const brand = data.find(b => b.id === brandId);
+    console.log(brand);
+    
     if (brand) {
-      handleEditSave({
-        name: brand.name,
-        description: brand.description,
-        categoryid: brand.categoryid,
-        status: isActive,
-      }, null);
+      updateStatus(brandId, isActive);
     }
   };
 
@@ -100,8 +100,9 @@ const AllBrands = () => {
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
+      width: 280,
       render: (text) => (
-        <span style={{ maxWidth: 180, display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }} title={text}>
+        <span style={{ maxWidth: 280, display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }} title={text}>
           {text}
         </span>
       ),
@@ -204,8 +205,10 @@ const AllBrands = () => {
               <b>Description:</b> {record.description || 'No description'}
             </div>
           ),
-          expandIconColumnIndex: 3, // expand icon before Brand Name
+          
+          expandIconColumnIndex: 2, // expand icon before Brand Name
         }}
+        
       />
       {/* Edit Modal */}
       <Modal
