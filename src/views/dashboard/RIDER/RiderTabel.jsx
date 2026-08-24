@@ -1,14 +1,14 @@
 import React from 'react';
-import { Table, Input, Space, Avatar, Button, Badge, Switch, Tooltip, Tag } from 'antd';
-import { EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { Table, Input, Space, Avatar, Button, Switch, Tooltip, Tag } from 'antd';
+import { EyeOutlined, SearchOutlined, CarOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { convertTimeRange, formatPhone } from '../../../services/utils/gen_utility';
+import { formatPhone } from '../../../services/utils/gen_utility';
 import useRider from './hooks/useRider';
 
-export default function VendorTable() {
+export default function RiderTable() {
   const navigate = useNavigate();
   const {
-    vendors,
+    vendors: riders,
     loading,
     search,
     page,
@@ -19,163 +19,201 @@ export default function VendorTable() {
     handleToggleStatus,
   } = useRider();
 
+  const totalActive = (riders || []).filter(r => r.status === 1).length;
+  const totalInactive = (riders || []).filter(r => r.status !== 1).length;
+
   const columns = [
     {
-      title: 'Sr. No.',
+      title: '#',
       key: 'srno',
       width: 60,
-      render: (text, record, index) => (page - 1) * pageSize + index + 1,
+      render: (text, record, index) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(page - 1) * pageSize + index + 1}</span>,
       align: 'center',
     },
     {
-      title: 'Image',
+      title: 'Rider Profile',
       dataIndex: 'profile_pic',
       key: 'profile_pic',
-      render: (img) => <Avatar size={45} src={img} alt="store" />,
-      width: 50,
+      render: (img, record) => (
+        <Avatar
+          size={44}
+          src={img}
+          alt="rider"
+          style={{ border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}
+        >
+          {record.firstname ? record.firstname.charAt(0).toUpperCase() : 'R'}
+        </Avatar>
+      ),
+      width: 70,
     },
     {
-      title: 'Rider Name',
+      title: 'Rider Details',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
-      render: (text, record) => (
-        //firstname+lastname and first lertter of each word capital 
-        <div style={{ minWidth: 180 }}>
-          <b>{  record.firstname + ' ' + record.lastname ? record.firstname.charAt(0).toUpperCase() + record.firstname.slice(1) + ' ' + record.lastname.charAt(0).toUpperCase() + record.lastname.slice(1) : ''}</b>
-          <div style={{ fontSize: 12, color: '#888', fontWeight: 400, marginTop: 2 ,textDecoration: 'italic'}}>
-            { record.username || ''}
+      render: (text, record) => {
+        const fullName = `${record.firstname || ''} ${record.lastname || ''}`.trim() || 'Unnamed Rider';
+        return (
+          <div>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
+              {fullName.charAt(0).toUpperCase() + fullName.slice(1)}
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              @{record.username || 'rider'}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: 'Rider ID',
       dataIndex: 'custom_id',
       key: 'customId',
-      width: 140,
-      render: (text) => <span style={{ minWidth: 120, display: 'inline-block',fontSize: 12 }}>{text}</span>,
+      width: 130,
+      render: (text) => <Tag color="blue" style={{ borderRadius: '6px' }}>{text || '-'}</Tag>,
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 50,
-      render: (status) => (
-        <Tag
-          color={status === 1 ? 'green' : 'error'}
-          style={{ minWidth: 50, textAlign: 'center' }}
-        >
-          {status === 1 ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Vehicle Number',
+      title: 'Vehicle Registration',
       dataIndex: 'vehicle_registration_number',
       key: 'vehicle_registration_number',
-      width: 140,
-      // render: (timing,row) => <span style={{ minWidth: 120, display: 'inline-block' }}>{row?.vendor_start_time && row.vendor_close_time && convertTimeRange(row.vendor_start_time, row.vendor_close_time) || '-'}</span>,
+      width: 160,
+      render: (veh) => (
+        <Tag color="cyan" style={{ fontWeight: 600, borderRadius: '6px' }}>
+          🛵 {veh || 'Not Registered'}
+        </Tag>
+      ),
     },
     {
       title: 'Phone',
       dataIndex: 'phonenumber',
       key: 'Phone',
-      width: 160,
-      render: (number, record) => formatPhone(number, record.prefix),
+      width: 150,
+      render: (number, record) => (
+        <span style={{ fontWeight: 500, color: '#0f172a' }}>{formatPhone(number, record.prefix)}</span>
+      ),
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'Email',
       width: 180,
-      render: (text) => <span style={{ minWidth: 120, display: 'inline-block' }}>{text}</span>,
+      render: (text) => <span style={{ color: '#475569', fontSize: 13 }}>{text || '-'}</span>,
     },
-    // Address column removed, address shown under Store Name
     {
       title: 'Status',
       dataIndex: 'status',
-      align: 'center',
-
       key: 'Status',
+      align: 'center',
+      width: 140,
       render: (_, record) => (
-        <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
-          <Switch
-            checked={record.status === 1}
-            // onChange={...} // TODO: implement status toggle handler
-            checkedChildren="Active"
-            unCheckedChildren="Inactive"
-            onChange={checked => handleToggleStatus(record.rider_id, checked ? 1 : 0)}
-
-          />
-        </Tooltip>)
+        <Switch
+          checked={record.status === 1}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+          onChange={checked => handleToggleStatus(record.rider_id, checked ? 1 : 0)}
+        />
+      ),
     },
     {
       title: 'Action',
       key: 'action',
-      // width: 180,
       align: 'center',
+      width: 100,
       render: (_, record) => (
-        // </Space>
-          <Tooltip title="View">
-            <Button
-              // size="small"
-              type="primary"rider_id
-              icon={<EyeOutlined />}
-              href={`/riders/${record.rider_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >view</Button>
-          </Tooltip>
-        
+        <Tooltip title="View Rider Details">
+          <Button
+            type="primary"
+            size="small"
+            icon={<EyeOutlined />}
+            style={{ borderRadius: '6px', background: '#088b46', border: 'none' }}
+            onClick={() => navigate(`/riders/${record.rider_id}`)}
+          >
+            View
+          </Button>
+        </Tooltip>
       ),
     },
   ];
 
   return (
-    <div className='p2'>
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Search Store Name"
-          value={search.storeName}
-          onChange={e => onSearch('storeName', e.target.value)}
-          allowClear
-          style={{ width: 180 }}
+    <div className="page-container">
+      {/* Header */}
+      <div className="page-header-card">
+        <div className="header-title-block">
+          <h2>Delivery Riders Directory</h2>
+          <p>Manage all active delivery personnel, vehicle registrations, status toggles, and performance details.</p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="page-stats-grid">
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Riders</div>
+            <div className="stat-number">{total || (riders || []).length}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <CarOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Active Riders</div>
+            <div className="stat-number">{totalActive}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
+            <CheckCircleOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Inactive Riders</div>
+            <div className="stat-number">{totalInactive}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#f1f5f9', color: '#64748b' }}>
+            <StopOutlined />
+          </div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="page-content-card">
+        <Space style={{ marginBottom: 20, flexWrap: 'wrap' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search by Rider Name..."
+            value={search.storeName}
+            onChange={e => onSearch('storeName', e.target.value)}
+            allowClear
+            style={{ width: 220, borderRadius: 8 }}
+          />
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search by Rider ID..."
+            value={search.customId}
+            onChange={e => onSearch('customId', e.target.value)}
+            allowClear
+            style={{ width: 220, borderRadius: 8 }}
+          />
+        </Space>
+
+        <Table
+          columns={columns}
+          dataSource={riders || []}
+          loading={loading}
+          rowKey="rider_id"
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            onChange: onPageChange,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} riders`,
+          }}
+          scroll={{ x: 'max-content' }}
         />
-        <Input
-          placeholder="Search Store ID"
-          value={search.customId}
-          onChange={e => onSearch('customId', e.target.value)}
-          allowClear
-          style={{ width: 180 }}
-        />
-      </Space>
-      <Table
-        columns={columns}
-        dataSource={vendors}
-        loading={loading}
-        size="small"
-        rowKey="storeid"
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          onChange: onPageChange,
-        }}
-        scroll={{ x: 'max-content', y: "67vh" }} // Enable both horizontal and vertical scroll
-        className="custom-pagination-bg"
-        // bordered
-      />
-      {/* Custom style for pagination background */}
-      <style>{`
-        .custom-pagination-bg .ant-table-pagination {
-          background: #fff !important;
-          padding: 12px 16px;
-          margin:0 !important;
-          border-radius: 0 0 8px 8px;
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

@@ -68,7 +68,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   BellOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SafetyCertificateOutlined,
+  BranchesOutlined
 } from '@ant-design/icons';
 // project imports
 import { ConfigContext } from 'contexts/ConfigContext';
@@ -76,6 +78,7 @@ import useWindowSize from 'hooks/useWindowSize';
 import navigation from 'menu-items';
 import navitemcollapse from 'menu-items-collapse';
 import * as actionType from 'store/actions';
+import './sidebar.scss';
 // assets
 import avatar2 from 'assets/images/user/avatar-2.svg';
 
@@ -93,11 +96,30 @@ const iconMap = {
   storefront: <ShopOutlined />,
   apartment: <ShopOutlined />,
   two_wheeler: <CarOutlined />,
+  icon_navigation: <HomeOutlined />,
   default: <AppstoreOutlined />
 };
 
-// Get appropriate icon based on iconname
-const getIcon = (iconname) => {
+// Specific icon mapping by menu item id for enhanced visual distinction
+const itemSpecificIcons = {
+  'manage-appbanners': <PictureOutlined />,
+  'manage-users': <SafetyCertificateOutlined />,
+  'vendortype': <ShopOutlined />,
+  'product-brands': <TagOutlined />,
+  'manage-category': <AppstoreOutlined />,
+  'manage-subcategory': <BranchesOutlined />,
+  'manage-products': <ShoppingCartOutlined />,
+  'manage-orders': <FileTextOutlined />,
+  'manage-vendor': <ShopOutlined />,
+  'manage-rider': <CarOutlined />,
+  'manage-categories': <SettingOutlined />
+};
+
+// Get appropriate icon based on item id and iconname
+const getIcon = (iconname, id) => {
+  if (id && itemSpecificIcons[id]) {
+    return itemSpecificIcons[id];
+  }
   return iconMap[iconname] || iconMap.default;
 };
 
@@ -110,14 +132,14 @@ const convertMenuItems = (items) => {
     } else if (item.type === 'collapse') {
       return [{
         key: item.id,
-        icon: getIcon(item.iconname),
+        icon: getIcon(item.iconname, item.id),
         label: item.title,
         children: item.children ? convertMenuItems(item.children) : []
       }];
     } else if (item.type === 'item') {
       return [{
         key: item.id,
-        icon: getIcon(item.iconname),
+        icon: getIcon(item.iconname, item.id),
         label: item.url ? <Link to={item.url}>{item.title}</Link> : item.title,
         url: item.url
       }];
@@ -166,7 +188,7 @@ export default function ModernNavigation() {
           return { currentKey: item.id, parentKey: parentId };
         }
         
-        // Check for dynamic route match  IF ANY ERROR ACCURED TO LINE 169 TO 181 COMMENT KR DENA 
+        // Check for dynamic route match
         if (item.url && item.url.includes(':')) {
           const urlPattern = item.url.replace(/:[^/]+/g, '[^/]+');
           const regex = new RegExp(`^${urlPattern}$`);
@@ -191,12 +213,24 @@ export default function ModernNavigation() {
     const result = findCurrentItemAndParent(navigation.items, location.pathname);
     if (result) {
       setSelectedKeys([result.currentKey]);
-      // Keep parent menu open if item is inside a collapse menu
+      // Accordion: keep ONLY the parent of current route open
       if (result.parentKey) {
-        setOpenKeys(prev => [...new Set([...prev, result.parentKey])]);
+        setOpenKeys([result.parentKey]);
+      } else {
+        setOpenKeys([]);
       }
     }
   }, [location.pathname]);
+
+  // Accordion behavior: Opening a new tab automatically closes/hides all other tabs
+  const handleOpenChange = (keys) => {
+    const latestOpenKey = keys.find((key) => !openKeys.includes(key));
+    if (latestOpenKey) {
+      setOpenKeys([latestOpenKey]);
+    } else {
+      setOpenKeys([]);
+    }
+  };
 
   const navToggleHandler = () => {
     dispatch({ type: actionType.COLLAPSE_MENU });
@@ -268,34 +302,11 @@ export default function ModernNavigation() {
               }}
             />
           )}
-          {/* Header */}
-          {/* <div className="sidebar-header" style={{ 
-            padding: '16px', 
-            textAlign: 'center', 
-            borderBottom: '1px solid #f0f0f0',
-            background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)'
-          }}>
-            {!collapseMenu ? (
-              <div>
-                <Title level={4} style={{ color: 'white', margin: 0 }}>
-                  Admin Panel
-                </Title>
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
-                  Management System
-                </Text>
-              </div>
-            ) : (
-              <Avatar size={40} style={{ backgroundColor: '#1890ff' }}>
-                A
-              </Avatar>
-            )}
-          </div> */}
 
           {/* User Profile Section */}
           <div className="user-profile bg-primary" style={{ 
             padding: '16px', 
             borderBottom: '1px solid #303030',
-          
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px'}}>
               <Avatar style={{border:"1px solid white",background:"white", padding:2 }} size={collapseMenu ? 40 : 40} src={avatar2} />
@@ -317,15 +328,13 @@ export default function ModernNavigation() {
             </div>
           </div>
 
-
-
           {/* Menu */}
           <Menu
             mode="inline"
             theme="light"
             selectedKeys={selectedKeys}
             openKeys={openKeys}
-            onOpenChange={setOpenKeys}
+            onOpenChange={handleOpenChange}
             onClick={handleMenuClick}
             items={menuItems}
             style={{ 

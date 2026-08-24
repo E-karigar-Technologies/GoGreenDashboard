@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Input, Space, Avatar, Button, Badge, Switch, Tooltip, Tag } from 'antd';
-import { EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ShopOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useVendors from './hooks/useVendors';
 import { convertTimeRange, formatPhone } from '../../../../services/utils/gen_utility';
@@ -19,31 +19,44 @@ export default function VendorTable() {
     handleToggleStatus,
   } = useVendors();
 
+  const totalActive = vendors.filter(v => v.status === 1).length;
+  const totalInactive = vendors.filter(v => v.status !== 1).length;
+
   const columns = [
     {
-      title: 'Sr. No.',
+      title: '#',
       key: 'srno',
-      width: 80,
-      render: (text, record, index) => (page - 1) * pageSize + index + 1,
+      width: 60,
+      render: (text, record, index) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(page - 1) * pageSize + index + 1}</span>,
       align: 'center',
     },
     {
-      title: 'Image',
+      title: 'Store',
       dataIndex: 'store_image',
       key: 'storeImage',
-      render: (img) => <Avatar size={45} src={img} alt="store" />,
-      width: 50,
+      render: (img, record) => (
+        <Avatar
+          size={44}
+          src={img}
+          alt="store"
+          style={{ border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}
+        >
+          {record.store_name ? record.store_name.charAt(0).toUpperCase() : 'S'}
+        </Avatar>
+      ),
+      width: 65,
     },
     {
-      title: 'Store Name',
+      title: 'Store Details',
       dataIndex: 'store_name',
       key: 'storeName',
-      width: 200,
       render: (text, record) => (
-        <div style={{ minWidth: 180 }}>
-          <b>{text ? text.charAt(0).toUpperCase() + text.slice(1) : ''}</b>
-          <div style={{ fontSize: 12, color: '#888', fontWeight: 400, marginTop: 2 }}>
-            {record.store_address || '-'}
+        <div>
+          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
+            {text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unnamed Store'}
+          </div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            📍 {record.store_address || 'Address not available'}
           </div>
         </div>
       ),
@@ -52,153 +65,154 @@ export default function VendorTable() {
       title: 'Customer ID',
       dataIndex: 'custom_id',
       key: 'customId',
-      width: 140,
-      render: (text) => <span style={{ minWidth: 120, display: 'inline-block',fontSize: 12 }}>{text}</span>,
+      width: 130,
+      render: (text) => <Tag color="blue" style={{ borderRadius: '6px' }}>{text || '-'}</Tag>,
     },
-   
     {
-      title: 'Timing',
+      title: 'Operating Hours',
       dataIndex: 'vendor_timing',
       key: 'timing',
-      width: 140,
-      render: (timing,row) => <span style={{ minWidth: 120, display: 'inline-block',fontSize: 12 }}>{row?.vendor_start_time && row.vendor_close_time && convertTimeRange(row.vendor_start_time, row.vendor_close_time) || '-'}</span>,
+      width: 160,
+      render: (timing, row) => (
+        <span style={{ fontSize: 13, color: '#334155', fontWeight: 500 }}>
+          ⏱️ {(row?.vendor_start_time && row.vendor_close_time && convertTimeRange(row.vendor_start_time, row.vendor_close_time)) || 'N/A'}
+        </span>
+      ),
     },
     {
       title: 'Phone',
       dataIndex: 'phonenumber',
       key: 'Phone',
-      width: 160,
-      render: (number, record) => formatPhone(number, record.prefix),
+      width: 150,
+      render: (number, record) => (
+        <span style={{ fontWeight: 500, color: '#0f172a' }}>{formatPhone(number, record.prefix)}</span>
+      ),
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'Email',
       width: 180,
-      render: (text) => <span style={{ minWidth: 120, display: 'inline-block' }}>{text}</span>,
+      render: (text) => <span style={{ color: '#475569', fontSize: 13 }}>{text || '-'}</span>,
     },
-    // Address column removed, address shown under Store Name
-    // {
-    //   title: 'Store ID',
-    //   dataIndex: 'vendor_id',
-    //   key: 'storeid',
-    // },
-    // {
-    //   title: 'Action',
-    //   key: 'action',
-    //   width: 180,
-    //   render: (_, record) => (
-    //     <Space>
-    //       <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
-    //         <Switch
-    //           checked={record.status === 1}
-    //           // onChange={...} // TODO: implement status toggle handler
-    //           checkedChildren="Active"
-    //           unCheckedChildren="Inactive"
-    //           onChange={checked => handleToggleStatus(record.vendor_id, checked ? 1 : 0)}
-
-    //         />
-    //       </Tooltip>
-    //       <Tooltip title="View">
-    //         <Button
-    //           size="small"
-    //           type="link"
-    //           icon={<EyeOutlined />}
-    //           onClick={() => navigate(`/vendors/${record.vendor_id}`)}
-    //         />
-    //       </Tooltip>
-    //       <Tooltip title="Edit">
-    //         <Button size="small" type="link" icon={<EditOutlined />} />
-    //       </Tooltip>
-    //       <Tooltip title="Delete">
-    //         <Button size="small" type="link" danger icon={<DeleteOutlined />} />
-    //       </Tooltip>
-    //     </Space>
-    //   ),
-    // },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'Status',
       align: 'center',
-
+      width: 140,
       render: (_, record) => (
-        <Tooltip title={record.status === 1 ? 'Set Inactive' : 'Set Active'}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Switch
             checked={record.status === 1}
-            // onChange={...} // TODO: implement status toggle handler
             checkedChildren="Active"
             unCheckedChildren="Inactive"
             onChange={checked => handleToggleStatus(record.vendor_id, checked ? 1 : 0)}
-
           />
-        </Tooltip>)
+        </div>
+      ),
     },
     {
       title: 'Action',
       key: 'action',
-      // width: 180,
       align: 'center',
+      width: 100,
       render: (_, record) => (
-        // </Space>
-          <Tooltip title="View">
-            <Button
-              // size="small"
-              type="primary"rider_id
-              icon={<EyeOutlined />}
-              href={`/vendors/${record.vendor_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >view</Button>
-          </Tooltip> 
+        <Tooltip title="View Vendor Dashboard">
+          <Button
+            type="primary"
+            size="small"
+            icon={<EyeOutlined />}
+            style={{ borderRadius: '6px', background: '#088b46', border: 'none' }}
+            onClick={() => navigate(`/vendors/${record.vendor_id}`)}
+          >
+            View
+          </Button>
+        </Tooltip>
       ),
     },
   ];
 
   return (
-    <div className='p2'>
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Search Store Name"
-          value={search.storeName}
-          onChange={e => onSearch('storeName', e.target.value)}
-          allowClear
-          style={{ width: 180 }}
+    <div className="page-container">
+      {/* Header */}
+      <div className="page-header-card">
+        <div className="header-title-block">
+          <h2>Vendor Directory</h2>
+          <p>Manage all registered vendors, operating schedules, store statuses, and detailed performance profiles.</p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="page-stats-grid">
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Vendors</div>
+            <div className="stat-number">{total || vendors.length}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <ShopOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Active Vendors</div>
+            <div className="stat-number">{totalActive}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
+            <CheckCircleOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Inactive Vendors</div>
+            <div className="stat-number">{totalInactive}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#f1f5f9', color: '#64748b' }}>
+            <StopOutlined />
+          </div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="page-content-card">
+        <Space style={{ marginBottom: 20, flexWrap: 'wrap' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search by Store Name..."
+            value={search.storeName}
+            onChange={e => onSearch('storeName', e.target.value)}
+            allowClear
+            style={{ width: 220, borderRadius: 8 }}
+          />
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search by Customer ID..."
+            value={search.customId}
+            onChange={e => onSearch('customId', e.target.value)}
+            allowClear
+            style={{ width: 220, borderRadius: 8 }}
+          />
+        </Space>
+
+        <Table
+          columns={columns}
+          dataSource={vendors}
+          loading={loading}
+          rowKey="vendor_id"
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            onChange: onPageChange,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} vendors`,
+          }}
+          scroll={{ x: 'max-content' }}
         />
-        <Input
-          placeholder="Search Store ID"
-          value={search.customId}
-          onChange={e => onSearch('customId', e.target.value)}
-          allowClear
-          style={{ width: 180 }}
-        />
-      </Space>
-      <Table
-        columns={columns}
-        dataSource={vendors}
-        loading={loading}
-        size="small"
-        rowKey="storeid"
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          onChange: onPageChange,
-        }}
-        scroll={{ x: 'max-content', y: "67vh" }} // Enable both horizontal and vertical scroll
-        className="custom-pagination-bg"
-        // bordered
-      />
-      {/* Custom style for pagination background */}
-      <style>{`
-        .custom-pagination-bg .ant-table-pagination {
-          background: #fff !important;
-          padding: 12px 16px;
-          margin:0 !important;
-          border-radius: 0 0 8px 8px;
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

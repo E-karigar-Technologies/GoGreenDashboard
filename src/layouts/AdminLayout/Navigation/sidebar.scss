@@ -1,0 +1,180 @@
+/* Modern Professional Sidebar Styles & Smooth Transitions for GoGreen Dashboard */
+
+.modern-sidebar {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.06) !important;
+  border-right: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow: hidden;
+
+  /* User profile header */
+  .user-profile {
+    background: linear-gradient(135deg, #088B46 0%, #056633 100%) !important;
+    transition: background 0.3s ease;
+    box-shadow: 0 4px 12px rgba(8, 139, 70, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  }
+
+  /* Scrollable menu container */
+  .ant-menu-inline {
+    padding: 12px 10px 80px 10px !important;
+    border-right: none !important;
+
+    /* Custom smooth thin scrollbar */
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: #088B46;
+    }
+  }
+
+  /* Base Menu Item & Submenu Header */
+  .ant-menu-item,
+  .ant-menu-submenu-title {
+    margin: 4px 0 !important;
+    padding: 10px 14px !important;
+    height: 44px !important;
+    line-height: 24px !important;
+    border-radius: 8px !important;
+    color: #334155 !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+
+    a {
+      color: inherit !important;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .ant-menu-item-icon,
+    .anticon {
+      font-size: 18px !important;
+      min-width: 24px;
+      color: #64748b;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    &:hover {
+      background-color: rgba(8, 139, 70, 0.08) !important;
+      color: #088B46 !important;
+      transform: translateX(4px);
+
+      a {
+        color: #088B46 !important;
+      }
+
+      .ant-menu-item-icon,
+      .anticon {
+        color: #088B46 !important;
+        transform: scale(1.12);
+      }
+    }
+  }
+
+  /* Expanded Submenu Header */
+  .ant-menu-submenu-open > .ant-menu-submenu-title {
+    background-color: rgba(8, 139, 70, 0.07) !important;
+    color: #088B46 !important;
+    font-weight: 600 !important;
+
+    .ant-menu-item-icon,
+    .anticon {
+      color: #088B46 !important;
+    }
+
+    .ant-menu-submenu-arrow {
+      color: #088B46 !important;
+    }
+  }
+
+  /* Submenu Arrow Transition */
+  .ant-menu-submenu-arrow {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease !important;
+  }
+
+  /* Submenu container (Accordion items) with smooth slide animation */
+  .ant-menu-sub.ant-menu-inline {
+    background: #f8fafc !important;
+    border-radius: 8px !important;
+    padding: 6px 0 6px 8px !important;
+    margin: 4px 0 8px 0 !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+
+    .ant-menu-item {
+      margin: 2px 4px !important;
+      padding-left: 14px !important;
+      height: 38px !important;
+      font-size: 13.5px !important;
+      color: #475569 !important;
+      border-left: 2px solid transparent !important;
+      border-radius: 6px !important;
+
+      &:hover {
+        background-color: rgba(8, 139, 70, 0.1) !important;
+        color: #088B46 !important;
+        border-left-color: #088B46 !important;
+        transform: translateX(4px);
+      }
+
+      &.ant-menu-item-selected {
+        background: linear-gradient(135deg, #088B46 0%, #066e37 100%) !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        border-left: none !important;
+        box-shadow: 0 4px 10px rgba(8, 139, 70, 0.3) !important;
+
+        a {
+          color: #ffffff !important;
+        }
+
+        .ant-menu-item-icon,
+        .anticon {
+          color: #ffffff !important;
+        }
+
+        &:hover {
+          background: linear-gradient(135deg, #088B46 0%, #066e37 100%) !important;
+          color: #ffffff !important;
+          transform: none !important;
+        }
+      }
+    }
+  }
+
+  /* Top-level active selected item (e.g. Dashboard, Vendor Types) */
+  > .ant-menu .ant-menu-item-selected:not(.ant-menu-submenu .ant-menu-item) {
+    background: linear-gradient(135deg, #088B46 0%, #066e37 100%) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(8, 139, 70, 0.3) !important;
+
+    a {
+      color: #ffffff !important;
+    }
+
+    .ant-menu-item-icon,
+    .anticon {
+      color: #ffffff !important;
+    }
+
+    &:hover {
+      background: linear-gradient(135deg, #088B46 0%, #066e37 100%) !important;
+      color: #ffffff !important;
+      transform: none !important;
+    }
+  }
+}

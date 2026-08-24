@@ -1,11 +1,14 @@
 import React from "react";
-import { Table, Input, Select, Button, Space, Modal, Form, Upload, Switch } from "antd";
-import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Input, Select, Button, Space, Modal, Form, Upload, Switch, Tag, Tooltip, Image } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, TagOutlined, CheckCircleOutlined, AppstoreOutlined } from "@ant-design/icons";
 import useBrandHook from "./usebrandhook";
-import "../../assets/scss/pages/productbrand.scss"
+import { useNavigate } from "react-router-dom";
+import "../../assets/scss/pages/productbrand.scss";
+
 const { Option } = Select;
 
 const AllBrands = () => {
+  const navigate = useNavigate();
   const {
     data,
     loading,
@@ -47,7 +50,7 @@ const AllBrands = () => {
         categoryid: selectedBrand.categoryid,
         status: selectedBrand.status === 1,
       });
-            }
+    }
   }, [editModal, selectedBrand, previewImage, form]);
 
   const handleEditLogoChange = info => {
@@ -63,22 +66,15 @@ const AllBrands = () => {
     handleImageChange(fileObj);
   };
 
-  // Add status toggle handler
   const handleToggleActive = (brandId, isActive) => {
-    // You can implement this in the hook for API update if needed
-    // For now, just update local state
-    // Optionally, call an API to persist
-    // setData(prev => prev.map(b => b.id === brandId ? { ...b, status: isActive ? 1 : 0 } : b));
-    // For now, just call handleEditSave with status change
-    console.log(brandId, isActive,data);
-    
     const brand = data.find(b => b.id === brandId);
-    console.log(brand);
-    
     if (brand) {
       updateStatus(brandId, isActive);
     }
   };
+
+  const totalBrands = pagination.total || data.length;
+  const activeBrands = data.filter(b => b.status === 1).length;
 
   const columns = [
     {
@@ -86,56 +82,61 @@ const AllBrands = () => {
       dataIndex: 'sr',
       key: 'sr',
       width: 60,
-      render: (_, __, idx) => (pagination.current - 1) * pagination.pageSize + idx + 1,
+      align: 'center',
+      render: (_, __, idx) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(pagination.current - 1) * pagination.pageSize + idx + 1}</span>,
     },
     {
       title: 'Brand Name',
       dataIndex: 'name',
       key: 'name',
       sorter: true,
-      // The expand icon will appear before this column by default
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-      width: 280,
-      render: (text) => (
-        <span style={{ maxWidth: 280, display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }} title={text}>
-          {text}
-        </span>
-      ),
+      render: (text) => <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>{text}</span>,
     },
     {
       title: 'Category',
       dataIndex: 'category_name',
       key: 'category_name',
       sorter: true,
+      width: 160,
+      render: (cat) => <Tag color="blue" style={{ borderRadius: '6px', fontWeight: 500 }}>{cat || 'General'}</Tag>,
+    },
+    {
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description',
+      ellipsis: true,
+      width: 260,
+      render: (text) => (
+        <span style={{ color: '#475569', fontSize: 13 }} title={text}>
+          {text || 'No description available'}
+        </span>
+      ),
     },
     {
       title: 'Logo',
       dataIndex: 'brand_logo',
       key: 'brand_logo',
-      width: 100,
+      width: 90,
+      align: 'center',
       render: (logo) =>
         logo ? (
-          <img
+          <Image
             src={logo.startsWith('http') ? logo : `${import.meta.env.VITE_IMAGE_BASE_URL}${logo}`}
             alt="Brand Logo"
-            width={50}
-            height={50}
-            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }}
+            width={48}
+            height={48}
+            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }}
           />
-                  ) : (
-                    <span>No Image</span>
+        ) : (
+          <Tag color="default">No Image</Tag>
         ),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 120,
+      align: 'center',
       render: (status, record) => (
         <Switch
           checked={status === 1}
@@ -146,79 +147,134 @@ const AllBrands = () => {
       ),
     },
     {
-      title: 'Action',
+      title: 'Actions',
       key: 'action',
-      width: 160,
+      width: 110,
+      align: 'center',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => openDeleteModal(record)} />
+          <Tooltip title="Edit Brand">
+            <Button
+              type="text"
+              icon={<EditOutlined style={{ color: '#0284c7', fontSize: 16 }} />}
+              onClick={() => openEditModal(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete Brand">
+            <Button
+              type="text"
+              icon={<DeleteOutlined style={{ color: '#ef4444', fontSize: 16 }} />}
+              onClick={() => openDeleteModal(record)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
 
   return (
-    <div className="p2">
-      <h4 style={{ marginBottom: 16 }}>All Brands</h4>
-      <div style={{ marginBottom: 16 }}>
-        <div className="row g-2">
-          <div className="col-12 col-md-2">
-            <Input.Search
-              placeholder="Search brands"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              allowClear
-              style={{ width: '100%' }}
-            />
+    <div className="page-container">
+      {/* Page Header */}
+      <div className="page-header-card">
+        <div className="header-title-block">
+          <h2>Product Brands Management</h2>
+          <p>Organize, add, edit, and classify manufacturer product brands across product categories.</p>
+        </div>
+        <Button
+          type="primary"
+          className="btn-primary-gogreen"
+          icon={<PlusOutlined />}
+          style={{ height: 42, padding: '0 20px' }}
+          onClick={() => navigate('/add-Product-Brand')}
+        >
+          Add New Brand
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="page-stats-grid">
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Brands</div>
+            <div className="stat-number">{totalBrands}</div>
           </div>
-          <div className="col-12 col-md-2">
-            <Select
-              placeholder="Filter by Category"
-              value={categoryFilter || undefined}
-              onChange={val => setCategoryFilter(val)}
-              allowClear
-              showSearch
-              style={{ width: '100%' }}
-              filterOption={(input, option) =>
-                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-              }
-            >
-              {categories.map(cat => (
-                <Option key={cat.id} value={cat.id}>{cat.name}</Option>
-              ))}
-            </Select>
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <TagOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Active Brands</div>
+            <div className="stat-number">{activeBrands}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
+            <CheckCircleOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Associated Categories</div>
+            <div className="stat-number">{categories.length}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#f3e8ff', color: '#9333ea' }}>
+            <AppstoreOutlined />
           </div>
         </div>
       </div>
-      <Table
-        columns={columns}
-        dataSource={data}
-        loading={loading}
-        pagination={pagination}
-        onChange={onTableChange}
-        rowKey={record => record.id}
-        scroll={{ x: 'max-content' }}
-        expandable={{
-          expandedRowRender: record => (
-            <div style={{ padding: 8 }}>
-              <b>Description:</b> {record.description || 'No description'}
-            </div>
-          ),
-          
-          expandIconColumnIndex: 2, // expand icon before Brand Name
-        }}
-        
-      />
+
+      {/* Main Content Card */}
+      <div className="page-content-card">
+        <Space style={{ marginBottom: 20, flexWrap: 'wrap' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search brand name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            allowClear
+            style={{ width: 260, borderRadius: 8, height: 40 }}
+          />
+          <Select
+            placeholder="Filter by Category"
+            value={categoryFilter || undefined}
+            onChange={val => setCategoryFilter(val)}
+            allowClear
+            showSearch
+            style={{ width: 220, height: 40 }}
+            filterOption={(input, option) =>
+              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            }
+          >
+            {categories.map(cat => (
+              <Option key={cat.id} value={cat.id}>{cat.name}</Option>
+            ))}
+          </Select>
+        </Space>
+
+        <Table
+          columns={columns}
+          dataSource={data}
+          loading={loading}
+          pagination={{
+            ...pagination,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} brands`,
+          }}
+          onChange={onTableChange}
+          rowKey={record => record.id}
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
+
       {/* Edit Modal */}
       <Modal
         open={editModal}
         onCancel={closeEditModal}
-        title="Edit Brand"
+        title="Edit Brand Details"
         footer={null}
         destroyOnClose
-        width={700}
-        zIndex={2000}
+        width={650}
+        centered
       >
         {selectedBrand && (
           <Form
@@ -232,84 +288,76 @@ const AllBrands = () => {
               status: selectedBrand.status === 1,
             }}
           >
-            <div className="container-fluid">
-              <div className="row">
-                <div className="col-12 col-md-6">
-                  <Form.Item label="Brand Name" name="name" rules={[{ required: true, message: 'Please enter brand name' }]}> 
-                    <Input />
-                  </Form.Item>
+            <Form.Item label="Brand Name" name="name" rules={[{ required: true, message: 'Please enter brand name' }]}> 
+              <Input placeholder="Enter brand name" />
+            </Form.Item>
+
+            <Form.Item label="Category" name="categoryid" rules={[{ required: true, message: 'Please select a category' }]}> 
+              <Select
+                placeholder="Select Category"
+                showSearch
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                }
+              >
+                {categories.map(cat => (
+                  <Option key={cat.id} value={cat.id}>{cat.name}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item label="Description" name="description">
+              <Input.TextArea rows={3} placeholder="Enter brand description" />
+            </Form.Item>
+
+            <Form.Item label="Brand Logo">
+              <Upload.Dragger
+                name="file"
+                accept="image/*"
+                multiple={false}
+                showUploadList={false}
+                beforeUpload={() => false}
+                onChange={handleEditLogoChange}
+                fileList={editFileList}
+              >
+                <p className="ant-upload-text">Click or drag brand logo image to upload</p>
+              </Upload.Dragger>
+              {editPreview && (
+                <div className="mt-2">
+                  <img src={editPreview} alt="Brand Preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
                 </div>
-                <div className="col-12 col-md-6">
-                  <Form.Item label="Category" name="categoryid" rules={[{ required: true, message: 'Please select a category' }]}> 
-                    <Select
-                      placeholder="Select Category"
-                      showSearch
-                      filterOption={(input, option) =>
-                        option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                      }
-                    >
-                      {categories.map(cat => (
-                        <Option key={cat.id} value={cat.id}>{cat.name}</Option>
-                  ))}
-                    </Select>
-                  </Form.Item>
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-12 col-md-6">
-                  <Form.Item label="Description" name="description">
-                    <Input.TextArea rows={5} />
-                  </Form.Item>
-                </div>
-                <div className="col-12 col-md-6">
-                  <Form.Item label="Brand Logo">
-                    <Upload.Dragger
-                      name="file"
-                      accept="image/*"
-                      multiple={false}
-                      showUploadList={false}
-                      beforeUpload={() => false}
-                      onChange={handleEditLogoChange}
-                      fileList={editFileList}
-                    >
-                      <p className="ant-upload-drag-icon">Drag & Drop or Click to Upload</p>
-                      <p className="ant-upload-text">Click or drag image to this area to upload</p>
-                    </Upload.Dragger>
-                    {editPreview && (
-                  <div className="mt-2">
-                        <img src={editPreview} alt="Brand Preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
-                  </div>
-                )}
-                  </Form.Item>
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-12 d-flex justify-content-end gap-2">
-                  <Button onClick={closeEditModal} style={{ marginRight: 8 }}>
-            Cancel
-          </Button>
-                  <Button type="primary" htmlType="submit" loading={formLoading}>
-            Save Changes
-          </Button>
-                </div>
-              </div>
+              )}
+            </Form.Item>
+
+            <div style={{ textAlign: 'right', marginTop: 16 }}>
+              <Button onClick={closeEditModal} style={{ marginRight: 8 }}>
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit" loading={formLoading} className="btn-primary-gogreen">
+                Save Changes
+              </Button>
             </div>
           </Form>
         )}
       </Modal>
+
       {/* Delete Modal */}
       <Modal
         open={deleteModal}
         onCancel={closeDeleteModal}
-        title="Confirm Deletion"
+        title="Confirm Brand Deletion"
         onOk={handleDelete}
-        okText="Yes, Delete"
+        okText="Yes, Delete Brand"
+        okButtonProps={{ danger: true }}
         cancelText="Cancel"
         confirmLoading={formLoading}
-        zIndex={2000}
+        centered
       >
-        Are you sure you want to delete this brand?
+        <p style={{ margin: '16px 0', color: '#475569' }}>
+          Are you sure you want to delete this product brand? This action cannot be undone.
+        </p>
       </Modal>
+
       {error && <div style={{ color: 'red', marginTop: 16 }}>{error}</div>}
     </div>
   );

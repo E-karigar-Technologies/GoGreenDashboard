@@ -1,7 +1,7 @@
 import React from 'react';
-import { Table, Button, Switch, Space, Modal, Form, Input, Upload, message } from 'antd';
+import { Table, Button, Switch, Space, Modal, Form, Input, Upload, message, Tag, Tooltip, Image } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { EditOutlined, DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, AppstoreOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 import useCatagoryHook from './useCatagoryHook';
 
 const { Dragger } = Upload;
@@ -33,7 +33,6 @@ const AllCategory = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
-  // When opening edit modal, set form values
   React.useEffect(() => {
     if (editModal && selectedCategory) {
       form.setFieldsValue({
@@ -44,54 +43,52 @@ const AllCategory = () => {
     }
   }, [editModal, selectedCategory, form]);
 
-  const expandedRowRender = record => (
-    <div style={{ padding: 8 }}>
-      <b>Description:</b> {record.description || 'No description'}
-    </div>
-  );
+  const totalCategories = pagination.total || data.length;
+  const activeCategories = data.filter(c => c.status === 1).length;
+  const inactiveCategories = data.filter(c => c.status !== 1).length;
 
   const columns = [
     {
       title: '#',
       dataIndex: 'sr',
       key: 'sr',
-      sorter: true,
-      sortOrder: sorter.field === 'sr' ? sorter.order : null,
-      width: 1,
+      width: 60,
+      align: 'center',
+      render: (_, __, idx) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(pagination.current - 1) * pagination.pageSize + idx + 1}</span>,
     },
     {
       title: 'Logo',
       dataIndex: 'category_logo',
       key: 'category_logo',
-      width: 100,
+      width: 90,
+      align: 'center',
       render: (logo) =>
-        logo && typeof logo == "string" ? (
-          <img
+        logo && typeof logo === 'string' ? (
+          <Image
             src={logo?.startsWith('http') ? logo : `${import.meta.env.VITE_IMAGE_BASE_URL}${logo}`}
             alt="Category Logo"
-            width={50}
-            height={50}
-            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }}
+            width={48}
+            height={48}
+            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }}
           />
         ) : (
-          <span>No Image</span>
+          <Tag color="default">No Image</Tag>
         ),
     },
     {
-      title: 'Name',
+      title: 'Category Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      render: (text) => <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>{text}</span>,
     },
     {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
-      width: 250,
       ellipsis: true,
       render: (text) => (
-        <span style={{ maxWidth: 200, display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' }} title={text}>
-          {text}
+        <span style={{ color: '#475569', fontSize: 13 }} title={text}>
+          {text || 'No description provided'}
         </span>
       ),
     },
@@ -100,68 +97,134 @@ const AllCategory = () => {
       dataIndex: 'status',
       key: 'status',
       width: 120,
+      align: 'center',
       render: (status, record) => (
         <Switch
           checked={status === 1}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
           onChange={checked => handleToggleActive(record.id, checked ? 1 : 0)}
         />
       ),
     },
     {
-      title: 'Action',
+      title: 'Actions',
       key: 'action',
-      width: 160,
+      width: 110,
+      align: 'center',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => openDeleteModal(record)} />
+          <Tooltip title="Edit Category">
+            <Button
+              type="text"
+              icon={<EditOutlined style={{ color: '#0284c7', fontSize: 16 }} />}
+              onClick={() => openEditModal(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete Category">
+            <Button
+              type="text"
+              icon={<DeleteOutlined style={{ color: '#ef4444', fontSize: 16 }} />}
+              onClick={() => openDeleteModal(record)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
 
-  // Handle edit form submit
   const onEditFinish = (values) => {
     handleSave({ ...selectedCategory, ...values });
   };
 
   return (
-    <div className="p2">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h4 style={{ margin: 0 }}>All Product Categories</h4>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/product-category/addCategory')}>
+    <div className="page-container">
+      {/* Header Card */}
+      <div className="page-header-card">
+        <div className="header-title-block">
+          <h2>Product Categories Directory</h2>
+          <p>Organize top-level product classifications, store section listings, and custom store logos.</p>
+        </div>
+        <Button
+          type="primary"
+          className="btn-primary-gogreen"
+          icon={<PlusOutlined />}
+          style={{ height: 42, padding: '0 20px' }}
+          onClick={() => navigate('/add-category')}
+        >
           Add Category
         </Button>
       </div>
-      <div style={{ marginBottom: 16, maxWidth: 250 }}>
-        <Input.Search
-          placeholder="Search by name"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          allowClear
+
+      {/* Stats Cards */}
+      <div className="page-stats-grid">
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Categories</div>
+            <div className="stat-number">{totalCategories}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <AppstoreOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Active Categories</div>
+            <div className="stat-number">{activeCategories}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
+            <CheckCircleOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Inactive Categories</div>
+            <div className="stat-number">{inactiveCategories}</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#f1f5f9', color: '#64748b' }}>
+            <StopOutlined />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Card */}
+      <div className="page-content-card">
+        <div style={{ marginBottom: 20 }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="Search category name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            allowClear
+            style={{ width: 280, borderRadius: 8, height: 40 }}
+          />
+        </div>
+
+        <Table
+          columns={columns}
+          dataSource={data}
+          loading={loading}
+          pagination={{
+            ...pagination,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories`,
+          }}
+          onChange={onTableChange}
+          rowKey={record => record.id}
+          scroll={{ x: 'max-content' }}
         />
       </div>
-      <Table
-        columns={columns}
-        dataSource={data}
-        loading={loading}
-        pagination={pagination}
-        onChange={onTableChange}
-        rowKey={record => record.id}
-        scroll={{ x: 'max-content' }}
-        expandable={{
-          expandedRowRender,
-          expandIconColumnIndex: 4, // after Description column (index 3)
-        }}
-      />
+
       {/* Edit Modal */}
       <Modal
         open={editModal}
         onCancel={closeEditModal}
-        title="Edit Category"
+        title="Edit Category Details"
         footer={null}
         destroyOnClose
-        zIndex={2000}
+        centered
+        width={600}
       >
         {selectedCategory && (
           <Form
@@ -175,11 +238,13 @@ const AllCategory = () => {
             }}
           >
             <Form.Item label="Category Name" name="name" rules={[{ required: true, message: 'Please enter category name' }]}> 
-              <Input />
+              <Input placeholder="Enter category name" />
             </Form.Item>
+
             <Form.Item label="Description" name="description">
-              <Input.TextArea rows={3} />
+              <Input.TextArea rows={3} placeholder="Enter category description" />
             </Form.Item>
+
             <Form.Item label="Category Logo">
               <Dragger
                 name="file"
@@ -191,8 +256,7 @@ const AllCategory = () => {
                   return false;
                 }}
               >
-                <p className="ant-upload-drag-icon">Drag & Drop or Click to Upload</p>
-                <p className="ant-upload-text">Click or drag image to this area to upload</p>
+                <p className="ant-upload-text">Click or drag category image to upload</p>
               </Dragger>
               {previewImage && (
                 <div className="mt-2">
@@ -200,6 +264,7 @@ const AllCategory = () => {
                 </div>
               )}
             </Form.Item>
+
             <Form.Item label="Status" name="status" valuePropName="checked">
               <Switch
                 checkedChildren="Active"
@@ -208,17 +273,19 @@ const AllCategory = () => {
                 onChange={checked => form.setFieldsValue({ status: checked ? 1 : 0 })}
               />
             </Form.Item>
-            <Form.Item>
+
+            <div style={{ textAlign: 'right', marginTop: 16 }}>
               <Button onClick={closeEditModal} style={{ marginRight: 8 }}>
                 Cancel
               </Button>
-              <Button type="primary" htmlType="submit" loading={formLoading}>
+              <Button type="primary" htmlType="submit" loading={formLoading} className="btn-primary-gogreen">
                 Save Changes
               </Button>
-            </Form.Item>
+            </div>
           </Form>
         )}
       </Modal>
+
       {/* Delete Modal */}
       <Modal
         open={deleteModal}
@@ -226,10 +293,14 @@ const AllCategory = () => {
         title="Confirm Deletion"
         onOk={handleDelete}
         okText="Yes, Delete"
+        okButtonProps={{ danger: true }}
         cancelText="Cancel"
         confirmLoading={formLoading}
+        centered
       >
-        Are you sure you want to delete this category?
+        <p style={{ margin: '16px 0', color: '#475569' }}>
+          Are you sure you want to delete this category?
+        </p>
       </Modal>
     </div>
   );
