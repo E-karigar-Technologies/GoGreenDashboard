@@ -101,6 +101,15 @@ const menuItems = {
               classes: 'nav-item',
               icon: 'material-icons-two-tone',
               iconname: 'people_alt'
+            },
+            {
+              id: 'unverified-customers',
+              title: 'All Unverified Customers',
+              type: 'item',
+              url: '/all-unverified-customers',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'people_alt'
             }
           ]
         }
