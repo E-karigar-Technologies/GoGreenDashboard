@@ -2,6 +2,7 @@
 // import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import axios from "./axiosInstanse";
+import rawAxios from "axios";
 const API_URL = import.meta.env.VITE_API_URL;
 
 // const axios = api.create({
@@ -565,6 +566,83 @@ export const getRiderAnalytics = async (rider_Id, start_date, end_date) => {
     const response = await axios.post(`/riders/riderdashboard-analytics`, payload, config);
     return { success: true, data: response.data || [] };
   } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Customers / Users (delivery app)
+// ---------------------------------------------------------------------------
+
+// GET https://cx.ekarigar.com/delievery-api/users/user-details
+export const getAllUserDetails = async () => {
+  try {
+    const response = await axios.get(`/users/user-details`, config);
+    const payload = response.data;
+    const list = Array.isArray(payload)
+      ? payload
+      : payload?.users || payload?.data || [];
+    return { success: true, data: list };
+  } catch (error) {
+    console.error("Failed to fetch user details:", error);
+    return { success: false, error: error.response?.data || error.message, data: [] };
+  }
+};
+
+// PUT https://cx.ekarigar.com/delievery-app/users/user-details/status
+// Body: { id, active }  where active: 0 = inactive, 1 = active, 2 = rejected
+export const updateUserActiveStatus = async (id, active) => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.put(
+      `/users/user-details/status`,
+      { id, active },
+      {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to update user status:", error);
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// Reverse geocoding via OpenStreetMap Nominatim.
+// Returns { success, displayName, address } where address is the structured
+// Nominatim address object (road, suburb, city, state, postcode, country, ...).
+// Note: Nominatim usage policy — keep traffic light, no heavy bulk calls.
+export const reverseGeocode = async (lat, lng) => {
+  try {
+    if (lat == null || lng == null || lat === "" || lng === "") {
+      return { success: false, error: "Missing lat/lng" };
+    }
+    const response = await rawAxios.get(
+      `https://nominatim.openstreetmap.org/reverse`,
+      {
+        params: {
+          format: "jsonv2",
+          lat,
+          lon: lng,
+          zoom: 18,
+          addressdetails: 1,
+        },
+        headers: {
+          "Accept-Language": "en",
+        },
+      }
+    );
+    return {
+      success: true,
+      displayName: response.data?.display_name || "",
+      address: response.data?.address || {},
+      raw: response.data,
+    };
+  } catch (error) {
+    console.error("Failed reverse geocoding:", error);
     return { success: false, error: error.response?.data || error.message };
   }
 };

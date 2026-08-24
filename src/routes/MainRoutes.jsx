@@ -52,6 +52,7 @@ const Editcategorydata = lazy(() => import('../views/editCategory/editCategory')
 const AddAppBanner = lazy(() => import('../views/homeApp-banner/addappbanner'));
 const AllAppBanner = lazy(() => import('../views/homeApp-banner/allappbanner'));
 const Unverifiedusers = lazy(() => import('../views/users/unverifiedusers'));
+const AllCustomers = lazy(() => import('../views/users/customers/allCustomers'));
 
 const MainRoutes = {
   path: '/',
@@ -110,6 +111,10 @@ const MainRoutes = {
         {
           path: '/all-unverified-rider',
           element: <Unverifiedusers user={"delivery_partners"}  />
+        },
+        {
+          path: '/all-unverified-customers',
+          element: <AllCustomers />
         },
 
         {
