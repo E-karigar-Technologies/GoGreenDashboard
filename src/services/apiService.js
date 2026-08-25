@@ -591,12 +591,12 @@ export const getAllUserDetails = async () => {
 
 // PUT https://cx.ekarigar.com/delievery-app/users/user-details/status
 // Body: { id, active }  where active: 0 = inactive, 1 = active, 2 = rejected
-export const updateUserActiveStatus = async (id, active) => {
+export const updateUserActiveStatus = async (id, is_verified) => {
   try {
     const token = localStorage.getItem("token");
     const response = await axios.put(
       `/users/user-details/status`,
-      { id, active },
+      { id, is_verified },
       {
         headers: {
           Authorization: token ? `Bearer ${token}` : "",

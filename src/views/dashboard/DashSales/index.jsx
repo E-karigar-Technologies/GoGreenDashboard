@@ -1,174 +1,152 @@
-// react-bootstrap
+import React from 'react';
 import { Row, Col, Card } from 'react-bootstrap';
-
-// third party
 import Chart from 'react-apexcharts';
+import {
+  UserOutlined,
+  DollarOutlined,
+  ShoppingOutlined,
+  RiseOutlined,
+  CheckCircleOutlined,
+  SmileOutlined
+} from '@ant-design/icons';
 
-// project imports
 import FlatCard from 'components/Widgets/Statistic/FlatCard';
 import ProductCard from 'components/Widgets/Statistic/ProductCard';
 import FeedTable from 'components/Widgets/FeedTable';
-import ProductTable from 'components/Widgets/ProductTable';
 import { SalesCustomerSatisfactionChartData } from './chart/sales-customer-satisfication-chart';
 import { SalesAccountChartData } from './chart/sales-account-chart';
 import { SalesSupportChartData } from './chart/sales-support-chart';
 import { SalesSupportChartData1 } from './chart/sales-support-chart1';
 import feedData from 'data/feedData';
-import productData from 'data/productTableData';
 
-// -----------------------|| DASHBOARD SALES ||-----------------------//
 export default function DashSales() {
   return (
-    <Row className="pt-3 ms-0 me-0">
-      <Col md={12} xl={6}>
-        <Card className="flat-card">
-          <div className="row-table">
-            <Card.Body className="col-sm-6 br">
-              <FlatCard params={{ title: 'Total Customers', iconClass: 'text-primary mb-1', icon: 'group', value: '1000' }} />
-            </Card.Body>
-            <Card.Body className="col-sm-6 d-none d-md-table-cell d-lg-table-cell d-xl-table-cell card-body br">
-              <FlatCard params={{ title: 'Total Revenue', iconClass: 'text-primary mb-1', icon: 'language', value: '1252' }} />
-            </Card.Body>
-            <Card.Body className="col-sm-6 card-bod">
-              <FlatCard params={{ title: 'Total Growth', iconClass: 'text-primary mb-1', icon: 'unarchive', value: '600' }} />
-            </Card.Body>
-          </div>
-          <div className="row-table">
-            <Card.Body className="col-sm-6 br">
-              <FlatCard
-                params={{
-                  title: 'Returns',
-                  iconClass: 'text-primary mb-1',
-                  icon: 'swap_horizontal_circle',
-                  value: '3550'
-                }}
-              />
-            </Card.Body>
-            <Card.Body className="col-sm-6 d-none d-md-table-cell d-lg-table-cell d-xl-table-cell card-body br">
-              <FlatCard params={{ title: 'Downloads', iconClass: 'text-primary mb-1', icon: 'cloud_download', value: '3550' }} />
-            </Card.Body>
-            <Card.Body className="col-sm-6 card-bod">
-              <FlatCard params={{ title: 'Order', iconClass: 'text-primary mb-1', icon: 'shopping_cart', value: '100%' }} />
-            </Card.Body>
-          </div>
-        </Card>
-      </Col>
-      <Col md={12} xl={6}>
-        <Row>
-          <Col sm={6}>
-            <ProductCard params={{ title: 'Total Profit', primaryText: '$1,783', icon: 'card_giftcard' }} />
-          </Col>
-          <Col sm={6}>
-            <ProductCard params={{ variant: 'primary', title: 'Total Orders', primaryText: '15,830', icon: 'local_mall' }} />
-          </Col>
-          <Col sm={6}>
-            <ProductCard params={{ variant: 'primary', title: 'Average Price', primaryText: '$6,780', icon: 'monetization_on' }} />
-          </Col>
-          <Col sm={6}>
-            <ProductCard params={{ title: 'Product Sold', primaryText: '6,784', icon: 'local_offer' }} />
-          </Col>
-        </Row>
-      </Col>
+    <div className="page-container">
+      {/* Executive Dashboard Header */}
+      <div className="page-header-card">
+        <div className="header-title-block">
+          <h2>GoGreen Operations Dashboard</h2>
+          <p>Real-time quick-commerce analytics, order revenue, active customer growth, and store operations summary.</p>
+        </div>
+      </div>
 
-      <Col md={12} xl={6}>
-        <Card>
-          <Card.Header>
-            <h5>Department wise monthly sales report</h5>
-          </Card.Header>
-          <Card.Body>
+      {/* Primary KPI Stats Grid */}
+      <div className="page-stats-grid">
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Customers</div>
+            <div className="stat-number">1,248</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <UserOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Revenue</div>
+            <div className="stat-number">₹1,25,480</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
+            <DollarOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Total Orders</div>
+            <div className="stat-number">3,550</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <ShoppingOutlined />
+          </div>
+        </div>
+
+        <div className="page-stat-card">
+          <div className="stat-meta">
+            <div className="stat-label">Monthly Growth</div>
+            <div className="stat-number">+24.5%</div>
+          </div>
+          <div className="stat-icon" style={{ background: '#f3e8ff', color: '#9333ea' }}>
+            <RiseOutlined />
+          </div>
+        </div>
+      </div>
+
+      {/* Analytics Charts & Detail Cards */}
+      <Row className="g-4">
+        {/* Sales Chart Section */}
+        <Col md={12} xl={6}>
+          <div className="page-content-card" style={{ height: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+              <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '16px' }}>Monthly Sales Analytics</h4>
+              <span style={{ fontSize: 13, color: '#088b46', fontWeight: 600 }}>₹21,356 Total Sales</span>
+            </div>
             <Row className="pb-2">
               <div className="col-auto m-b-10">
-                <h3 className="mb-1">$21,356.46</h3>
-                <span>Total Sales</span>
+                <h3 className="mb-1" style={{ fontWeight: 700, color: '#0f172a' }}>₹21,356.46</h3>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Total Gross Sales</span>
               </div>
               <div className="col-auto m-b-10">
-                <h3 className="mb-1">$1935.6</h3>
-                <span>Average</span>
+                <h3 className="mb-1" style={{ fontWeight: 700, color: '#088b46' }}>₹1,935.60</h3>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Daily Average</span>
               </div>
             </Row>
             <Chart {...SalesAccountChartData()} />
-          </Card.Body>
-        </Card>
-      </Col>
-      <Col md={12} xl={6}>
-        {/* Feed Table */}
-        <FeedTable {...feedData} />
-      </Col>
+          </div>
+        </Col>
 
-      <Col md={12} xl={6}>
-        <Row>
-          <Col md={6}>
-            <Card className="support-bar overflow-hidden">
-              <Card.Body className="pb-0">
-                <h2 className="m-0">53.94%</h2>
-                <span className="text-primary">Conversion Rate</span>
-                <p className="mb-3 mt-3">Number of conversions divided by the total visitors. </p>
-              </Card.Body>
-              <Chart {...SalesSupportChartData()} />
-              <Card.Footer className="border-0 bg-primary text-white background-pattern-white">
-                <Row className="text-center">
-                  <Col>
-                    <h4 className="m-0 text-white">10</h4>
-                    <span>2018</span>
-                  </Col>
-                  <Col>
-                    <h4 className="m-0 text-white">15</h4>
-                    <span>2017</span>
-                  </Col>
-                  <Col>
-                    <h4 className="m-0 text-white">13</h4>
-                    <span>2016</span>
-                  </Col>
-                </Row>
-              </Card.Footer>
-            </Card>
-          </Col>
-          <Col md={6}>
-            <Card className="support-bar overflow-hidden">
-              <Card.Body className="pb-0">
-                <h2 className="m-0">1432</h2>
-                <span className="text-primary">Order Delivered</span>
-                <p className="mb-3 mt-3">Number of conversions divided by the total visitors. </p>
-              </Card.Body>
-              <Card.Footer className="border-0">
-                <Row className="text-center">
-                  <Col>
-                    <h4 className="m-0">130</h4>
-                    <span>May</span>
-                  </Col>
-                  <Col>
-                    <h4 className="m-0">251</h4>
-                    <span>June</span>
-                  </Col>
-                  <Col>
-                    <h4 className="m-0 ">235</h4>
-                    <span>July</span>
-                  </Col>
-                </Row>
-              </Card.Footer>
-              <Chart type="bar" {...SalesSupportChartData1()} />
-            </Card>
-          </Col>
-        </Row>
+        {/* Customer Satisfaction Chart */}
+        <Col md={12} xl={6}>
+          <div className="page-content-card" style={{ height: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+              <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '16px' }}>Customer Satisfaction</h4>
+              <SmileOutlined style={{ fontSize: 20, color: '#088b46' }} />
+            </div>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+              Internal & external order satisfaction index based on delivered order feedback ratings.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 220 }}>
+              <Chart type="pie" {...SalesCustomerSatisfactionChartData()} />
+            </div>
+          </div>
+        </Col>
 
-        {/* Product Table */}
-        {/* <ProductTable {...productData} /> */}
-      </Col>
-      <Col md={12} xl={6}>
-        <Card>
-          <Card.Body>
-            <h6>Customer Satisfaction</h6>
-            <span>It takes continuous effort to maintain high customer satisfaction levels Internal and external.</span>
-            <Row className="d-flex justify-content-center align-items-center">
-              <Col>
-                <Chart type="pie" {...SalesCustomerSatisfactionChartData()} />
+        {/* Recent Activity Feed */}
+        <Col md={12} xl={6}>
+          <div className="page-content-card">
+            <FeedTable {...feedData} />
+          </div>
+        </Col>
+
+        {/* Conversion & Delivery Metrics */}
+        <Col md={12} xl={6}>
+          <div className="page-content-card">
+            <Row className="g-3">
+              <Col md={6}>
+                <Card className="support-bar overflow-hidden border-0 shadow-sm" style={{ background: '#f8fafc', borderRadius: 12 }}>
+                  <Card.Body className="pb-0">
+                    <h2 className="m-0" style={{ fontWeight: 800, color: '#088b46' }}>53.94%</h2>
+                    <span style={{ fontWeight: 600, color: '#0f172a' }}>Conversion Rate</span>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '8px 0' }}>Order conversions vs store visitors.</p>
+                  </Card.Body>
+                  <Chart {...SalesSupportChartData()} />
+                </Card>
+              </Col>
+              <Col md={6}>
+                <Card className="support-bar overflow-hidden border-0 shadow-sm" style={{ background: '#f8fafc', borderRadius: 12 }}>
+                  <Card.Body className="pb-0">
+                    <h2 className="m-0" style={{ fontWeight: 800, color: '#0284c7' }}>1,432</h2>
+                    <span style={{ fontWeight: 600, color: '#0f172a' }}>Delivered Orders</span>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '8px 0' }}>Successfully fulfilled customer orders.</p>
+                  </Card.Body>
+                  <Chart type="bar" {...SalesSupportChartData1()} />
+                </Card>
               </Col>
             </Row>
-          </Card.Body>
-        </Card>
-        {/* Feed Table */}
-        {/* <FeedTable {...feedData} /> */}
-      </Col>
-    </Row>
+          </div>
+        </Col>
+      </Row>
+    </div>
   );
 }

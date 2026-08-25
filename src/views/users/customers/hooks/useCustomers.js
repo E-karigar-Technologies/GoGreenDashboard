@@ -63,11 +63,11 @@ export default function useCustomers() {
     if (searchText && searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       list = list.filter((u) => {
-        const fullName = `${u.first_name || ""} ${u.last_name || ""}`
+        const fullName = `${u.first_name || u.firstname || ""} ${u.last_name || u.lastname || ""}`
           .trim()
           .toLowerCase();
         const email = (u.email || "").toLowerCase();
-        const phone = String(u.phone_number || u.phone || u.mobile || "");
+        const phone = String(u.phone_number || u.phonenumber || u.phone || u.mobile || "");
         return (
           fullName.includes(q) ||
           email.includes(q) ||
@@ -77,7 +77,10 @@ export default function useCustomers() {
       });
     }
     if (statusFilter !== undefined && statusFilter !== null && statusFilter !== "") {
-      list = list.filter((u) => Number(u.active) === Number(statusFilter));
+      list = list.filter((u) => {
+        const val = u.is_verified !== undefined ? u.is_verified : u.active;
+        return Number(val) === Number(statusFilter);
+      });
     }
     return list;
   }, [data, searchText, statusFilter]);
@@ -108,8 +111,8 @@ export default function useCustomers() {
 
   useEffect(() => {
     if (!drawerOpen || !selectedUser) return;
-    const lat = selectedUser.lat;
-    const lng = selectedUser.lng;
+    const lat = selectedUser.customer_lat ?? selectedUser.lat ?? selectedUser.rider_lat ?? selectedUser.latitude;
+    const lng = selectedUser.customer_lng ?? selectedUser.lng ?? selectedUser.rider_lng ?? selectedUser.longitude;
     if (lat == null || lng == null || lat === "" || lng === "") {
       setResolvedAddress("");
       setAddressError(null);
@@ -146,11 +149,11 @@ export default function useCustomers() {
         if (res.success) {
           setData((prev) =>
             prev.map((u) =>
-              u.id === user.id ? { ...u, active: nextStatus } : u
+              u.id === user.id ? { ...u, is_verified: nextStatus, active: nextStatus } : u
             )
           );
           setSelectedUser((prev) =>
-            prev && prev.id === user.id ? { ...prev, active: nextStatus } : prev
+            prev && prev.id === user.id ? { ...prev, is_verified: nextStatus, active: nextStatus } : prev
           );
           const labelMap = {
             [STATUS.ACTIVE]: "approved",

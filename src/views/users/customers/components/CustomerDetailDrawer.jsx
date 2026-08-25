@@ -54,24 +54,25 @@ const CustomerDetailDrawer = ({
   const [mapOpen, setMapOpen] = useState(false);
 
   const fullName = user
-    ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "—"
+    ? `${user.first_name || user.firstname || ""} ${user.last_name || user.lastname || ""}`.trim() || "—"
     : "—";
   const email = user?.email || "—";
-  const phone = user?.phone_number || "—";
+  const phone = user?.phone_number || user?.phonenumber || "—";
   const address = user?.address || "—";
   const gender = user?.gender || "—";
   const dob = formatDate(user?.dob);
   const created = formatDateTime(user?.created_at);
   const avatar = user?.profile_image || user?.avatar || null;
 
-  const lat = user?.lat;
-  const lng = user?.lng;
+  const lat = user?.customer_lat ?? user?.lat ?? user?.rider_lat ?? user?.latitude;
+  const lng = user?.customer_lng ?? user?.lng ?? user?.rider_lng ?? user?.longitude;
   const hasCoords =
     lat !== null && lat !== undefined && lat !== "" &&
     lng !== null && lng !== undefined && lng !== "";
 
-  const isApproved = Number(user?.active) === 1;
-  const isRejected = Number(user?.active) === 2;
+  const currentStatus = user ? (user.is_verified !== undefined ? user.is_verified : user.active) : 0;
+  const isApproved = Number(currentStatus) === 1;
+  const isRejected = Number(currentStatus) === 2;
 
   const handleCloseAll = () => {
     setMapOpen(false);
@@ -85,6 +86,7 @@ const CustomerDetailDrawer = ({
         { label: "Phone", value: phone },
         { label: "Email", value: email },
         { label: "Saved Address", value: address },
+        { label: "Coordinates", value: hasCoords ? `${lat}, ${lng}` : "—" },
       ]
     : [];
 
@@ -97,7 +99,7 @@ const CustomerDetailDrawer = ({
       onClose={handleCloseAll}
       open={open}
       push={false}
-      extra={user ? statusTag(user.active) : null}
+      extra={user ? statusTag(currentStatus) : null}
       footer={
         user ? (
           <Space style={{ width: "100%", justifyContent: "flex-end" }}>
@@ -193,7 +195,7 @@ const CustomerDetailDrawer = ({
               {address}
             </Descriptions.Item>
             <Descriptions.Item label="Status">
-              {statusTag(user.active)}
+              {statusTag(currentStatus)}
             </Descriptions.Item>
             <Descriptions.Item label="Created">{created}</Descriptions.Item>
           </Descriptions>

@@ -552,7 +552,15 @@ const UserPreview = ({ user, userType, loading, open = false, onClose, onApprove
                     <InfoCard
                       icon={MapPin}
                       label="Current Location"
-                      value={user.rider_lat && user.rider_lng ? `${user.rider_lat}, ${user.rider_lng}` : '-'}
+                      value={
+                        user.customer_lat && user.customer_lng
+                          ? `${user.customer_lat}, ${user.customer_lng}`
+                          : user.rider_lat && user.rider_lng
+                            ? `${user.rider_lat}, ${user.rider_lng}`
+                            : user.lat && user.lng
+                              ? `${user.lat}, ${user.lng}`
+                              : '-'
+                      }
                     />
                   </div>
                 </div>

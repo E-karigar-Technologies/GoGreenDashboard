@@ -19,6 +19,28 @@
   animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Executive Header Bar Override */
+.pc-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+  padding: 0 24px !important;
+  height: 70px !important;
+
+  .header-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 100% !important;
+    padding: 0 !important;
+  }
+}
+
+.custom-header-breadcrumb {
+  display: flex;
+  align-items: center;
+}
+
 /* Common Page Container */
 .page-container {
   animation: fadeInUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
