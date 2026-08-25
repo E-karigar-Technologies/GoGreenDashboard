@@ -60,6 +60,16 @@ export default function useCustomers() {
 
   const filteredData = useMemo(() => {
     let list = Array.isArray(data) ? [...data] : [];
+    list.sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || a.created_on || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || b.created_on || 0).getTime();
+      if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+        return dateB - dateA;
+      }
+      const idA = Number(a.id || a.user_id || 0);
+      const idB = Number(b.id || b.user_id || 0);
+      return idB - idA;
+    });
     if (searchText && searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       list = list.filter((u) => {

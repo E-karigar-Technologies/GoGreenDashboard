@@ -345,7 +345,7 @@ const UserPreview = ({ user, userType, loading, open = false, onClose, onApprove
                 {user.custom_id && (
                   <InfoCard
                     icon={FileText}
-                    label="Custom ID"
+                    label="Vendor ID"
                     value={user.custom_id}
                   />
                 )}
@@ -410,35 +410,47 @@ const UserPreview = ({ user, userType, loading, open = false, onClose, onApprove
                     <InfoCard
                       icon={Store}
                       label="Store Name"
-                      value={user.store_name}
+                      value={user.store_name || user.storename}
                     />
                     <InfoCard
                       icon={MapPin}
                       label="Store Address"
-                      value={user.store_address}
+                      value={user.store_address || user.storeaddress || user.address}
+                    />
+                    {(user.vendor_start_time || user.vendor_close_time || user.start_time || user.close_time) && (
+                      <InfoCard
+                        icon={Calendar}
+                        label="Store Timings"
+                        value={`${user.vendor_start_time || user.start_time || '—'} - ${user.vendor_close_time || user.close_time || '—'}`}
+                      />
+                    )}
+                    {(user.vendor_lat || user.store_lat || user.lat) && (user.vendor_lng || user.store_lng || user.lng) && (
+                      <InfoCard
+                        icon={MapPin}
+                        label="Store Coordinates"
+                        value={`${user.vendor_lat ?? user.store_lat ?? user.lat}, ${user.vendor_lng ?? user.store_lng ?? user.lng}`}
+                      />
+                    )}
+                    <InfoCard
+                      icon={CreditCard}
+                      label="Business Registration No."
+                      value={user.business_reg_number}
                     />
                     <InfoCard
                       icon={FileText}
-                      label="SIN Code"
-                      value={user.sin_code}
+                      label="Business License No."
+                      value={user.bussiness_license_number || 'Not provided'}
                     />
                     <InfoCard
-                      icon={CreditCard}
-                      label="Business Registration"
-                      value={user.business_reg_number}
+                      icon={Receipt}
+                      label="GST/HST Number"
+                      value={user.gst_number}
                     />
-                    {user.bussiness_license_number && (
+                    {user.sin_code && (
                       <InfoCard
                         icon={FileText}
-                        label="Business License"
-                        value={user.bussiness_license_number}
-                      />
-                    )}
-                    {user.gst_number && (
-                      <InfoCard
-                        icon={Receipt}
-                        label="GST Number"
-                        value={user.gst_number}
+                        label="SIN Code"
+                        value={user.sin_code}
                       />
                     )}
                   </div>
@@ -471,19 +483,106 @@ const UserPreview = ({ user, userType, loading, open = false, onClose, onApprove
                     Documents & Images
                   </h4>
                   
-                  <Image.PreviewGroup >
+                  <Image.PreviewGroup>
                     <div className="image-grid">
                       {user.store_image && (
-                        <Image src={user.store_image} alt="Store Image" />
+                        <div className="document-card">
+                          <div className="card-header">
+                            <Store size={16} />
+                            <span>Store Front Image</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.store_image} alt="Store Front Image" />
+                          </div>
+                        </div>
+                      )}
+                      {user.profile_pic && (
+                        <div className="document-card">
+                          <div className="card-header">
+                            <User size={16} />
+                            <span>Profile Picture</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.profile_pic} alt="Profile Picture" />
+                          </div>
+                        </div>
                       )}
                       {user.identity_proof && (
-                        <Image src={user.identity_proof} alt="Identity Proof" />
+                        <div className="document-card">
+                          <div className="card-header">
+                            <Shield size={16} />
+                            <span>Identity Proof</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.identity_proof} alt="Identity Proof" />
+                          </div>
+                        </div>
                       )}
                       {user.bussiness_license_number_pic && (
-                        <Image src={user.bussiness_license_number_pic} alt="Business License" />
+                        <div className="document-card">
+                          <div className="card-header">
+                            <FileText size={16} />
+                            <span>Business License</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.bussiness_license_number_pic} alt="Business License Document" />
+                          </div>
+                        </div>
                       )}
                       {user.gst_number_pic && (
-                        <Image src={user.gst_number_pic} alt="GST Document" />
+                        <div className="document-card">
+                          <div className="card-header">
+                            <Receipt size={16} />
+                            <span>GST Document</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.gst_number_pic} alt="GST Document" />
+                          </div>
+                        </div>
+                      )}
+                      {user.food_certificate && (
+                        <div className="document-card">
+                          <div className="card-header">
+                            <FileImage size={16} />
+                            <span>Food Safety Certificate</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.food_certificate} alt="Food Safety Certificate" />
+                          </div>
+                        </div>
+                      )}
+                      {user.health_inspection_certificate && (
+                        <div className="document-card">
+                          <div className="card-header">
+                            <Shield size={16} />
+                            <span>Health Inspection</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.health_inspection_certificate} alt="Health Inspection Certificate" />
+                          </div>
+                        </div>
+                      )}
+                      {user.vendor_insurance_certificate && (
+                        <div className="document-card">
+                          <div className="card-header">
+                            <Shield size={16} />
+                            <span>Insurance Certificate</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.vendor_insurance_certificate} alt="Insurance Certificate" />
+                          </div>
+                        </div>
+                      )}
+                      {user.other_doc && (
+                        <div className="document-card">
+                          <div className="card-header">
+                            <FileText size={16} />
+                            <span>Other Business Document</span>
+                          </div>
+                          <div className="card-image">
+                            <Image src={user.other_doc} alt="Other Document" />
+                          </div>
+                        </div>
                       )}
                     </div>
                   </Image.PreviewGroup>

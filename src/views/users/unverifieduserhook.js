@@ -37,14 +37,25 @@ export default function useUnverifiedUsers(user) {
 setUserType(user)
   }, [user]);
 
-  // Filtered users by type and search
-  const filteredUsers = (userType === 'vendors' ? vendors : deliveryPartners).filter(user => {
-    const name = userType === 'vendors' ? (user.storename || (user.firstname + ' ' + user.lastname)) : (user.firstname + ' ' + user.lastname);
-    return (
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      (user.email && user.email.toLowerCase().includes(search.toLowerCase()))
-    );
-  });   
+  // Filtered users by type and search, sorted in descending order (latest first)
+  const filteredUsers = (userType === 'vendors' ? vendors : deliveryPartners)
+    .filter(user => {
+      const name = userType === 'vendors' ? (user.storename || (user.firstname + ' ' + user.lastname)) : (user.firstname + ' ' + user.lastname);
+      return (
+        name.toLowerCase().includes(search.toLowerCase()) ||
+        (user.email && user.email.toLowerCase().includes(search.toLowerCase()))
+      );
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || a.created_on || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || b.created_on || 0).getTime();
+      if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+        return dateB - dateA;
+      }
+      const idA = Number(a.user_id || a.id || 0);
+      const idB = Number(b.user_id || b.id || 0);
+      return idB - idA;
+    });   
 
   // Open view modal and set status to 'in review' (3)
   const handleView = async (user) => {
