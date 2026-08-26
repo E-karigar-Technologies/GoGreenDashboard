@@ -172,7 +172,8 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Badge, Button, Statistic, Table, Progress, DatePicker, message, Spin, Image, Select, Typography, Avatar, Divider, Space, Tag } from 'antd';
+import { Row, Col, Card, Tabs, Badge, Button, Statistic, Table, Progress, DatePicker, message, Spin, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Modal } from 'antd';
+import { SearchOutlined, FilterOutlined, EyeOutlined, ReloadOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import DateRangeSelector from '../../../../components/DateRangeSelector';
 import { useParams } from 'react-router-dom';
 import {
@@ -205,6 +206,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import dayjs from 'dayjs';
 import { getVendorAnalytics, getVendorById } from '../../../../services/apiService';
+import { convertTimeRange, formatPhone } from '../../../../services/utils/gen_utility';
 
 const { TabPane } = Tabs;
 const { Title, Text } = Typography;
@@ -290,6 +292,221 @@ const VendorDashboard = () => {
   // Vendor data (fetched dynamically)
   const [vendorData, setVendorData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Vendor orders filter state
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderDateRange, setOrderDateRange] = useState(null);
+  const [selectedVendorOrder, setSelectedVendorOrder] = useState(null);
+
+  // Status helper
+  const getVendorOrderStatus = (status) => {
+    if (status === null || status === undefined) {
+      return { text: 'Pending', color: 'orange' };
+    }
+    switch (Number(status)) {
+      case 0: return { text: 'Pending', color: 'orange' };
+      case 1: return { text: 'Confirmed', color: 'blue' };
+      case 2: return { text: 'Delivery Assigned', color: 'purple' };
+      case 3: return { text: 'Order Picked Up', color: 'cyan' };
+      case 4: return { text: 'Order Delivered', color: 'green' };
+      case 5: return { text: 'Order Rejected', color: 'red' };
+      default: return { text: 'Pending', color: 'orange' };
+    }
+  };
+
+  // Filtered and DESC sorted orders
+  const vendorOrders = React.useMemo(() => {
+    const rawOrders = Array.isArray(vendorData?.orders) ? [...vendorData.orders] : [];
+    
+    // Sort DESC (newest first)
+    rawOrders.sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : (a.id || 0);
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : (b.id || 0);
+      return timeB - timeA;
+    });
+
+    return rawOrders.filter(order => {
+      // 1. Status filter
+      if (orderStatusFilter !== 'all') {
+        const targetStatus = Number(orderStatusFilter);
+        const currentStatus = order.order_status === null || order.order_status === undefined ? 0 : Number(order.order_status);
+        if (currentStatus !== targetStatus) return false;
+      }
+
+      // 2. Date Range filter
+      if (orderDateRange && orderDateRange[0] && orderDateRange[1]) {
+        if (!order.created_at) return false;
+        const orderTime = dayjs(order.created_at);
+        const start = dayjs(orderDateRange[0]).startOf('day');
+        const end = dayjs(orderDateRange[1]).endOf('day');
+        if (orderTime.isBefore(start) || orderTime.isAfter(end)) return false;
+      }
+
+      // 3. Search query filter
+      if (orderSearch.trim()) {
+        const query = orderSearch.toLowerCase().trim();
+        const uid = (order.order_uid || '').toLowerCase();
+        const idStr = String(order.id || '');
+        const custName = [order.customer?.firstname, order.customer?.lastname].filter(Boolean).join(' ').toLowerCase();
+        const custEmail = (order.customer?.email || '').toLowerCase();
+        const custPhone = (order.customer?.phonenumber || '').toLowerCase();
+        const addr = (typeof order.address === 'string' ? order.address : order.address?.address || '').toLowerCase();
+        const prodNames = (order.products || []).map(p => (p.product_name || '').toLowerCase()).join(' ');
+
+        const matches = uid.includes(query) ||
+                        idStr.includes(query) ||
+                        custName.includes(query) ||
+                        custEmail.includes(query) ||
+                        custPhone.includes(query) ||
+                        addr.includes(query) ||
+                        prodNames.includes(query);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [vendorData?.orders, orderStatusFilter, orderDateRange, orderSearch]);
+
+  const vendorOrderColumns = [
+    {
+      title: 'Order ID',
+      key: 'order_id',
+      width: 170,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
+            {record.order_uid || record.id || '-'}
+          </div>
+          {record.id && (
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+              ID: #{record.id}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Customer & Address',
+      key: 'customer',
+      width: 250,
+      render: (_, record) => {
+        const cust = record.customer || {};
+        const custName = [cust.firstname, cust.lastname].filter(Boolean).join(' ') || record.firstname || 'Customer';
+        const phone = [cust.prefix || record.prefix, cust.phonenumber || record.phonenumber].filter(Boolean).join(' ');
+        const email = cust.email || record.email;
+        const addrText = typeof record.address === 'string' ? record.address : record.address?.address;
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
+              {custName}
+            </div>
+            {(phone || email) && (
+              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                {phone && <span>{phone}</span>}
+                {phone && email && <span style={{ margin: '0 4px' }}>•</span>}
+                {email && <span style={{ wordBreak: 'break-all' }}>{email}</span>}
+              </div>
+            )}
+            {addrText && (
+              <div style={{ fontSize: '11.5px', color: '#475569', marginTop: 2, lineHeight: 1.3 }}>
+                📍 {addrText.length > 40 ? `${addrText.slice(0, 40)}...` : addrText}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Items & Products',
+      key: 'products',
+      render: (_, record) => {
+        const prods = record.products || [];
+        if (!prods.length) return <span style={{ color: '#94a3b8' }}>No items</span>;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {prods.map((p, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px' }}>
+                {p.product_image ? (
+                  <img src={p.product_image} alt="Prod" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
+                ) : (
+                  <Package size={16} color="#0284c7" />
+                )}
+                <span style={{ fontWeight: 600, color: '#1e293b' }}>{p.product_name}</span>
+                <Tag color="blue" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>x{p.product_quantity}</Tag>
+                <span style={{ color: '#64748b' }}>₹{Number(p.single_item_price || 0).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Qty',
+      dataIndex: 'total_quantity',
+      key: 'total_quantity',
+      align: 'center',
+      width: 65,
+      render: (qty) => <Badge count={qty || 0} style={{ backgroundColor: '#0284c7' }} />,
+    },
+    {
+      title: 'Total Amount',
+      key: 'total_price',
+      width: 140,
+      sorter: (a, b) => Number(a.overall_amount || a.total_price || 0) - Number(b.overall_amount || b.total_price || 0),
+      render: (_, record) => {
+        const amt = Number(record.overall_amount || record.total_price || 0);
+        return (
+          <div>
+            <div style={{ fontWeight: 700, color: '#088b46', fontSize: '14.5px' }}>
+              ₹{amt.toFixed(2)}
+            </div>
+            {Number(record.rider_deliveryCharge) > 0 && (
+              <span style={{ fontSize: '10.5px', color: '#0284c7' }}>
+                +₹{record.rider_deliveryCharge} Delivery
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'order_status',
+      key: 'order_status',
+      width: 140,
+      render: (statusVal) => {
+        const s = getVendorOrderStatus(statusVal);
+        return <Tag color={s.color} style={{ borderRadius: '12px', padding: '2px 10px', fontWeight: 600 }}>{s.text}</Tag>;
+      },
+    },
+    {
+      title: 'Order Date',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 140,
+      sorter: (a, b) => (new Date(a.created_at).getTime() || 0) - (new Date(b.created_at).getTime() || 0),
+      render: (text) => text ? new Date(text).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-',
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 80,
+      align: 'center',
+      render: (_, record) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<EyeOutlined />}
+          style={{ borderRadius: '6px', background: '#088b46', border: 'none' }}
+          onClick={() => setSelectedVendorOrder(record)}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
 
   useEffect(() => {
     const loadVendor = async () => {
@@ -672,39 +889,71 @@ const VendorDashboard = () => {
   return (
     <div className='p2' style={{ backgroundColor: '#f0f2f5',  }}>
       {/* Header */}
-      <Card  bodyStyle={{padding:6}} style={{ borderRadius: '0' ,padding:6}}>
-        <Row align="middle" justify="space-between">
-          <Col>
-            <div className="d-flex align-items-center">
+      <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, marginBottom: 16 }}>
+        <Row align="middle" justify="space-between" gutter={[16, 16]}>
+          <Col xs={24} md={16}>
+            <div className="d-flex align-items-center flex-wrap gap-3">
               <div 
-                className="d-flex align-items-center justify-content-center me-3"
+                className="d-flex align-items-center justify-content-center"
                 style={{
-                  width: '60px',
-                  height: '60px',
+                  width: '68px',
+                  height: '68px',
                   backgroundColor: THEME.primary,
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   color: 'white',
-                  fontSize: '20px',
-                  fontWeight: 'bold'
+                  fontSize: '22px',
+                  fontWeight: 'bold',
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}
               >
-                {vendorData?.profile_pic ? (
-                  <img src={vendorData.profile_pic} alt="Profile" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ccc' }} />
+                {vendorData?.store_image || vendorData?.profile_pic ? (
+                  <img src={vendorData.store_image || vendorData.profile_pic} alt="Store Profile" style={{ width: '68px', height: '68px', objectFit: 'cover' }} />
                 ) : (
-                  <span>{vendorData?.firstname?.[0]?.toUpperCase()}{vendorData?.lastname?.[0]?.toUpperCase()}</span>
+                  <span>{vendorData?.store_name?.[0]?.toUpperCase() || vendorData?.firstname?.[0]?.toUpperCase()}</span>
                 )}
               </div>
               <div>
-                <h3 className="mb-1">{vendorData?.store_name || '-'}</h3>
-                <p className="text-muted mb-0">ID: {vendorData?.custom_id || '-'}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <h3 className="mb-0" style={{ fontWeight: 700, color: '#0f172a' }}>{vendorData?.store_name || 'Vendor Store'}</h3>
+                  {vendorData?.username && (
+                    <Tag color="cyan" style={{ borderRadius: 6, fontWeight: 600 }}>@{vendorData.username}</Tag>
+                  )}
+                  {vendorData?.custom_id && (
+                    <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600 }}>ID: {vendorData.custom_id}</Tag>
+                  )}
+                </div>
+                <p className="text-muted mb-1" style={{ fontSize: 13, marginTop: 2 }}>
+                  👤 Owner: <strong>{`${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim() || 'N/A'}</strong>
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#475569' }}>
+                  {vendorData?.phonenumber && <span>📞 {formatPhone(vendorData.phonenumber, vendorData.prefix)}</span>}
+                  {vendorData?.email && <span>✉️ {vendorData.email}</span>}
+                  {vendorData?.vendor_start_time && vendorData?.vendor_close_time && (
+                    <span>⏱️ {convertTimeRange(vendorData.vendor_start_time, vendorData.vendor_close_time)}</span>
+                  )}
+                </div>
               </div>
             </div>
           </Col>
-          <Col>
-            <Badge 
-              status={vendorData?.is_verified === 1 ? 'success' : 'warning'}
-              text={vendorData?.is_verified === 1 ? 'Verified' : 'Pending Verification'}
-            />
+          <Col xs={24} md={8} style={{ textAlign: 'right' }}>
+            <Space direction="vertical" align="end" size={6}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Badge 
+                  status={vendorData?.is_verified === 1 ? 'success' : 'warning'}
+                  text={<span style={{ fontWeight: 600 }}>{vendorData?.is_verified === 1 ? 'Verified' : 'Pending Verification'}</span>}
+                />
+                <Badge 
+                  status={vendorData?.status === 1 ? 'processing' : 'default'}
+                  text={<span style={{ fontWeight: 600 }}>{vendorData?.status === 1 ? 'Active' : 'Inactive'}</span>}
+                />
+              </div>
+              {vendorData?.business_reg_number && (
+                <div style={{ fontSize: 12, color: '#64748b' }}>
+                  Reg: <strong>{vendorData.business_reg_number}</strong>
+                </div>
+              )}
+            </Space>
           </Col>
         </Row>
       </Card>
@@ -804,22 +1053,32 @@ const VendorDashboard = () => {
                   <InfoRow 
                     icon={<User size={16} />}
                     label="Full Name"
-                    value={`${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim()}
+                    value={`${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim() || 'N/A'}
+                  />
+                  <InfoRow 
+                    icon={<User size={16} />}
+                    label="Username"
+                    value={vendorData?.username ? `@${vendorData.username}` : 'N/A'}
                   />
                   <InfoRow 
                     icon={<Mail size={16} />}
                     label="Email Address"
-                    value={vendorData?.email || '-'}
+                    value={vendorData?.email || 'N/A'}
                   />
                   <InfoRow 
                     icon={<Phone size={16} />}
                     label="Phone Number"
-                    value={`${vendorData?.prefix || ''} ${vendorData?.phonenumber || ''}`.trim()}
+                    value={formatPhone(vendorData?.phonenumber, vendorData?.prefix)}
                   />
                   <InfoRow 
-                    icon={<MapPin size={16} />}
-                    label="Address"
-                    value={vendorData?.store_address || '-'}
+                    icon={<FileText size={16} />}
+                    label="SIN Code"
+                    value={vendorData?.sin_code || 'Not Provided'}
+                  />
+                  <InfoRow 
+                    icon={<Calendar size={16} />}
+                    label="Registration Date"
+                    value={vendorData?.created_at ? new Date(vendorData.created_at).toLocaleDateString() : 'N/A'}
                   />
                 </Card>
               </Col>
@@ -829,12 +1088,22 @@ const VendorDashboard = () => {
                   <InfoRow 
                     icon={<Package size={16} />}
                     label="Store Name"
-                    value={vendorData?.store_name || '-'}
+                    value={vendorData?.store_name || 'N/A'}
+                  />
+                  <InfoRow 
+                    icon={<MapPin size={16} />}
+                    label="Store Address"
+                    value={vendorData?.store_address || 'N/A'}
+                  />
+                  <InfoRow 
+                    icon={<Clock size={16} />}
+                    label="Operating Hours"
+                    value={(vendorData?.vendor_start_time && vendorData?.vendor_close_time && convertTimeRange(vendorData.vendor_start_time, vendorData.vendor_close_time)) || 'N/A'}
                   />
                   <InfoRow 
                     icon={<FileText size={16} />}
-                    label="Business Registration"
-                    value={vendorData?.business_reg_number || '-'}
+                    label="Business Registration Number"
+                    value={vendorData?.business_reg_number || 'Not Provided'}
                   />
                   <InfoRow 
                     icon={<FileText size={16} />}
@@ -842,9 +1111,9 @@ const VendorDashboard = () => {
                     value={vendorData?.gst_number || 'Not Provided'}
                   />
                   <InfoRow 
-                    icon={<Calendar size={16} />}
-                    label="Vendor ID"
-                    value={vendorData?.vendor_id || '-'}
+                    icon={<MapPin size={16} />}
+                    label="Store Coordinates (Lat / Lng)"
+                    value={vendorData?.vendor_lat && vendorData?.vendor_lng ? `${vendorData.vendor_lat}, ${vendorData.vendor_lng}` : 'Not Provided'}
                   />
                 </Card>
               </Col>
@@ -852,16 +1121,19 @@ const VendorDashboard = () => {
             
             <Row gutter={[16, 16]} className="mt-4">
               <Col xs={24}>
-                <Card title="All Documents">
+                <Card title="Verification & Legal Documents">
                   <Table 
                     columns={documentColumns} 
                     dataSource={vendorData ? [
-                      { key: '1', name: 'Business License', status: vendorData?.bussiness_license_number || vendorData?.bussiness_license_number_pic ? 'Uploaded' : 'Pending', url: vendorData?.bussiness_license_number_pic || null },
+                      { key: '1', name: 'Business License', status: (vendorData?.bussiness_license_number || vendorData?.bussiness_license_number_pic) ? 'Uploaded' : 'Pending', url: vendorData?.bussiness_license_number_pic || null },
                       { key: '2', name: 'GST Certificate', status: vendorData?.gst_number_pic ? 'Uploaded' : 'Pending', url: vendorData?.gst_number_pic || null },
                       { key: '3', name: 'Identity Proof', status: vendorData?.identity_proof ? 'Uploaded' : 'Pending', url: vendorData?.identity_proof || null },
                       { key: '4', name: 'Insurance Certificate', status: vendorData?.vendor_insurance_certificate ? 'Uploaded' : 'Pending', url: vendorData?.vendor_insurance_certificate || null },
-                      { key: '5', name: 'Health Certificate', status: vendorData?.health_inspection_certificate ? 'Uploaded' : 'Pending', url: vendorData?.health_inspection_certificate || null },
-                      { key: '6', name: 'Food Certificate', status: vendorData?.food_certificate ? 'Uploaded' : 'Pending', url: vendorData?.food_certificate || null }
+                      { key: '5', name: 'Health Inspection Certificate', status: vendorData?.health_inspection_certificate ? 'Uploaded' : 'Pending', url: vendorData?.health_inspection_certificate || null },
+                      { key: '6', name: 'Food Certificate', status: vendorData?.food_certificate ? 'Uploaded' : 'Pending', url: vendorData?.food_certificate || null },
+                      { key: '7', name: 'Void Cheque', status: vendorData?.void_cheque ? 'Uploaded' : 'Pending', url: vendorData?.void_cheque || null },
+                      { key: '8', name: 'Store Image', status: vendorData?.store_image ? 'Uploaded' : 'Pending', url: vendorData?.store_image || null },
+                      { key: '9', name: 'Profile Picture', status: vendorData?.profile_pic ? 'Uploaded' : 'Pending', url: vendorData?.profile_pic || null },
                     ] : []} 
                     pagination={false}
                     size="small"
@@ -875,50 +1147,53 @@ const VendorDashboard = () => {
           <TabPane tab={<span><Banknote size={16} /> Bank Details</span>} key="4">
             <Row gutter={[16, 16]}>
               <Col xs={24} lg={12}>
-                <Card title="Bank Account Information">
-                  <InfoRow 
-                    icon={<Banknote size={16} />}
-                    label="Account Number"
-                    value="****-****-****-1234"
-                  />
-                  <InfoRow 
-                    icon={<User size={16} />}
-                    label="Account Holder"
-                    value={`${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim()}
-                  />
+                <Card title="Bank Account Information" className="h-100">
                   <InfoRow 
                     icon={<Banknote size={16} />}
                     label="Bank Name"
-                    value="Sample Bank Ltd."
+                    value={vendorData?.bank_name || 'Not Provided'}
+                  />
+                  <InfoRow 
+                    icon={<User size={16} />}
+                    label="Account Holder Name"
+                    value={vendorData?.account_holder_name || `${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim() || 'Not Provided'}
                   />
                   <InfoRow 
                     icon={<FileText size={16} />}
-                    label="IFSC Code"
-                    value="SAMP0001234"
+                    label="Account Number"
+                    value={vendorData?.account_number || 'Not Provided'}
+                  />
+                  <InfoRow 
+                    icon={<FileText size={16} />}
+                    label="Transit Number"
+                    value={vendorData?.transit_number || 'Not Provided'}
+                  />
+                  <InfoRow 
+                    icon={<FileText size={16} />}
+                    label="Institution Number"
+                    value={vendorData?.institution_number || 'Not Provided'}
                   />
                 </Card>
               </Col>
 
               <Col xs={24} lg={12}>
-                <Card title="Payment Settings">
-                  <div className="mb-3">
-                    <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded">
-                      <span className="fw-bold">Auto Payout</span>
-                      <Badge status="success" text="Enabled" />
+                <Card title="Void Cheque Document" className="h-100">
+                  {vendorData?.void_cheque ? (
+                    <div style={{ textAlign: 'center', padding: '16px' }}>
+                      <Image
+                        src={vendorData.void_cheque}
+                        alt="Void Cheque"
+                        style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                        preview={{ zIndex: 3000 }}
+                      />
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>Click image to preview full resolution void cheque</div>
                     </div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded">
-                      <span className="fw-bold">Payout Schedule</span>
-                      <span>Weekly</span>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
+                      <FileText size={36} />
+                      <div style={{ marginTop: 8 }}>No Void Cheque Document Uploaded</div>
                     </div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded">
-                      <span className="fw-bold">Next Payout</span>
-                      <span>July 25, 2025</span>
-                    </div>
-                  </div>
+                  )}
                 </Card>
               </Col>
             </Row>
@@ -1024,8 +1299,180 @@ const VendorDashboard = () => {
               </div>
             )}
           </TabPane>
+
+          {/* Vendor Orders Tab */}
+          <TabPane tab={<span><ShoppingCart size={16} /> All Orders ({vendorData?.orders?.length || 0})</span>} key="5">
+            <Card style={{ marginBottom: 16, borderRadius: 8 }}>
+              {/* Filter Controls */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+                  <Input
+                    prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                    placeholder="Search order UID, customer, phone, address, product..."
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                    allowClear
+                    style={{ width: 320, borderRadius: 8 }}
+                  />
+
+                  <Select
+                    value={orderStatusFilter}
+                    onChange={setOrderStatusFilter}
+                    style={{ width: 170 }}
+                  >
+                    <Select.Option value="all">All Statuses</Select.Option>
+                    <Select.Option value="0">Pending</Select.Option>
+                    <Select.Option value="1">Confirmed</Select.Option>
+                    <Select.Option value="2">Delivery Assigned</Select.Option>
+                    <Select.Option value="3">Order Picked Up</Select.Option>
+                    <Select.Option value="4">Order Delivered</Select.Option>
+                    <Select.Option value="5">Order Rejected</Select.Option>
+                  </Select>
+
+                  <DatePicker.RangePicker
+                    value={orderDateRange}
+                    onChange={setOrderDateRange}
+                    style={{ borderRadius: 8 }}
+                  />
+
+                  {(orderSearch || orderStatusFilter !== 'all' || orderDateRange) && (
+                    <Button
+                      onClick={() => {
+                        setOrderSearch('');
+                        setOrderStatusFilter('all');
+                        setOrderDateRange(null);
+                      }}
+                    >
+                      Reset Filters
+                    </Button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 13, color: '#64748b' }}>
+                  Showing <strong>{vendorOrders.length}</strong> of {vendorData?.orders?.length || 0} orders
+                </div>
+              </div>
+
+              {/* Orders Table */}
+              <Table
+                columns={vendorOrderColumns}
+                dataSource={vendorOrders}
+                rowKey={(record) => record.id || record.order_uid}
+                pagination={{
+                  pageSize: 10,
+                  showSizeChanger: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} orders`,
+                }}
+                scroll={{ x: 'max-content' }}
+              />
+            </Card>
+          </TabPane>
         </Tabs>
       </div>
+
+      {/* Detailed View Modal for Vendor Order */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>
+              Order #{selectedVendorOrder?.order_uid || selectedVendorOrder?.id}
+            </span>
+            {selectedVendorOrder && (
+              <Tag color={getVendorOrderStatus(selectedVendorOrder.order_status).color} style={{ borderRadius: 12, fontWeight: 600 }}>
+                {getVendorOrderStatus(selectedVendorOrder.order_status).text}
+              </Tag>
+            )}
+          </div>
+        }
+        open={!!selectedVendorOrder}
+        onCancel={() => setSelectedVendorOrder(null)}
+        footer={null}
+        width={750}
+        style={{ top: 40 }}
+      >
+        {selectedVendorOrder && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
+            {/* Customer & Address Details */}
+            <Card size="small" title="Customer Details" style={{ borderRadius: 8, background: '#f8fafc' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                <div><strong>Name:</strong> {[selectedVendorOrder.customer?.firstname, selectedVendorOrder.customer?.lastname].filter(Boolean).join(' ') || selectedVendorOrder.firstname || '-'}</div>
+                <div><strong>Email:</strong> {selectedVendorOrder.customer?.email || selectedVendorOrder.email || '-'}</div>
+                <div><strong>Phone:</strong> {[selectedVendorOrder.customer?.prefix || selectedVendorOrder.prefix, selectedVendorOrder.customer?.phonenumber || selectedVendorOrder.phonenumber].filter(Boolean).join(' ') || '-'}</div>
+                <div><strong>Delivery Address:</strong> {typeof selectedVendorOrder.address === 'string' ? selectedVendorOrder.address : selectedVendorOrder.address?.address || '-'}</div>
+              </div>
+            </Card>
+
+            {/* Product Table */}
+            <Card size="small" title="Order Items" style={{ borderRadius: 8 }}>
+              <Table
+                dataSource={selectedVendorOrder.products || []}
+                rowKey={(p, idx) => idx}
+                pagination={false}
+                size="small"
+                columns={[
+                  {
+                    title: 'Item',
+                    dataIndex: 'product_name',
+                    render: (text, record) => (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {record.product_image && (
+                          <img src={record.product_image} alt="Product" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} />
+                        )}
+                        <span style={{ fontWeight: 600 }}>{text}</span>
+                      </div>
+                    ),
+                  },
+                  {
+                    title: 'Qty',
+                    dataIndex: 'product_quantity',
+                    align: 'center',
+                    render: (q) => <Tag color="blue">{q}</Tag>,
+                  },
+                  {
+                    title: 'Unit Price',
+                    dataIndex: 'single_item_price',
+                    align: 'right',
+                    render: (p) => `₹${Number(p || 0).toFixed(2)}`,
+                  },
+                  {
+                    title: 'Total',
+                    dataIndex: 'total_item_price',
+                    align: 'right',
+                    render: (p) => <strong style={{ color: '#088b46' }}>₹{Number(p || 0).toFixed(2)}</strong>,
+                  },
+                ]}
+              />
+            </Card>
+
+            {/* Price Summary */}
+            <Card size="small" title="Financial Summary" style={{ borderRadius: 8, background: '#f0fdf4' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Items Total:</span>
+                  <strong>₹{Number(selectedVendorOrder.total_price || 0).toFixed(2)}</strong>
+                </div>
+                {Number(selectedVendorOrder.rider_deliveryCharge) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Delivery Charge:</span>
+                    <span>+₹{Number(selectedVendorOrder.rider_deliveryCharge).toFixed(2)}</span>
+                  </div>
+                )}
+                {Number(selectedVendorOrder.tip_amount) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Tip:</span>
+                    <span>+₹{Number(selectedVendorOrder.tip_amount).toFixed(2)}</span>
+                  </div>
+                )}
+                <Divider style={{ margin: '6px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#088b46' }}>
+                  <span>Overall Amount:</span>
+                  <span>₹{Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

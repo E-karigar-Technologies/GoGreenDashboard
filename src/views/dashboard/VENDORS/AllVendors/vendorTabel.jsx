@@ -24,49 +24,55 @@ export default function VendorTable() {
 
   const columns = [
     {
-      title: '#',
-      key: 'srno',
-      width: 60,
-      render: (text, record, index) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(page - 1) * pageSize + index + 1}</span>,
-      align: 'center',
-    },
-    {
-      title: 'Store',
-      dataIndex: 'store_image',
-      key: 'storeImage',
-      render: (img, record) => (
-        <Avatar
-          size={44}
-          src={img}
-          alt="store"
-          style={{ border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}
-        >
-          {record.store_name ? record.store_name.charAt(0).toUpperCase() : 'S'}
-        </Avatar>
-      ),
-      width: 65,
-    },
-    {
-      title: 'Store Details',
-      dataIndex: 'store_name',
-      key: 'storeName',
-      render: (text, record) => (
-        <div>
-          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
-            {text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unnamed Store'}
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-            📍 {record.store_address || 'Address not available'}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Customer ID',
+      title: 'Custom ID',
       dataIndex: 'custom_id',
       key: 'customId',
-      width: 130,
-      render: (text) => <Tag color="blue" style={{ borderRadius: '6px' }}>{text || '-'}</Tag>,
+      width: 170,
+      render: (text) => <Tag color="blue" style={{ borderRadius: '6px', fontWeight: 600 }}>{text || '-'}</Tag>,
+    },
+    {
+      title: 'Store & Owner Details',
+      dataIndex: 'store_name',
+      key: 'storeName',
+      render: (text, record) => {
+        const ownerName = [record.firstname, record.lastname].filter(Boolean).join(' ');
+        const imgSrc = record.store_image || record.profile_pic;
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar
+              size={48}
+              src={imgSrc}
+              alt="store"
+              style={{
+                border: '2px solid #e2e8f0',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                flexShrink: 0,
+              }}
+            >
+              {record.store_name ? record.store_name.charAt(0).toUpperCase() : 'S'}
+            </Avatar>
+            <div>
+              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>
+                {text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Unnamed Store'}
+              </div>
+              {ownerName && (
+                <div style={{ fontSize: 12.5, color: '#334155', fontWeight: 500, marginTop: 1 }}>
+                  👤 {ownerName}{' '}
+                  {record.username ? (
+                    <Tag color="cyan" style={{ fontSize: 10, padding: '0 4px', margin: '0 0 0 4px', borderRadius: 4 }}>
+                      @{record.username}
+                    </Tag>
+                  ) : null}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                📍 {record.store_address || 'Address not available'}
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       title: 'Operating Hours',
