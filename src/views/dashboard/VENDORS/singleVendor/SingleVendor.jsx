@@ -265,7 +265,7 @@ const styles = {
 
 const VendorDashboard = () => {
   // State management
-  const [activeTab, setActiveTab] = useState("1");
+  const [activeTab, setActiveTab] = useState("5");
   const [analyticsView, setAnalyticsView] = useState('daily');
   const [rangeLoading, setRangeLoading] = useState(false);
   const [selectedStart, setSelectedStart] = useState(null);
@@ -640,6 +640,15 @@ const VendorDashboard = () => {
       }
 
       return true;
+    });
+
+    // Sort DESC (newest orders first)
+    tableOrders.sort((a, b) => {
+      const dateA = a.order_date || a.created_at;
+      const dateB = b.order_date || b.created_at;
+      const timeA = dateA ? new Date(dateA).getTime() : Number(a.id || 0);
+      const timeB = dateB ? new Date(dateB).getTime() : Number(b.id || 0);
+      return timeB - timeA;
     });
 
     const grossVendorShare = totalDeliveredVendorShare + pendingVendorShare;
@@ -1124,90 +1133,6 @@ const VendorDashboard = () => {
       {/* Main Content */}
       <div className="contai44ner-fluid">
         <Tabs activeKey={activeTab} onChange={setActiveTab} tabBarStyle={{backgroundColor:"white",paddingLeft:10}} size="large">
-          {/* Overview Tab */}
-          <TabPane tab={<span><Eye size={16} /> Overview</span>} key="1">
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12} md={6}>
-                <StatCard
-                  title="Delivered Revenue"
-                  value={`₹${(vendorAnalyticsMetrics?.totalDeliveredVendorShare || 0).toFixed(2)}`}
-                  icon={<DollarSign size={16} />}
-                  trend="up"
-                  trendValue={`${vendorAnalyticsMetrics?.deliveredCount || 0} Delivered`}
-                  color="#52c41a"
-                />
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <StatCard
-                  title="Pending Revenue"
-                  value={`₹${(vendorAnalyticsMetrics?.pendingVendorShare || 0).toFixed(2)}`}
-                  icon={<Clock size={16} />}
-                  trend="up"
-                  trendValue={`${vendorAnalyticsMetrics?.pendingCount || 0} Pending`}
-                  color="#faad14"
-                />
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <StatCard
-                  title="Total Placed Orders"
-                  value={vendorAnalyticsMetrics?.totalOrdersCount || vendorData?.orders?.length || 0}
-                  icon={<ShoppingCart size={16} />}
-                  trend="up"
-                  trendValue="Total Orders"
-                  color={THEME.primary}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <StatCard
-                  title="Admin Commission"
-                  value={`₹${(vendorAnalyticsMetrics?.totalAdminCommission || 0).toFixed(2)}`}
-                  icon={<CreditCard size={16} />}
-                  trend="up"
-                  trendValue="Retained Commission"
-                  color="#722ed1"
-                />
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} className="mt-4">
-              <Col xs={24} lg={12}>
-                <Card title="Daily Earnings Trend" className="h-100">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={mappedOverviewData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" />
-                      <YAxis />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="earnings" stroke={THEME.primary} fill={THEME.primary} fillOpacity={0.15} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </Card>
-              </Col>
-
-              <Col xs={24} lg={12}>
-                <Card title="Sales by Category" className="h-100">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Card>
-              </Col>
-            </Row>
-          </TabPane>
-
           {/* Owner & Store Details Tab */}
           <TabPane tab={<span><User size={16} /> Owner & Store Details</span>} key="2">
             <Row gutter={[16, 16]}>
