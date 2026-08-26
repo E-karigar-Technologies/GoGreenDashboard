@@ -268,10 +268,10 @@ const VendorDashboard = () => {
   const [activeTab, setActiveTab] = useState("1");
   const [analyticsView, setAnalyticsView] = useState('daily');
   const [rangeLoading, setRangeLoading] = useState(false);
-  const [selectedStart, setSelectedStart] = useState(dayjs().startOf('day'));
-  const [selectedEnd, setSelectedEnd] = useState(dayjs().endOf('day'));
-  const [tempStart, setTempStart] = useState(dayjs().startOf('day'));
-  const [tempEnd, setTempEnd] = useState(dayjs().endOf('day'));
+  const [selectedStart, setSelectedStart] = useState(null);
+  const [selectedEnd, setSelectedEnd] = useState(null);
+  const [tempStart, setTempStart] = useState(null);
+  const [tempEnd, setTempEnd] = useState(null);
   const [rangeData, setRangeData] = useState([]);
   const [rangeTotals, setRangeTotals] = useState({ earnings: 0, orders: 0, customers: 0 });
   const [rangePreviousTotals, setRangePreviousTotals] = useState({ earnings: 0, orders: 0, customers: 0 });
@@ -279,7 +279,7 @@ const VendorDashboard = () => {
   const [overviewPreviousTotals, setOverviewPreviousTotals] = useState({ earnings: 0, orders: 0, customers: 0 });
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewData, setOverviewData] = useState([]);
-  const [datePreset, setDatePreset] = useState('today');
+  const [datePreset, setDatePreset] = useState('all');
   // Using AntD Image built-in preview; no custom modal
   
   // Local DateRangeSelector component has been removed in favor of the imported one
@@ -319,10 +319,12 @@ const VendorDashboard = () => {
   const vendorOrders = React.useMemo(() => {
     const rawOrders = Array.isArray(vendorData?.orders) ? [...vendorData.orders] : [];
     
-    // Sort DESC (newest first)
+    // Sort DESC (newest first based on order_date or created_at)
     rawOrders.sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : (a.id || 0);
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : (b.id || 0);
+      const dateA = a.order_date || a.created_at;
+      const dateB = b.order_date || b.created_at;
+      const timeA = dateA ? new Date(dateA).getTime() : (a.id || 0);
+      const timeB = dateB ? new Date(dateB).getTime() : (b.id || 0);
       return timeB - timeA;
     });
 
@@ -335,9 +337,10 @@ const VendorDashboard = () => {
       }
 
       // 2. Date Range filter
+      const dateVal = order.order_date || order.created_at;
       if (orderDateRange && orderDateRange[0] && orderDateRange[1]) {
-        if (!order.created_at) return false;
-        const orderTime = dayjs(order.created_at);
+        if (!dateVal) return false;
+        const orderTime = dayjs(dateVal);
         const start = dayjs(orderDateRange[0]).startOf('day');
         const end = dayjs(orderDateRange[1]).endOf('day');
         if (orderTime.isBefore(start) || orderTime.isAfter(end)) return false;
@@ -451,22 +454,31 @@ const VendorDashboard = () => {
       render: (qty) => <Badge count={qty || 0} style={{ backgroundColor: '#0284c7' }} />,
     },
     {
-      title: 'Total Amount',
-      key: 'total_price',
-      width: 140,
-      sorter: (a, b) => Number(a.overall_amount || a.total_price || 0) - Number(b.overall_amount || b.total_price || 0),
+      title: 'Vendor Share (Payout)',
+      key: 'vendor_share',
+      width: 180,
+      sorter: (a, b) => Number(a.vendor_share || a.total_price || 0) - Number(b.vendor_share || b.total_price || 0),
       render: (_, record) => {
-        const amt = Number(record.overall_amount || record.total_price || 0);
+        const totalAmt = Number(record.overall_amount || record.total_price || 0);
+        const vendorShare = Number(record.vendor_share !== undefined && record.vendor_share !== null ? record.vendor_share : totalAmt);
+        const adminCommission = Math.max(0, totalAmt - vendorShare);
+
         return (
           <div>
             <div style={{ fontWeight: 700, color: '#088b46', fontSize: '14.5px' }}>
-              ₹{amt.toFixed(2)}
-            </div>
-            {Number(record.rider_deliveryCharge) > 0 && (
-              <span style={{ fontSize: '10.5px', color: '#0284c7' }}>
-                +₹{record.rider_deliveryCharge} Delivery
+              ₹{vendorShare.toFixed(2)}
+              <span style={{ fontSize: '10px', color: '#16a34a', marginLeft: 4, fontWeight: 600 }}>
+                (Vendor Payout)
               </span>
-            )}
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: 1 }}>
+              Total: <strong>₹{totalAmt.toFixed(2)}</strong>
+              {adminCommission > 0 && (
+                <span style={{ color: '#d97706', marginLeft: 4 }}>
+                  • Comm: <strong>₹{adminCommission.toFixed(2)}</strong>
+                </span>
+              )}
+            </div>
           </div>
         );
       },
@@ -483,11 +495,26 @@ const VendorDashboard = () => {
     },
     {
       title: 'Order Date',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 140,
-      sorter: (a, b) => (new Date(a.created_at).getTime() || 0) - (new Date(b.created_at).getTime() || 0),
-      render: (text) => text ? new Date(text).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-',
+      key: 'order_date',
+      width: 160,
+      sorter: (a, b) => {
+        const dateA = a.order_date || a.created_at;
+        const dateB = b.order_date || b.created_at;
+        return (new Date(dateA).getTime() || 0) - (new Date(dateB).getTime() || 0);
+      },
+      render: (_, record) => {
+        const dateVal = record.order_date || record.created_at;
+        return dateVal ? (
+          <div>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12.5px' }}>
+              {dayjs(dateVal).format('DD MMM YYYY')}
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              {dayjs(dateVal).format('hh:mm A')}
+            </div>
+          </div>
+        ) : '-';
+      },
     },
     {
       title: 'Action',
@@ -507,6 +534,142 @@ const VendorDashboard = () => {
       ),
     },
   ];
+
+  const [analyticsSearch, setAnalyticsSearch] = useState('');
+  const [analyticsStatusFilter, setAnalyticsStatusFilter] = useState('all');
+  const [analyticsTypeFilter, setAnalyticsTypeFilter] = useState('all');
+
+  // Analytics revenue & orders calculation hook
+  const vendorAnalyticsMetrics = React.useMemo(() => {
+    const rawOrders = Array.isArray(vendorData?.orders) ? vendorData.orders : [];
+
+    // Filter orders by selectedStart & selectedEnd date range
+    const filteredOrders = rawOrders.filter(o => {
+      const dateVal = o.order_date || o.created_at;
+      if (!selectedStart || !selectedEnd) return true;
+      if (!dateVal) return true;
+      const orderDate = dayjs(dateVal);
+      return (orderDate.isAfter(selectedStart.startOf('day')) || orderDate.isSame(selectedStart.startOf('day'))) &&
+             (orderDate.isBefore(selectedEnd.endOf('day')) || orderDate.isSame(selectedEnd.endOf('day')));
+    });
+
+    let totalDeliveredVendorShare = 0; // Final amount received by vendor for delivered orders
+    let pendingVendorShare = 0;        // Final amount for pending orders
+    let totalAdminCommission = 0;      // Total commission assigned to admin
+    let grossTotalOrderPrice = 0;      // Gross total order value
+
+    let deliveredCount = 0;
+    let pendingCount = 0;
+    let confirmedCount = 0;
+    let pickedUpCount = 0;
+    let rejectedCount = 0;
+
+    const dailyMap = {};
+
+    filteredOrders.forEach(o => {
+      const totalAmt = Number(o.overall_amount || o.total_price || 0);
+      const vendorShare = Number(o.vendor_share !== undefined && o.vendor_share !== null ? o.vendor_share : totalAmt);
+      const adminCommission = Math.max(0, totalAmt - vendorShare);
+      const status = o.order_status === null || o.order_status === undefined ? 0 : Number(o.order_status);
+      const dateVal = o.order_date || o.created_at;
+      const dateKey = dateVal ? dayjs(dateVal).format('MMM DD') : 'Other';
+
+      if (!dailyMap[dateKey]) {
+        dailyMap[dateKey] = { label: dateKey, deliveredRevenue: 0, pendingRevenue: 0, vendorShare: 0, adminCommission: 0, orders: 0 };
+      }
+      dailyMap[dateKey].orders += 1;
+      grossTotalOrderPrice += totalAmt;
+
+      if (status === 4) {
+        // Delivered
+        totalDeliveredVendorShare += vendorShare;
+        totalAdminCommission += adminCommission;
+        deliveredCount++;
+        dailyMap[dateKey].deliveredRevenue += vendorShare;
+        dailyMap[dateKey].adminCommission += adminCommission;
+      } else if (status === 5) {
+        // Rejected
+        rejectedCount++;
+      } else {
+        // Pending / Processing
+        pendingVendorShare += vendorShare;
+        dailyMap[dateKey].pendingRevenue += vendorShare;
+        if (status === 1) confirmedCount++;
+        else if (status === 3) pickedUpCount++;
+        else pendingCount++;
+      }
+    });
+
+    // Compute table filtered orders
+    const tableOrders = filteredOrders.filter(order => {
+      const status = order.order_status === null || order.order_status === undefined ? 0 : Number(order.order_status);
+      const totalAmt = Number(order.overall_amount || order.total_price || 0);
+      const vendorShare = Number(order.vendor_share !== undefined && order.vendor_share !== null ? order.vendor_share : totalAmt);
+      const comm = Math.max(0, totalAmt - vendorShare);
+
+      // 1. Status Filter
+      if (analyticsStatusFilter !== 'all' && status !== Number(analyticsStatusFilter)) {
+        return false;
+      }
+
+      // 2. Revenue Type Filter
+      if (analyticsTypeFilter === 'delivered' && status !== 4) return false;
+      if (analyticsTypeFilter === 'pending' && (status === 4 || status === 5)) return false;
+      if (analyticsTypeFilter === 'commission' && comm <= 0) return false;
+      if (analyticsTypeFilter === 'rejected' && status !== 5) return false;
+
+      // 3. Search Filter
+      if (analyticsSearch.trim()) {
+        const query = analyticsSearch.toLowerCase().trim();
+        const uid = (order.order_uid || '').toLowerCase();
+        const idStr = String(order.id || '');
+        const custName = [order.customer?.firstname, order.customer?.lastname].filter(Boolean).join(' ').toLowerCase();
+        const custEmail = (order.customer?.email || '').toLowerCase();
+        const custPhone = (order.customer?.phonenumber || '').toLowerCase();
+        const addr = (typeof order.address === 'string' ? order.address : order.address?.address || '').toLowerCase();
+        const prodNames = (order.products || []).map(p => (p.product_name || '').toLowerCase()).join(' ');
+
+        const matches = uid.includes(query) ||
+                        idStr.includes(query) ||
+                        custName.includes(query) ||
+                        custEmail.includes(query) ||
+                        custPhone.includes(query) ||
+                        addr.includes(query) ||
+                        prodNames.includes(query);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+
+    const grossVendorShare = totalDeliveredVendorShare + pendingVendorShare;
+    const totalOrdersCount = filteredOrders.length;
+    const avgOrderValue = totalOrdersCount > 0 ? (grossTotalOrderPrice / totalOrdersCount) : 0;
+    const chartTrendData = Object.values(dailyMap);
+
+    const statusDistribution = [
+      { name: 'Delivered Payout', value: totalDeliveredVendorShare, color: '#52c41a' },
+      { name: 'Pending Payout', value: pendingVendorShare, color: '#faad14' },
+      { name: 'Admin Commission', value: totalAdminCommission, color: '#722ed1' },
+    ].filter(item => item.value > 0);
+
+    return {
+      filteredOrders,
+      tableOrders,
+      totalOrdersCount,
+      grossTotalOrderPrice,
+      grossVendorShare,
+      totalDeliveredVendorShare,
+      pendingVendorShare,
+      totalAdminCommission,
+      deliveredCount,
+      pendingCount: pendingCount + confirmedCount + pickedUpCount,
+      rejectedCount,
+      avgOrderValue,
+      chartTrendData,
+      statusDistribution
+    };
+  }, [vendorData?.orders, selectedStart, selectedEnd, analyticsSearch, analyticsStatusFilter, analyticsTypeFilter]);
 
   useEffect(() => {
     const loadVendor = async () => {
@@ -966,42 +1129,42 @@ const VendorDashboard = () => {
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12} md={6}>
                 <StatCard
-                  title="Total Earnings"
-                  value={Number(overviewTotals.earnings || 0)}
+                  title="Delivered Revenue"
+                  value={`₹${(vendorAnalyticsMetrics?.totalDeliveredVendorShare || 0).toFixed(2)}`}
                   icon={<DollarSign size={16} />}
-                  trend={calculateTrend(overviewTotals.earnings, overviewPreviousTotals.earnings).trend}
-                  trendValue={calculateTrend(overviewTotals.earnings, overviewPreviousTotals.earnings).percentText}
-                  color={THEME.primary}
+                  trend="up"
+                  trendValue={`${vendorAnalyticsMetrics?.deliveredCount || 0} Delivered`}
+                  color="#52c41a"
                 />
               </Col>
               <Col xs={24} sm={12} md={6}>
                 <StatCard
-                  title="Total Orders"
-                  value={Number(overviewTotals.orders || 0)}
+                  title="Pending Revenue"
+                  value={`₹${(vendorAnalyticsMetrics?.pendingVendorShare || 0).toFixed(2)}`}
+                  icon={<Clock size={16} />}
+                  trend="up"
+                  trendValue={`${vendorAnalyticsMetrics?.pendingCount || 0} Pending`}
+                  color="#faad14"
+                />
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <StatCard
+                  title="Total Placed Orders"
+                  value={vendorAnalyticsMetrics?.totalOrdersCount || vendorData?.orders?.length || 0}
                   icon={<ShoppingCart size={16} />}
-                  trend={calculateTrend(overviewTotals.orders, overviewPreviousTotals.orders).trend}
-                  trendValue={calculateTrend(overviewTotals.orders, overviewPreviousTotals.orders).percentText}
+                  trend="up"
+                  trendValue="Total Orders"
                   color={THEME.primary}
                 />
               </Col>
               <Col xs={24} sm={12} md={6}>
                 <StatCard
-                  title="Active Products"
-                  value={142}
-                  icon={<Package size={16} />}
-                  trend={undefined}
-                  trendValue={undefined}
-                  color={THEME.primary}
-                />
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <StatCard
-                  title="Customer Rating"
-                  value={4.8}
-                  icon={<Star size={16} />}
-                  trend={undefined}
-                  trendValue={undefined}
-                  color={THEME.warning}
+                  title="Admin Commission"
+                  value={`₹${(vendorAnalyticsMetrics?.totalAdminCommission || 0).toFixed(2)}`}
+                  icon={<CreditCard size={16} />}
+                  trend="up"
+                  trendValue="Retained Commission"
+                  color="#722ed1"
                 />
               </Col>
             </Row>
@@ -1199,164 +1362,211 @@ const VendorDashboard = () => {
             </Row>
           </TabPane>
 
-          {/* Analytics Tab */}
-          <TabPane tab={<span><BarChart2 size={16} /> Analytics</span>} key="3">
+          {/* Vendor Orders & Analytics Tab */}
+          <TabPane tab={<span><ShoppingCart size={16} /> All Orders & Analytics ({vendorData?.orders?.length || 0})</span>} key="5">
+            {/* Filter Header & Controls */}
+            <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 8, marginBottom: 16 }}>
+              <div className="d-flex align-items-center justify-content-between flex-md-row flex-column gap-3 mb-3">
+                <div>
+                  <h4 className="mb-0" style={{ fontWeight: 700, color: '#0f172a' }}>All Orders, Revenue & Analytics</h4>
+                  <p className="text-muted mb-0" style={{ fontSize: 12 }}>
+                    Real-time revenue metrics, delivered payout, admin commission, pending orders, and full order history.
+                  </p>
+                </div>
+                <div className="d-flex align-items-center" style={{ gap: 12 }}>
+                  <DateRangeSelector
+                    preset={datePreset}
+                    start={tempStart}
+                    end={tempEnd}
+                    onChange={({ preset, start, end }) => {
+                      setDatePreset(preset);
+                      setTempStart(start);
+                      setTempEnd(end);
+                      setSelectedStart(start);
+                      setSelectedEnd(end);
+                      fetchAnalytics(start, end);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Filter Controls Bar */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Input
+                  prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                  placeholder="Search order UID, customer, phone, address, product..."
+                  value={analyticsSearch}
+                  onChange={(e) => setAnalyticsSearch(e.target.value)}
+                  allowClear
+                  style={{ width: 300, borderRadius: 8 }}
+                />
+
+                <Select
+                  value={analyticsStatusFilter}
+                  onChange={setAnalyticsStatusFilter}
+                  style={{ width: 170 }}
+                >
+                  <Select.Option value="all">All Order Statuses</Select.Option>
+                  <Select.Option value="4">Delivered</Select.Option>
+                  <Select.Option value="0">Pending</Select.Option>
+                  <Select.Option value="1">Confirmed</Select.Option>
+                  <Select.Option value="2">Delivery Assigned</Select.Option>
+                  <Select.Option value="3">Order Picked Up</Select.Option>
+                  <Select.Option value="5">Rejected</Select.Option>
+                </Select>
+
+                <Select
+                  value={analyticsTypeFilter}
+                  onChange={setAnalyticsTypeFilter}
+                  style={{ width: 190 }}
+                >
+                  <Select.Option value="all">All Revenue Types</Select.Option>
+                  <Select.Option value="delivered">Delivered Payout Only</Select.Option>
+                  <Select.Option value="pending">Pending Payout Only</Select.Option>
+                  <Select.Option value="commission">Admin Commission Only</Select.Option>
+                  <Select.Option value="rejected">Rejected Loss Only</Select.Option>
+                </Select>
+
+                {(analyticsSearch || analyticsStatusFilter !== 'all' || analyticsTypeFilter !== 'all') && (
+                  <Button
+                    onClick={() => {
+                      setAnalyticsSearch('');
+                      setAnalyticsStatusFilter('all');
+                      setAnalyticsTypeFilter('all');
+                    }}
+                  >
+                    Reset Filters
+                  </Button>
+                )}
+
+                <div style={{ fontSize: 13, color: '#64748b', marginLeft: 'auto' }}>
+                  Showing <strong>{vendorAnalyticsMetrics?.tableOrders?.length || 0}</strong> of {vendorData?.orders?.length || 0} orders
+                </div>
+              </div>
+            </Card>
+
+            {/* Financial Stat Cards Grid */}
             <Row gutter={[16, 16]} className="mb-4">
-              <Col xs={24}>
-                <Card>
-                  <div className="d-flex alisgn-items-center justify-content-between flex-md-row flex-column">
-                    <h4 className="mb-0">Analytics </h4>
-                    <div className="d-flex align-items-center " style={{ gap: 12 }}>
-                      <DateRangeSelector
-                        preset={datePreset}
-                        start={tempStart}
-                        end={tempEnd}
-                        onChange={({ preset, start, end }) => {
-                          setDatePreset(preset);
-                          setTempStart(start);
-                          setTempEnd(end);
-                          setSelectedStart(start);
-                          setSelectedEnd(end);
-                          fetchAnalytics(start, end);
-                        }}
-                      />
-                    </div>
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: `4px solid ${THEME.primary}` }}>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Net Vendor Share (Payout)</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#088b46', marginTop: 4 }}>
+                    ₹{(vendorAnalyticsMetrics?.totalDeliveredVendorShare || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>
+                    {vendorAnalyticsMetrics?.deliveredCount || 0} Delivered Orders
                   </div>
                 </Card>
-                {/* custom inline picker removed in favor of reusable DateRangeSelector */}
+              </Col>
+
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #faad14' }}>
+                  <div style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>Pending Vendor Payout</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#d97706', marginTop: 4 }}>
+                    ₹{(vendorAnalyticsMetrics?.pendingVendorShare || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#d97706', marginTop: 4 }}>
+                    {vendorAnalyticsMetrics?.pendingCount || 0} Pending Orders
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #722ed1' }}>
+                  <div style={{ fontSize: 12, color: '#722ed1', fontWeight: 600 }}>Admin Commission</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#722ed1', marginTop: 4 }}>
+                    ₹{(vendorAnalyticsMetrics?.totalAdminCommission || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#722ed1', marginTop: 4 }}>
+                    Commission Retained
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #0284c7' }}>
+                  <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600 }}>Gross Order Value</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0284c7', marginTop: 4 }}>
+                    ₹{(vendorAnalyticsMetrics?.grossTotalOrderPrice || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#0284c7', marginTop: 4 }}>
+                    {vendorAnalyticsMetrics?.totalOrdersCount || 0} Total Orders
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #8b5cf6' }}>
+                  <div style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Avg Order Value</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#7c3aed', marginTop: 4 }}>
+                    ₹{(vendorAnalyticsMetrics?.avgOrderValue || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 4 }}>
+                    Per Order Average
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={8} lg={4}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #f5222d' }}>
+                  <div style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Rejected Orders</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626', marginTop: 4 }}>
+                    {vendorAnalyticsMetrics?.rejectedCount || 0}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#dc2626', marginTop: 4 }}>
+                    Cancelled Orders
+                  </div>
+                </Card>
               </Col>
             </Row>
 
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={8}>
-                <StatCard
-                  title="Total Earnings"
-                  value={Number(effectiveTotals.earnings || 0)}
-                  icon={<DollarSign size={20} />}
-                  trend={calculateTrend(effectiveTotals.earnings, rangePreviousTotals.earnings).trend}
-                  trendValue={calculateTrend(effectiveTotals.earnings, rangePreviousTotals.earnings).percentText}
-                  // color="#52c41a"
-                  // suffix="$"
-                />
-              </Col>
-              <Col xs={24} md={8}>
-                <StatCard
-                  title="Total Orders"
-                  value={Number(effectiveTotals.orders || 0)}
-                  icon={<ShoppingCart size={20} />}
-                  trend={calculateTrend(effectiveTotals.orders, rangePreviousTotals.orders).trend}
-                  trendValue={calculateTrend(effectiveTotals.orders, rangePreviousTotals.orders).percentText}
-                  // color="#1890ff"
-                />
-              </Col>
-              <Col xs={24} md={8}>
-                <StatCard
-                  title="Total Customers"
-                  value={Number(effectiveTotals.customers || 0)}
-                  icon={<TrendingUp size={20} />}
-                  trend={calculateTrend(effectiveTotals.customers, rangePreviousTotals.customers).trend}
-                  trendValue={calculateTrend(effectiveTotals.customers, rangePreviousTotals.customers).percentText}
-                  // color="#722ed1"
-                />
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} className="mt-4">
-              <Col xs={24} lg={12}>
-                <Card title="Earnings Trend" className="h-100">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart data={mappedRangeData}>
+            {/* Analytics Charts */}
+            <Row gutter={[16, 16]} className="mb-4">
+              <Col xs={24} lg={14}>
+                <Card title="Vendor Payout & Pending Trend" className="h-100">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <AreaChart data={vendorAnalyticsMetrics?.chartTrendData?.length > 0 ? vendorAnalyticsMetrics.chartTrendData : mappedRangeData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
                       <YAxis />
-                      <Tooltip />
-                      <Area type="monotone" dataKey={'earnings'} stroke={THEME.primary} fill={THEME.primary} fillOpacity={0.15} />
+                      <Tooltip formatter={(value) => `₹${Number(value).toFixed(2)}`} />
+                      <Legend />
+                      <Area type="monotone" dataKey="deliveredRevenue" name="Delivered Vendor Share" stroke="#52c41a" fill="#52c41a" fillOpacity={0.2} />
+                      <Area type="monotone" dataKey="pendingRevenue" name="Pending Vendor Share" stroke="#faad14" fill="#faad14" fillOpacity={0.2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </Card>
               </Col>
 
-              <Col xs={24} lg={12}>
-                <Card title="Orders & Customers" className="h-100">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={mappedRangeData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="orders" fill={THEME.primary} />
-                      <Bar dataKey="customers" fill={THEME.warning} />
-                    </BarChart>
+              <Col xs={24} lg={10}>
+                <Card title="Order Status Breakdown" className="h-100">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <PieChart>
+                      <Pie
+                        data={vendorAnalyticsMetrics?.statusDistribution?.length > 0 ? vendorAnalyticsMetrics.statusDistribution : categoryData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ₹${Number(value).toFixed(2)}`}
+                      >
+                        {(vendorAnalyticsMetrics?.statusDistribution?.length > 0 ? vendorAnalyticsMetrics.statusDistribution : categoryData).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(val) => `₹${Number(val).toFixed(2)}`} />
+                      <Legend />
+                    </PieChart>
                   </ResponsiveContainer>
                 </Card>
               </Col>
             </Row>
 
-            {rangeLoading && (
-              <div className="d-flex justify-content-center align-items-center mt-3 mb-3">
-                <Spin size="small" />
-                <span className="ms-2">Loading...</span>
-              </div>
-            )}
-          </TabPane>
-
-          {/* Vendor Orders Tab */}
-          <TabPane tab={<span><ShoppingCart size={16} /> All Orders ({vendorData?.orders?.length || 0})</span>} key="5">
-            <Card style={{ marginBottom: 16, borderRadius: 8 }}>
-              {/* Filter Controls */}
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
-                  <Input
-                    prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                    placeholder="Search order UID, customer, phone, address, product..."
-                    value={orderSearch}
-                    onChange={(e) => setOrderSearch(e.target.value)}
-                    allowClear
-                    style={{ width: 320, borderRadius: 8 }}
-                  />
-
-                  <Select
-                    value={orderStatusFilter}
-                    onChange={setOrderStatusFilter}
-                    style={{ width: 170 }}
-                  >
-                    <Select.Option value="all">All Statuses</Select.Option>
-                    <Select.Option value="0">Pending</Select.Option>
-                    <Select.Option value="1">Confirmed</Select.Option>
-                    <Select.Option value="2">Delivery Assigned</Select.Option>
-                    <Select.Option value="3">Order Picked Up</Select.Option>
-                    <Select.Option value="4">Order Delivered</Select.Option>
-                    <Select.Option value="5">Order Rejected</Select.Option>
-                  </Select>
-
-                  <DatePicker.RangePicker
-                    value={orderDateRange}
-                    onChange={setOrderDateRange}
-                    style={{ borderRadius: 8 }}
-                  />
-
-                  {(orderSearch || orderStatusFilter !== 'all' || orderDateRange) && (
-                    <Button
-                      onClick={() => {
-                        setOrderSearch('');
-                        setOrderStatusFilter('all');
-                        setOrderDateRange(null);
-                      }}
-                    >
-                      Reset Filters
-                    </Button>
-                  )}
-                </div>
-
-                <div style={{ fontSize: 13, color: '#64748b' }}>
-                  Showing <strong>{vendorOrders.length}</strong> of {vendorData?.orders?.length || 0} orders
-                </div>
-              </div>
-
-              {/* Orders Table */}
+            {/* Unified Orders Table */}
+            <Card title="Order History, Commission & Revenue Breakdown" style={{ borderRadius: 8, marginBottom: 16 }}>
               <Table
                 columns={vendorOrderColumns}
-                dataSource={vendorOrders}
+                dataSource={vendorAnalyticsMetrics?.tableOrders || []}
                 rowKey={(record) => record.id || record.order_uid}
                 pagination={{
                   pageSize: 10,
@@ -1366,6 +1576,13 @@ const VendorDashboard = () => {
                 scroll={{ x: 'max-content' }}
               />
             </Card>
+
+            {rangeLoading && (
+              <div className="d-flex justify-content-center align-items-center mt-3 mb-3">
+                <Spin size="small" />
+                <span className="ms-2">Loading...</span>
+              </div>
+            )}
           </TabPane>
         </Tabs>
       </div>
@@ -1393,9 +1610,10 @@ const VendorDashboard = () => {
         {selectedVendorOrder && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
             {/* Customer & Address Details */}
-            <Card size="small" title="Customer Details" style={{ borderRadius: 8, background: '#f8fafc' }}>
+            <Card size="small" title="Customer & Order Details" style={{ borderRadius: 8, background: '#f8fafc' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                <div><strong>Name:</strong> {[selectedVendorOrder.customer?.firstname, selectedVendorOrder.customer?.lastname].filter(Boolean).join(' ') || selectedVendorOrder.firstname || '-'}</div>
+                <div><strong>Order Date & Time:</strong> {selectedVendorOrder.order_date || selectedVendorOrder.created_at ? dayjs(selectedVendorOrder.order_date || selectedVendorOrder.created_at).format('DD MMM YYYY, hh:mm A') : '-'}</div>
+                <div><strong>Customer Name:</strong> {[selectedVendorOrder.customer?.firstname, selectedVendorOrder.customer?.lastname].filter(Boolean).join(' ') || selectedVendorOrder.firstname || '-'}</div>
                 <div><strong>Email:</strong> {selectedVendorOrder.customer?.email || selectedVendorOrder.email || '-'}</div>
                 <div><strong>Phone:</strong> {[selectedVendorOrder.customer?.prefix || selectedVendorOrder.prefix, selectedVendorOrder.customer?.phonenumber || selectedVendorOrder.phonenumber].filter(Boolean).join(' ') || '-'}</div>
                 <div><strong>Delivery Address:</strong> {typeof selectedVendorOrder.address === 'string' ? selectedVendorOrder.address : selectedVendorOrder.address?.address || '-'}</div>
@@ -1444,29 +1662,25 @@ const VendorDashboard = () => {
               />
             </Card>
 
-            {/* Price Summary */}
-            <Card size="small" title="Financial Summary" style={{ borderRadius: 8, background: '#f0fdf4' }}>
+            {/* Price & Payout Breakdown */}
+            <Card size="small" title="Payout & Commission Breakdown" style={{ borderRadius: 8, background: '#f0fdf4' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Items Total:</span>
-                  <strong>₹{Number(selectedVendorOrder.total_price || 0).toFixed(2)}</strong>
+                  <span>Gross Order Price:</span>
+                  <strong>₹{Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0).toFixed(2)}</strong>
                 </div>
-                {Number(selectedVendorOrder.rider_deliveryCharge) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Delivery Charge:</span>
-                    <span>+₹{Number(selectedVendorOrder.rider_deliveryCharge).toFixed(2)}</span>
-                  </div>
-                )}
-                {Number(selectedVendorOrder.tip_amount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Tip:</span>
-                    <span>+₹{Number(selectedVendorOrder.tip_amount).toFixed(2)}</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d97706' }}>
+                  <span>Admin Commission (Deducted):</span>
+                  <strong>
+                    -₹{Math.max(0, Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0) - Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : (selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0))).toFixed(2)}
+                  </strong>
+                </div>
                 <Divider style={{ margin: '6px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#088b46' }}>
-                  <span>Overall Amount:</span>
-                  <span>₹{Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0).toFixed(2)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, color: '#088b46' }}>
+                  <span>Net Vendor Share (Payout Received):</span>
+                  <span>
+                    ₹{Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : (selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0)).toFixed(2)}
+                  </span>
                 </div>
               </div>
             </Card>

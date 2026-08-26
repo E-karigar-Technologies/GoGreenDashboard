@@ -16,6 +16,8 @@ const DateRangeSelector = ({ preset, start, end, onChange, style }) => {
   const computeRangeFromPreset = (presetKey) => {
     const today = dayjs();
     switch (presetKey) {
+      case 'all':
+        return { start: null, end: null };
       case 'today':
         return { start: today.startOf('day'), end: today.endOf('day') };
       case 'yesterday': {
@@ -78,6 +80,7 @@ const DateRangeSelector = ({ preset, start, end, onChange, style }) => {
         style={{ width: 120 }}
         onChange={handlePresetChange}
         options={[
+          { label: 'All Time', value: 'all' },
           { label: 'Today', value: 'today' },
           { label: 'Yesterday', value: 'yesterday' },
           { label: 'This Week', value: 'this_week' },
