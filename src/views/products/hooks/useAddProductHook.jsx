@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { message } from "antd";
-import { getAllCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct, getAllVendors, saveOrUpdateDiscount } from "../../../services/apiService";
+import { getAllActiveCategories, getAllSubCategoriesbyID, productfetchBrands, addProduct, getAllVendors, saveOrUpdateDiscount } from "../../../services/apiService";
 import { has } from "lodash-es";
 import { priceParsed } from "../../../services/utils/gen_utility";
 import { useWatch } from "antd/es/form/Form";
@@ -38,7 +38,7 @@ export default function useAddProductHook(form,data) {
 
 
   useEffect(() => {
-    getAllCategories().then((response) => {
+    getAllActiveCategories().then((response) => {
       if (response.success) setCategories(response.data);
     });
     productfetchBrands().then((response) => {

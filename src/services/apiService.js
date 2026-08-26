@@ -43,6 +43,21 @@ export const getAllCategories = async () => {
       return { success: false, error: error.response?.data || "Something went wrong" };
   }
 };
+
+export const getAllActiveCategories = async () => {
+  try {
+      const response = await axios.post("/category/fetch-categories/active", {
+          is_web: true
+      }, config);
+
+      return { success: true, data: response.data.categories || [] };
+  } catch (error) {
+      console.error("Failed to fetch categories:", error);
+      return { success: false, error: error.response?.data || "Something went wrong" };
+  }
+};
+
+
 export const getAllSubCategoriesbyID = async (catID) => {
     try {
         const response = await axios.post("/subcategory/subcategoriesbycatID", { catID }, config);

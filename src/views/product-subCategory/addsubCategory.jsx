@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Form, Input, Button, Select, Upload, Modal } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import axios from "axios";
-import { getAllCategories } from "../../services/apiService";
+import { getAllActiveCategories } from "../../services/apiService";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -21,7 +21,7 @@ const AddSubCategory = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await getAllCategories();
+        const response = await getAllActiveCategories();
         if (response.success) {
           setCategories(response.data);
         } else {

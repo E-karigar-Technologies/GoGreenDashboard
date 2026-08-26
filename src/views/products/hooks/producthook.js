@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getAllProducts, getAllCategories, getAllSubCategories, productfetchBrands, deleteProduct } from '../../../services/apiService';
+import { getAllProducts, getAllCategories, getAllSubCategories, productfetchBrands, deleteProduct, getAllVendors } from '../../../services/apiService';
 import axios from 'axios';
 import orderBy from 'lodash/orderBy';
 
@@ -8,6 +8,7 @@ export default function useProductTable() {
   const [nameFilter, setNameFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [subCategoryFilter, setSubCategoryFilter] = useState([]);
+  const [vendorFilter, setVendorFilter] = useState([]);
   const [isFeaturedFilter, setIsFeaturedFilter] = useState();
   const [isTodayDealFilter, setIsTodayDealFilter] = useState();
 
@@ -29,10 +30,12 @@ export default function useProductTable() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [formState, setFormState] = useState({});
 
-  // Category/brand/subcategory
+  // Category/brand/subcategory/vendors
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [vendorMap, setVendorMap] = useState({});
 
   // Image preview state
   const [previewImage, setPreviewImage] = useState("");
@@ -42,7 +45,7 @@ export default function useProductTable() {
   const API_URL = import.meta.env.VITE_API_URL;
   const token = localStorage.getItem("token");
 
-  // Fetch categories, brands, subcategories on mount
+  // Fetch categories, brands, subcategories, vendors on mount
   useEffect(() => {
     getAllCategories().then((res) => {
       if (res.success) setCategories(res.data);
@@ -53,6 +56,18 @@ export default function useProductTable() {
     productfetchBrands().then((res) => {
       if (res.success) setBrands(res.data);
     });
+    getAllVendors().then((res) => {
+      if (res.success && Array.isArray(res.data)) {
+        setVendors(res.data);
+        const map = {};
+        res.data.forEach((v) => {
+          const vId = v.vendor_id || v.id || v._id;
+          const vName = v.store_name || v.name || v.vendor_name;
+          if (vId && vName) map[vId] = vName;
+        });
+        setVendorMap(map);
+      }
+    });
   }, []);
 
   // Memoize filters
@@ -60,9 +75,10 @@ export default function useProductTable() {
     name: nameFilter,
     categories: categoryFilter,
     subCategories: subCategoryFilter,
+    vendors: vendorFilter,
     is_featured: isFeaturedFilter,
     is_today_deal: isTodayDealFilter,
-  }), [nameFilter, categoryFilter, subCategoryFilter, isFeaturedFilter, isTodayDealFilter]);
+  }), [nameFilter, categoryFilter, subCategoryFilter, vendorFilter, isFeaturedFilter, isTodayDealFilter]);
 
   // Fetch and filter data
   const fetchData = useCallback(async (params = {}) => {
@@ -86,10 +102,16 @@ export default function useProductTable() {
       if (filters.subCategories && filters.subCategories.length > 0) {
         products = products.filter(p => filters.subCategories.includes(p.sub_category));
       }
-      if (filters.is_featured !== undefined) {
+      if (filters.vendors && filters.vendors.length > 0) {
+        products = products.filter(p => {
+          const vId = p.vendor_id || p.vendor?.vendor_id || p.vendor?.id || (typeof p.vendor === 'number' || typeof p.vendor === 'string' ? p.vendor : null);
+          return filters.vendors.some(val => String(val) === String(vId));
+        });
+      }
+      if (filters.is_featured !== undefined && filters.is_featured !== null && filters.is_featured !== "") {
         products = products.filter(p => String(p.is_featured) === String(filters.is_featured));
       }
-      if (filters.is_today_deal !== undefined) {
+      if (filters.is_today_deal !== undefined && filters.is_today_deal !== null && filters.is_today_deal !== "") {
         products = products.filter(p => String(p.is_today_deal) === String(filters.is_today_deal));
       }
       // --- SORTING (frontend) ---
@@ -113,7 +135,7 @@ export default function useProductTable() {
 
   useEffect(() => {
     fetchData({ pagination, sorter });
-  }, []);
+  }, [fetchData]);
   // }, [fetchData, pagination.current, pagination.pageSize, sorter, filters]);
 
   const onTableChange = (newPagination, filtersTable, newSorter) => {
@@ -382,12 +404,13 @@ export default function useProductTable() {
     nameFilter, setNameFilter,
     categoryFilter, setCategoryFilter,
     subCategoryFilter, setSubCategoryFilter,
+    vendorFilter, setVendorFilter,
     isFeaturedFilter, setIsFeaturedFilter,
     isTodayDealFilter, setIsTodayDealFilter,
     // Data and table logic
     data, loading, pagination, onTableChange, error,
     // Modal and form logic
-    show, selectedUser, showDeleteModal, formState, categories, brands, subCategories, previewImage, previewImages,
+    show, selectedUser, showDeleteModal, formState, categories, brands, subCategories, vendors, vendorMap, previewImage, previewImages,
     handleUpdate, handleDelete, handleClose, handleCloseDeleteModal, handleSave, confirmDelete, handleFormChange,
     handleImageChange, handleGalleryImagesChange, handleDeleteFeaturedImage, handleDeleteGalleryImage,
     handleToggleFeatured, handleToggleTodayDeal,

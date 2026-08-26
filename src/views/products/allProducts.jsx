@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Modal, Button, Form, Card, Divider, Table, Select, Input, Row, Col, Switch, Button as AntButton, Drawer, Grid, Upload, Tag, Tooltip, Image, Badge } from 'antd';
-import { PlusOutlined, ShoppingCartOutlined, StarOutlined, FireOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilterOutlined } from '@ant-design/icons';
+import { PlusOutlined, ShoppingCartOutlined, StarOutlined, FireOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilterOutlined, ShopOutlined } from '@ant-design/icons';
 import useProductTable from './hooks/producthook';
 import MobileProductSheet from './components/MobileProductSheet';
 import FilterControls from './components/FilterControls';
@@ -9,7 +9,7 @@ import { formatPrice } from "../../services/utils/gen_utility";
 
 const { useBreakpoint } = Grid;
 
-export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview, navigate, handleMobileSheet) => [
+export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, handlePreview, navigate, handleMobileSheet, vendorMap = {}) => [
   {
     title: '#',
     dataIndex: 'index',
@@ -22,16 +22,96 @@ export const productTableColumns = (BASE_URL, handleUpdate, handleDelete, pagina
     title: 'Product Name',
     dataIndex: 'name',
     sorter: true,
-    render: (text, record) => (
-      <div>
-        <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>{record.name || 'Unnamed Product'}</div>
-        {record.description && (
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-            {record.description.length > 45 ? record.description.slice(0, 45) + '...' : record.description}
-          </div>
-        )}
-      </div>
-    ),
+    render: (text, record) => {
+      const storeName =
+        record.store_name ||
+        record.vendor_name ||
+        record.vendor?.store_name ||
+        record.vendor?.name ||
+        record.store?.store_name ||
+        record.store?.name ||
+        (typeof record.store === 'string' ? record.store : null) ||
+        (record.vendor_id ? vendorMap[record.vendor_id] : null) ||
+        (record.vendor ? vendorMap[record.vendor] : null);
+
+      return (
+        <div>
+          {storeName && (
+            <div style={{ marginBottom: 4 }}>
+              <Tag
+                icon={<ShopOutlined style={{ fontSize: 11 }} />}
+                color="cyan"
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  padding: '1px 8px',
+                  marginRight: 0,
+                  border: '1px solid #bae6fd',
+                  backgroundColor: '#f0f9ff',
+                  color: '#0284c7',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                }}
+              >
+                {storeName}
+              </Tag>
+            </div>
+          )}
+          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>{record.name || 'Unnamed Product'}</div>
+          {record.description && (
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              {record.description.length > 45 ? record.description.slice(0, 45) + '...' : record.description}
+            </div>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    title: 'Store / Vendor',
+    dataIndex: 'store_name',
+    key: 'store_name',
+    width: 160,
+    sorter: (a, b) => {
+      const nameA = a.store_name || a.vendor_name || a.vendor?.store_name || (a.vendor_id ? vendorMap[a.vendor_id] : '') || '';
+      const nameB = b.store_name || b.vendor_name || b.vendor?.store_name || (b.vendor_id ? vendorMap[b.vendor_id] : '') || '';
+      return nameA.localeCompare(nameB);
+    },
+    render: (_, record) => {
+      const storeName =
+        record.store_name ||
+        record.vendor_name ||
+        record.vendor?.store_name ||
+        record.vendor?.name ||
+        record.store?.store_name ||
+        record.store?.name ||
+        (typeof record.store === 'string' ? record.store : null) ||
+        (record.vendor_id ? vendorMap[record.vendor_id] : null) ||
+        (record.vendor ? vendorMap[record.vendor] : null);
+
+      return storeName ? (
+        <Tag
+          icon={<ShopOutlined />}
+          color="cyan"
+          style={{
+            borderRadius: '6px',
+            fontWeight: 600,
+            fontSize: '12px',
+            padding: '3px 8px',
+            border: '1px solid #bae6fd',
+            backgroundColor: '#f0f9ff',
+            color: '#0284c7'
+          }}
+        >
+          {storeName}
+        </Tag>
+      ) : (
+        <span style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>N/A</span>
+      );
+    },
   },
   {
     title: 'Category',
@@ -158,10 +238,11 @@ const ProductList = () => {
     nameFilter, setNameFilter,
     categoryFilter, setCategoryFilter,
     subCategoryFilter, setSubCategoryFilter,
+    vendorFilter, setVendorFilter,
     isFeaturedFilter, setIsFeaturedFilter,
     isTodayDealFilter, setIsTodayDealFilter,
     data, loading, pagination, onTableChange, error,
-    show, selectedUser, showDeleteModal, formState, categories, brands, subCategories, previewImage, previewImages,
+    show, selectedUser, showDeleteModal, formState, categories, brands, subCategories, vendors, vendorMap, previewImage, previewImages,
     handleUpdate, handleDelete, handleClose, handleCloseDeleteModal, handleSave, confirmDelete, handleFormChange,
     handleImageChange, handleGalleryImagesChange, handleDeleteFeaturedImage, handleDeleteGalleryImage,
     handleToggleFeatured, handleToggleTodayDeal,
@@ -184,13 +265,14 @@ const ProductList = () => {
   }, []);
 
   const columns = productTableColumns(
-    BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, null, navigate, handleMobileSheet
+    BASE_URL, handleUpdate, handleDelete, pagination, handleToggleFeatured, handleToggleTodayDeal, null, navigate, handleMobileSheet, vendorMap
   );
 
   const handleResetFilters = () => {
     setNameFilter("");
     setCategoryFilter([]);
     setSubCategoryFilter([]);
+    setVendorFilter([]);
     setIsFeaturedFilter(undefined);
     setIsTodayDealFilter(undefined);
   };
@@ -263,12 +345,15 @@ const ProductList = () => {
               setCategoryFilter={setCategoryFilter}
               subCategoryFilter={subCategoryFilter}
               setSubCategoryFilter={setSubCategoryFilter}
+              vendorFilter={vendorFilter}
+              setVendorFilter={setVendorFilter}
               isFeaturedFilter={isFeaturedFilter}
               setIsFeaturedFilter={setIsFeaturedFilter}
               isTodayDealFilter={isTodayDealFilter}
               setIsTodayDealFilter={setIsTodayDealFilter}
               categories={categories}
               subCategories={subCategories}
+              vendors={vendors}
               handleResetFilters={handleResetFilters}
             />
           ) : (
@@ -290,18 +375,18 @@ const ProductList = () => {
                   setCategoryFilter={setCategoryFilter}
                   subCategoryFilter={subCategoryFilter}
                   setSubCategoryFilter={setSubCategoryFilter}
+                  vendorFilter={vendorFilter}
+                  setVendorFilter={setVendorFilter}
                   isFeaturedFilter={isFeaturedFilter}
                   setIsFeaturedFilter={setIsFeaturedFilter}
                   isTodayDealFilter={isTodayDealFilter}
                   setIsTodayDealFilter={setIsTodayDealFilter}
                   categories={categories}
                   subCategories={subCategories}
+                  vendors={vendors}
                   handleResetFilters={handleResetFilters}
                   vertical
                 />
-                <AntButton type="primary" block style={{ marginTop: 16 }} onClick={() => setDrawerOpen(false)}>
-                  Apply Filters
-                </AntButton>
               </Drawer>
             </>
           )}

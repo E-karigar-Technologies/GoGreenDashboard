@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, Modal } from "react-bootstrap";
-import { getAllCategories, addProductBrand } from "../../services/apiService";
+import { getAllActiveCategories, addProductBrand } from "../../services/apiService";
 import { Form, Input, Button, Select, Upload, Row, Col, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 
@@ -19,7 +19,8 @@ const AddProductBrand = () => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await getAllCategories();
+                const response = await getAllActiveCategories();
+                console.log(response,"resssss");
                 if (response.success) {
                     setCategories(response.data);
                 } else {
@@ -71,7 +72,7 @@ const AddProductBrand = () => {
     };
 
     return (
-        <div className="p2" style={{ maxWidth: 700, margin: "0 auto" }}>
+        <div className="p2" style={{ width: "100%" }}>
             <Card className="borderless w-100">
                 <Card.Body>
                     <h4 className="mb-3 f-w-400 text-center">Add Product Brand</h4>
