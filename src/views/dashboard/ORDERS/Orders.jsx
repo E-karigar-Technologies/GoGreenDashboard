@@ -160,16 +160,16 @@ const Orders = () => {
 
         const breakdownTooltip = (
           <div style={{ padding: '4px', fontSize: '12px' }}>
-            <div>Items Subtotal: <strong>₹{itemsPrice.toFixed(2)}</strong></div>
-            {deliveryCharge > 0 && <div>Rider Delivery: <strong>₹{deliveryCharge.toFixed(2)}</strong></div>}
-            {fastDeliveryCharge > 0 && <div>Express Delivery: <strong>₹{fastDeliveryCharge.toFixed(2)}</strong></div>}
+            <div>Items Subtotal: <strong>${itemsPrice.toFixed(2)}</strong></div>
+            {deliveryCharge > 0 && <div>Rider Delivery: <strong>${deliveryCharge.toFixed(2)}</strong></div>}
+            {fastDeliveryCharge > 0 && <div>Express Delivery: <strong>${fastDeliveryCharge.toFixed(2)}</strong></div>}
             {tip > 0 && (
               <div>
-                Tip {tipPct > 0 ? `(${tipPct}%)` : ''}: <strong>+₹{tip.toFixed(2)}</strong>
+                Tip {tipPct > 0 ? `(${tipPct}%)` : ''}: <strong>+${tip.toFixed(2)}</strong>
               </div>
             )}
             <hr style={{ margin: '4px 0', borderColor: 'rgba(255,255,255,0.2)' }} />
-            <div>Overall Amount: <strong style={{ color: '#4ade80' }}>₹{overall.toFixed(2)}</strong></div>
+            <div>Overall Amount: <strong style={{ color: '#4ade80' }}>${overall.toFixed(2)}</strong></div>
           </div>
         );
 
@@ -177,17 +177,17 @@ const Orders = () => {
           <Tooltip title={breakdownTooltip}>
             <div style={{ cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, color: '#088b46', fontSize: '15px' }}>
-                ₹{overall.toFixed(2)}
+                ${overall.toFixed(2)}
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
                 {deliveryCharge > 0 && (
                   <Tag color="cyan" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
-                    Del: ₹{deliveryCharge}
+                    Del: ${deliveryCharge}
                   </Tag>
                 )}
                 {tip > 0 && (
                   <Tag color="gold" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
-                    Tip: ₹{tip.toFixed(2)}
+                    Tip: ${tip.toFixed(2)}
                   </Tag>
                 )}
               </div>
@@ -286,7 +286,7 @@ const Orders = () => {
         <div className="page-stat-card">
           <div className="stat-meta">
             <div className="stat-label">Current Revenue</div>
-            <div className="stat-number">₹{totalRevenue.toLocaleString()}</div>
+            <div className="stat-number">${totalRevenue.toLocaleString()}</div>
           </div>
           <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
             <DollarOutlined />

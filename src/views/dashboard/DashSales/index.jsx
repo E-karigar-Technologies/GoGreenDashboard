@@ -45,7 +45,7 @@ export default function DashSales() {
         <div className="page-stat-card">
           <div className="stat-meta">
             <div className="stat-label">Total Revenue</div>
-            <div className="stat-number">₹1,25,480</div>
+            <div className="stat-number">$1,25,480</div>
           </div>
           <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
             <DollarOutlined />
@@ -80,15 +80,15 @@ export default function DashSales() {
           <div className="page-content-card" style={{ height: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
               <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '16px' }}>Monthly Sales Analytics</h4>
-              <span style={{ fontSize: 13, color: '#088b46', fontWeight: 600 }}>₹21,356 Total Sales</span>
+              <span style={{ fontSize: 13, color: '#088b46', fontWeight: 600 }}>$21,356 Total Sales</span>
             </div>
             <Row className="pb-2">
               <div className="col-auto m-b-10">
-                <h3 className="mb-1" style={{ fontWeight: 700, color: '#0f172a' }}>₹21,356.46</h3>
+                <h3 className="mb-1" style={{ fontWeight: 700, color: '#0f172a' }}>$21,356.46</h3>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Total Gross Sales</span>
               </div>
               <div className="col-auto m-b-10">
-                <h3 className="mb-1" style={{ fontWeight: 700, color: '#088b46' }}>₹1,935.60</h3>
+                <h3 className="mb-1" style={{ fontWeight: 700, color: '#088b46' }}>$1,935.60</h3>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Daily Average</span>
               </div>
             </Row>

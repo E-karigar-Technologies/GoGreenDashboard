@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Input, Space, Avatar, Button, Switch, Tooltip, Tag } from 'antd';
+import { Table, Input, Space, Avatar, Button, Switch, Tooltip, Tag, Card, Row, Col } from 'antd';
 import { EyeOutlined, SearchOutlined, CarOutlined, CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { formatPhone } from '../../../services/utils/gen_utility';
@@ -24,79 +24,49 @@ export default function RiderTable() {
 
   const columns = [
     {
-      title: '#',
-      key: 'srno',
-      width: 60,
-      render: (text, record, index) => <span style={{ fontWeight: 600, color: '#64748b' }}>#{(page - 1) * pageSize + index + 1}</span>,
-      align: 'center',
-    },
-    {
-      title: 'Rider Profile',
-      dataIndex: 'profile_pic',
-      key: 'profile_pic',
-      render: (img, record) => (
-        <Avatar
-          size={44}
-          src={img}
-          alt="rider"
-          style={{ border: '2px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}
-        >
-          {record.firstname ? record.firstname.charAt(0).toUpperCase() : 'R'}
-        </Avatar>
-      ),
-      width: 70,
-    },
-    {
-      title: 'Rider Details',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => {
-        const fullName = `${record.firstname || ''} ${record.lastname || ''}`.trim() || 'Unnamed Rider';
-        return (
-          <div>
-            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
-              {fullName.charAt(0).toUpperCase() + fullName.slice(1)}
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              @{record.username || 'rider'}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
       title: 'Rider ID',
       dataIndex: 'custom_id',
       key: 'customId',
-      width: 130,
-      render: (text) => <Tag color="blue" style={{ borderRadius: '6px' }}>{text || '-'}</Tag>,
-    },
-    {
-      title: 'Vehicle Registration',
-      dataIndex: 'vehicle_registration_number',
-      key: 'vehicle_registration_number',
-      width: 160,
-      render: (veh) => (
-        <Tag color="cyan" style={{ fontWeight: 600, borderRadius: '6px' }}>
-          🛵 {veh || 'Not Registered'}
+      width: 190,
+      render: (text, record) => (
+        <Tag color="blue" style={{ borderRadius: '6px', fontWeight: 600, padding: '2px 8px' }}>
+          {record.custom_id || record.rider_id || '-'}
         </Tag>
       ),
     },
     {
-      title: 'Phone',
-      dataIndex: 'phonenumber',
-      key: 'Phone',
-      width: 150,
-      render: (number, record) => (
-        <span style={{ fontWeight: 500, color: '#0f172a' }}>{formatPhone(number, record.prefix)}</span>
-      ),
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'Email',
-      width: 180,
-      render: (text) => <span style={{ color: '#475569', fontSize: 13 }}>{text || '-'}</span>,
+      title: 'Rider Details',
+      key: 'riderDetails',
+      render: (_, record) => {
+        const fullName = `${record.firstname || ''} ${record.lastname || ''}`.trim() || 'Unnamed Rider';
+        const phone = formatPhone(record.phonenumber, record.prefix);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar
+              size={48}
+              src={record.profile_pic}
+              alt="rider"
+              style={{
+                border: '2px solid #e2e8f0',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                backgroundColor: '#088b46',
+                flexShrink: 0,
+              }}
+            >
+              {record.firstname ? record.firstname.charAt(0).toUpperCase() : 'R'}
+            </Avatar>
+            <div>
+              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
+                {fullName}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
+                {phone && <span>📞 {phone}</span>}
+                {record.email && <span>✉️ {record.email}</span>}
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       title: 'Status',
@@ -109,7 +79,7 @@ export default function RiderTable() {
           checked={record.status === 1}
           checkedChildren="Active"
           unCheckedChildren="Inactive"
-          onChange={checked => handleToggleStatus(record.rider_id, checked ? 1 : 0)}
+          onChange={checked => handleToggleStatus(record.rider_id || record.id, checked ? 1 : 0)}
         />
       ),
     },
@@ -125,7 +95,7 @@ export default function RiderTable() {
             size="small"
             icon={<EyeOutlined />}
             style={{ borderRadius: '6px', background: '#088b46', border: 'none' }}
-            onClick={() => navigate(`/riders/${record.rider_id}`)}
+            onClick={() => navigate(`/riders/${record.rider_id || record.id}`)}
           >
             View
           </Button>
@@ -140,7 +110,7 @@ export default function RiderTable() {
       <div className="page-header-card">
         <div className="header-title-block">
           <h2>Delivery Riders Directory</h2>
-          <p>Manage all active delivery personnel, vehicle registrations, status toggles, and performance details.</p>
+          <p>Manage all active delivery personnel, vehicle registrations, status toggles, and delivery history.</p>
         </div>
       </div>
 
@@ -190,7 +160,7 @@ export default function RiderTable() {
           />
           <Input
             prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-            placeholder="Search by Rider ID..."
+            placeholder="Search by Rider Custom ID..."
             value={search.customId}
             onChange={e => onSearch('customId', e.target.value)}
             allowClear
@@ -202,7 +172,7 @@ export default function RiderTable() {
           columns={columns}
           dataSource={riders || []}
           loading={loading}
-          rowKey="rider_id"
+          rowKey={(record) => record.rider_id || record.id || record.custom_id}
           pagination={{
             current: page,
             pageSize,

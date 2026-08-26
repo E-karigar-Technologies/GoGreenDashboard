@@ -438,7 +438,7 @@ const VendorDashboard = () => {
                 )}
                 <span style={{ fontWeight: 600, color: '#1e293b' }}>{p.product_name}</span>
                 <Tag color="blue" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>x{p.product_quantity}</Tag>
-                <span style={{ color: '#64748b' }}>₹{Number(p.single_item_price || 0).toFixed(2)}</span>
+                <span style={{ color: '#64748b' }}>${Number(p.single_item_price || 0).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -466,16 +466,16 @@ const VendorDashboard = () => {
         return (
           <div>
             <div style={{ fontWeight: 700, color: '#088b46', fontSize: '14.5px' }}>
-              ₹{vendorShare.toFixed(2)}
+              ${vendorShare.toFixed(2)}
               <span style={{ fontSize: '10px', color: '#16a34a', marginLeft: 4, fontWeight: 600 }}>
                 (Vendor Payout)
               </span>
             </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: 1 }}>
-              Total: <strong>₹{totalAmt.toFixed(2)}</strong>
+              Total: <strong>${totalAmt.toFixed(2)}</strong>
               {adminCommission > 0 && (
                 <span style={{ color: '#d97706', marginLeft: 4 }}>
-                  • Comm: <strong>₹{adminCommission.toFixed(2)}</strong>
+                  • Comm: <strong>${adminCommission.toFixed(2)}</strong>
                 </span>
               )}
             </div>
@@ -1376,7 +1376,7 @@ const VendorDashboard = () => {
                 <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: `4px solid ${THEME.primary}` }}>
                   <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Net Vendor Share (Payout)</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#088b46', marginTop: 4 }}>
-                    ₹{(vendorAnalyticsMetrics?.totalDeliveredVendorShare || 0).toFixed(2)}
+                    ${(vendorAnalyticsMetrics?.totalDeliveredVendorShare || 0).toFixed(2)}
                   </div>
                   <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>
                     {vendorAnalyticsMetrics?.deliveredCount || 0} Delivered Orders
@@ -1388,7 +1388,7 @@ const VendorDashboard = () => {
                 <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #faad14' }}>
                   <div style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>Pending Vendor Payout</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#d97706', marginTop: 4 }}>
-                    ₹{(vendorAnalyticsMetrics?.pendingVendorShare || 0).toFixed(2)}
+                    ${(vendorAnalyticsMetrics?.pendingVendorShare || 0).toFixed(2)}
                   </div>
                   <div style={{ fontSize: 11, color: '#d97706', marginTop: 4 }}>
                     {vendorAnalyticsMetrics?.pendingCount || 0} Pending Orders
@@ -1400,7 +1400,7 @@ const VendorDashboard = () => {
                 <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #722ed1' }}>
                   <div style={{ fontSize: 12, color: '#722ed1', fontWeight: 600 }}>Admin Commission</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#722ed1', marginTop: 4 }}>
-                    ₹{(vendorAnalyticsMetrics?.totalAdminCommission || 0).toFixed(2)}
+                    ${(vendorAnalyticsMetrics?.totalAdminCommission || 0).toFixed(2)}
                   </div>
                   <div style={{ fontSize: 11, color: '#722ed1', marginTop: 4 }}>
                     Commission Retained
@@ -1412,7 +1412,7 @@ const VendorDashboard = () => {
                 <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #0284c7' }}>
                   <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600 }}>Gross Order Value</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#0284c7', marginTop: 4 }}>
-                    ₹{(vendorAnalyticsMetrics?.grossTotalOrderPrice || 0).toFixed(2)}
+                    ${(vendorAnalyticsMetrics?.grossTotalOrderPrice || 0).toFixed(2)}
                   </div>
                   <div style={{ fontSize: 11, color: '#0284c7', marginTop: 4 }}>
                     {vendorAnalyticsMetrics?.totalOrdersCount || 0} Total Orders
@@ -1424,7 +1424,7 @@ const VendorDashboard = () => {
                 <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #8b5cf6' }}>
                   <div style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Avg Order Value</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#7c3aed', marginTop: 4 }}>
-                    ₹{(vendorAnalyticsMetrics?.avgOrderValue || 0).toFixed(2)}
+                    ${(vendorAnalyticsMetrics?.avgOrderValue || 0).toFixed(2)}
                   </div>
                   <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 4 }}>
                     Per Order Average
@@ -1454,7 +1454,7 @@ const VendorDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
                       <YAxis />
-                      <Tooltip formatter={(value) => `₹${Number(value).toFixed(2)}`} />
+                      <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
                       <Legend />
                       <Area type="monotone" dataKey="deliveredRevenue" name="Delivered Vendor Share" stroke="#52c41a" fill="#52c41a" fillOpacity={0.2} />
                       <Area type="monotone" dataKey="pendingRevenue" name="Pending Vendor Share" stroke="#faad14" fill="#faad14" fillOpacity={0.2} />
@@ -1473,13 +1473,13 @@ const VendorDashboard = () => {
                         cy="50%"
                         outerRadius={90}
                         dataKey="value"
-                        label={({ name, value }) => `${name}: ₹${Number(value).toFixed(2)}`}
+                        label={({ name, value }) => `${name}: $${Number(value).toFixed(2)}`}
                       >
                         {(vendorAnalyticsMetrics?.statusDistribution?.length > 0 ? vendorAnalyticsMetrics.statusDistribution : categoryData).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(val) => `₹${Number(val).toFixed(2)}`} />
+                      <Tooltip formatter={(val) => `$${Number(val).toFixed(2)}`} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1575,40 +1575,68 @@ const VendorDashboard = () => {
                     title: 'Unit Price',
                     dataIndex: 'single_item_price',
                     align: 'right',
-                    render: (p) => `₹${Number(p || 0).toFixed(2)}`,
+                    render: (p) => `$${Number(p || 0).toFixed(2)}`,
                   },
                   {
                     title: 'Total',
                     dataIndex: 'total_item_price',
                     align: 'right',
-                    render: (p) => <strong style={{ color: '#088b46' }}>₹{Number(p || 0).toFixed(2)}</strong>,
+                    render: (p) => <strong style={{ color: '#088b46' }}>${Number(p || 0).toFixed(2)}</strong>,
                   },
                 ]}
               />
             </Card>
 
             {/* Price & Payout Breakdown */}
-            <Card size="small" title="Payout & Commission Breakdown" style={{ borderRadius: 8, background: '#f0fdf4' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Gross Order Price:</span>
-                  <strong>₹{Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0).toFixed(2)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d97706' }}>
-                  <span>Admin Commission (Deducted):</span>
-                  <strong>
-                    -₹{Math.max(0, Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0) - Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : (selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0))).toFixed(2)}
-                  </strong>
-                </div>
-                <Divider style={{ margin: '6px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, color: '#088b46' }}>
-                  <span>Net Vendor Share (Payout Received):</span>
-                  <span>
-                    ₹{Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : (selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </Card>
+            {(() => {
+              const totalAmt = Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0);
+              const vendorShare = Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : totalAmt);
+              const adminCommission = Math.max(0, totalAmt - vendorShare);
+              const fastDelCharge = Number(selectedVendorOrder.fast_delivery_charges || 0);
+              let tipAmt = Number(selectedVendorOrder.tip_amount || 0);
+              const tipPct = Number(selectedVendorOrder.tip_percentage || 0);
+              if (tipAmt === 0 && tipPct > 0 && totalAmt > 0) {
+                tipAmt = (totalAmt * tipPct) / 100;
+              }
+
+              return (
+                <Card size="small" title="Payout & Commission Breakdown" style={{ borderRadius: 8, background: '#f0fdf4' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Gross Total Amount (overall_amount):</span>
+                      <strong>${totalAmt.toFixed(2)}</strong>
+                    </div>
+                    {Number(selectedVendorOrder.rider_deliveryCharge || 0) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                        <span>🛵 Rider Delivery Charge (rider_deliveryCharge):</span>
+                        <span>${Number(selectedVendorOrder.rider_deliveryCharge || 0).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {fastDelCharge > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7' }}>
+                        <span>⚡ Fast Delivery Charges:</span>
+                        <strong>+${fastDelCharge.toFixed(2)}</strong>
+                      </div>
+                    )}
+                    {tipAmt > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#088b46' }}>
+                        <span>🎁 Tip Amount {tipPct > 0 ? `(${tipPct}%)` : ''}:</span>
+                        <strong>+${tipAmt.toFixed(2)}</strong>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d97706' }}>
+                      <span>Admin Commission (Deducted):</span>
+                      <strong>-${adminCommission.toFixed(2)}</strong>
+                    </div>
+                    <Divider style={{ margin: '6px 0' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, color: '#088b46' }}>
+                      <span>Net Vendor Share (Payout Received):</span>
+                      <span>${vendorShare.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
         )}
       </Modal>

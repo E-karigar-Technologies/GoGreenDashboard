@@ -466,11 +466,11 @@ const UpdateProduct = () => {
             {!hasvarientcheck && (
               <>
                 <Col md={6} xs={24}>
-                  <Form.Item label="Original Price (₹)" name="price" rules={[{ required: true, message: "Please enter product price" }]}>
+                  <Form.Item label="Original Price ($)" name="price" rules={[{ required: true, message: "Please enter product price" }]}>
                     <Input 
                       type="number" 
                       placeholder="0.00"
-                      prefix={<span style={{ color: '#088b46', fontWeight: 700 }}>₹</span>}
+                      prefix={<span style={{ color: '#088b46', fontWeight: 700 }}>$</span>}
                       onChange={e => {
                         const p = Number(e.target.value);
                         form.setFieldsValue({ price: p, discount_price: p, discount_percent: 0 });
@@ -505,7 +505,7 @@ const UpdateProduct = () => {
                   <>
                     <Col md={6} xs={24}>
                       <Form.Item
-                        label="Selling Price (₹)"
+                        label="Selling Price ($)"
                         name="discount_price"
                         rules={[
                           { required: true, message: 'Please enter selling price' },
@@ -526,7 +526,7 @@ const UpdateProduct = () => {
                         <InputNumber
                           style={{ width: '100%' }}
                           placeholder="Discounted Price"
-                          prefix={<span style={{ color: '#088b46', fontWeight: 700 }}>₹</span>}
+                          prefix={<span style={{ color: '#088b46', fontWeight: 700 }}>$</span>}
                           min={0}
                           onChange={(discount) => {
                             if (price && Number(discount) <= Number(price)) {
