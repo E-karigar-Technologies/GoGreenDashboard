@@ -2,6 +2,64 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import dayjs from 'dayjs';
 
+export const parseOrderTime = (record) => {
+  if (!record) return 0;
+  const val = record.created_at || record.createdAt || record.order_date || record.date;
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  const str = String(val).trim();
+  const isoStr = str.replace(' ', 'T');
+  const timestamp = Date.parse(isoStr);
+  if (!isNaN(timestamp)) return timestamp;
+  const dVal = dayjs(val).valueOf();
+  return isNaN(dVal) ? 0 : dVal;
+};
+
+export const parseOrderIdNum = (record) => {
+  if (!record) return 0;
+  const val = record.order_id || record.id || record._id;
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  const digits = String(val).replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+};
+
+export const calculateOrderFinancials = (record) => {
+  if (!record) return { itemsPrice: 0, deliveryCharge: 0, fastDeliveryCharge: 0, tip: 0, tipPct: 0, overall: 0 };
+
+  const itemsPrice = Number(record.items_price || record.total_price || 0);
+  const deliveryCharge = Number(record.rider_deliveryCharge || 0);
+  const fastDeliveryCharge = Number(record.fast_delivery_charges || 0);
+
+  let tip = Number(record.tip_amount || 0);
+  const tipPct = Number(record.tip_percentage || 0);
+
+  if (tip === 0 && tipPct > 0 && itemsPrice > 0) {
+    tip = (itemsPrice * tipPct) / 100;
+  }
+
+  let overall = Number(record.overall_amount || 0);
+  const calculatedSum = itemsPrice + deliveryCharge + fastDeliveryCharge + tip;
+
+  if (!overall || overall <= 0) {
+    overall = calculatedSum;
+  } else {
+    const baseTotal = itemsPrice + deliveryCharge + fastDeliveryCharge;
+    if (tip > 0 && Math.abs(overall - baseTotal) < 0.1) {
+      overall = baseTotal + tip;
+    }
+  }
+
+  return {
+    itemsPrice,
+    deliveryCharge,
+    fastDeliveryCharge,
+    tip,
+    tipPct,
+    overall
+  };
+};
+
 export const getOrderStatus = (status) => {
   switch (status) {
     case 0: return { text: 'Pending', color: 'orange' };
@@ -43,13 +101,30 @@ const useOrder = () => {
         vendor_id: vendorId || undefined,
         status: status !== null ? status : undefined,
         start_date: dateRange.start.format('YYYY-MM-DD'),
-        end_date: dateRange.end.format('YYYY-MM-DD')
+        end_date: dateRange.end.format('YYYY-MM-DD'),
+        sort_order: 'DESC',
+        sort_by: 'created_at',
+        order: 'DESC',
       };
       const config = {
         headers: { Authorization: token ? `Bearer ${token}` : '' },
       };
       const { data } = await axios.post(`${API_URL}/order/list`, payload, config);
-      setOrders(data.orders || []);
+      const rawOrders = data.orders || [];
+      const sortedOrders = [...rawOrders].sort((a, b) => {
+        const timeA = parseOrderTime(a);
+        const timeB = parseOrderTime(b);
+        if (timeA !== timeB && timeA > 0 && timeB > 0) {
+          return timeB - timeA;
+        }
+        const idA = parseOrderIdNum(a);
+        const idB = parseOrderIdNum(b);
+        if (idA !== idB && idA > 0 && idB > 0) {
+          return idB - idA;
+        }
+        return String(b.order_id || b.id || '').localeCompare(String(a.order_id || a.id || ''), undefined, { numeric: true });
+      });
+      setOrders(sortedOrders);
       setTotal(data.total || 0);
     } catch (err) {
       setError(err);

@@ -14,12 +14,12 @@ import {
   Hash,
   BadgeCheck,
 } from 'lucide-react';
-import { getOrderStatus } from './hooks/useOrder';
+import { getOrderStatus, calculateOrderFinancials } from './hooks/useOrder';
 
 const labelStyle = { fontWeight: 600, color: '#555' };
 const valueStyle = { color: '#222' };
 const fieldRowStyle = { display: 'flex', alignItems: 'center', marginBottom: 6 };
-const labelFixedStyle = { width: 120, fontWeight: 600, color: '#555' };
+const labelFixedStyle = { width: 140, fontWeight: 600, color: '#555' };
 const valueFlexStyle = { flex: 1, color: '#222' };
 const imgBase = import.meta.env.VITE_IMAGE_BASE_URL || '';
 
@@ -46,11 +46,8 @@ const SingleOrder = ({ order, onBack }) => {
     return 'Other';
   };
 
-  // Price breakdown logic
-  const subtotal = (order.products || []).reduce((sum, p) => sum + Number(p.total_item_price || 0), 0);
-  const pickupCharges = Number(order.pickup_charges || 0);
-  const discount = Number(order.discounted_price || 0);
-  const total = Number(order.total_price || 0);
+  // Financial breakdown logic
+  const financials = calculateOrderFinancials(order);
 
   const productColumns = [
     {
@@ -70,17 +67,6 @@ const SingleOrder = ({ order, onBack }) => {
         </div>
       ),
     },
-    // {
-    //   title: 'Gallery',
-    //   dataIndex: 'gallery_images',
-    //   render: (gallery) => (
-    //     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-    //       {Array.isArray(gallery) && gallery.map((img, idx) => (
-    //         <AntImage key={idx} src={imgBase + img} alt="Gallery" width={32} height={32} style={{ objectFit: 'cover', borderRadius: 4 }} preview={false} />
-    //       ))}
-    //     </div>
-    //   ),
-    // },
     {
       title: 'Quantity',
       dataIndex: 'product_quantity',
@@ -130,7 +116,7 @@ const SingleOrder = ({ order, onBack }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: '#555' }}>
           <Hash size={18} />
-          <span>Order ID: {order.order_id}</span>
+          <span>Order ID: {order.order_uid || order.order_id} ({order.order_id ? `#${order.order_id}` : ''})</span>
         </div>
       </div>
       {/* Scrollable Content */}
@@ -143,7 +129,7 @@ const SingleOrder = ({ order, onBack }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                 <Avatar size={64} icon={<UserIcon size={32} />} style={{ background: '#e6f7ff' }} />
                 <div style={{ flex: 1 }}>
-                  <div style={fieldRowStyle}><span style={labelFixedStyle}>Name:</span><span style={valueFlexStyle}>{order.user?.firstname || ''} {order.user?.lastname || ''}</span></div>
+                  <div style={fieldRowStyle}><span style={labelFixedStyle}>Name:</span><span style={valueFlexStyle}>{[order.user?.firstname, order.user?.lastname].filter(Boolean).join(' ') || order.user?.name || '-'}</span></div>
                   <div style={fieldRowStyle}><span style={labelFixedStyle}>Phone:</span><span style={valueFlexStyle}>{order.user?.prefix} {order.user?.phonenumber}</span></div>
                   <div style={fieldRowStyle}><span style={labelFixedStyle}>Email:</span><span style={valueFlexStyle}>{order.user?.email || '-'}</span></div>
                   <div style={fieldRowStyle}><span style={labelFixedStyle}>Address:</span><span style={valueFlexStyle}>{order.address?.address || '-'} (Type: {addressType(order.address?.type)})</span></div>
@@ -183,14 +169,12 @@ const SingleOrder = ({ order, onBack }) => {
                 <Avatar size={64} icon={<BikeIcon size={32} />} style={{ background: '#f0f5ff', color: '#2f54eb' }} />
                 <div style={{ flex: 1,display:"flex",flexDirection:"row" }}>
                   <div style={{flex:1}}>
-                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Rider Name:</span><span style={valueFlexStyle}>{order.rider?.firstname || ''} {order.rider?.lastname || ''}</span></div>
-                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Rider ID:</span><span style={valueFlexStyle}>{order.rider?.custom_id}</span></div>
-                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Contact:</span><span style={valueFlexStyle}>-</span></div>
+                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Rider Name:</span><span style={valueFlexStyle}>{[order.rider?.firstname, order.rider?.lastname].filter(Boolean).join(' ') || '-'}</span></div>
+                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Rider ID:</span><span style={valueFlexStyle}>{order.rider?.custom_id || '-'}</span></div>
                   </div>
                   <div>
                     <div style={fieldRowStyle}><span style={labelFixedStyle}>Pickup:</span><span style={valueFlexStyle}>{order.vendor?.store_address}</span></div>
                     <div style={fieldRowStyle}><span style={labelFixedStyle}>Delivery:</span><span style={valueFlexStyle}>{order.address?.address}</span></div>
-                    <div style={fieldRowStyle}><span style={labelFixedStyle}>Time:</span><span style={valueFlexStyle}>-</span></div>
                   </div>
                 </div>
               </div>
@@ -200,26 +184,32 @@ const SingleOrder = ({ order, onBack }) => {
             <Card bordered style={{ borderRadius: 12, boxShadow: '0 2px 12px #0001', height: '100%' }}>
               {sectionTitle(<IndianRupee size={20} />, 'Price Details')}
               <div style={{ padding: 8 }}>
-                <div style={{ ...fieldRowStyle, fontSize: 16 }}>
-                  <span style={labelFixedStyle}>Subtotal:</span>
-                  <span style={valueFlexStyle}><IndianRupee size={14} style={{ marginRight: 2 }} />{subtotal.toFixed(2)}</span>
+                <div style={{ ...fieldRowStyle, fontSize: 15 }}>
+                  <span style={labelFixedStyle}>Items Subtotal:</span>
+                  <span style={valueFlexStyle}><IndianRupee size={14} style={{ marginRight: 2 }} />{financials.itemsPrice.toFixed(2)}</span>
                 </div>
-                {pickupCharges > 0 && (
-                  <div style={{ ...fieldRowStyle, fontSize: 16 }}>
-                    <span style={labelFixedStyle}>Pickup Charges:</span>
-                    <span style={valueFlexStyle}><IndianRupee size={14} style={{ marginRight: 2 }} />{pickupCharges.toFixed(2)}</span>
+                {financials.deliveryCharge > 0 && (
+                  <div style={{ ...fieldRowStyle, fontSize: 15 }}>
+                    <span style={labelFixedStyle}>Delivery Fee:</span>
+                    <span style={valueFlexStyle}><IndianRupee size={14} style={{ marginRight: 2 }} />{financials.deliveryCharge.toFixed(2)}</span>
                   </div>
                 )}
-                {discount > 0 && (
-                  <div style={{ ...fieldRowStyle, fontSize: 16 }}>
-                    <span style={labelFixedStyle}>Discount:</span>
-                    <span style={{ ...valueFlexStyle, color: 'red' }}>-<IndianRupee size={14} style={{ marginRight: 2 }} />{discount.toFixed(2)}</span>
+                {financials.fastDeliveryCharge > 0 && (
+                  <div style={{ ...fieldRowStyle, fontSize: 15 }}>
+                    <span style={labelFixedStyle}>Express Delivery:</span>
+                    <span style={valueFlexStyle}><IndianRupee size={14} style={{ marginRight: 2 }} />{financials.fastDeliveryCharge.toFixed(2)}</span>
+                  </div>
+                )}
+                {financials.tip > 0 && (
+                  <div style={{ ...fieldRowStyle, fontSize: 15 }}>
+                    <span style={labelFixedStyle}>Rider Tip {financials.tipPct > 0 ? `(${financials.tipPct}%)` : ''}:</span>
+                    <span style={{ ...valueFlexStyle, color: '#d97706' }}>+<IndianRupee size={14} style={{ marginRight: 2 }} />{financials.tip.toFixed(2)}</span>
                   </div>
                 )}
                 <Divider style={{ margin: '8px 0' }} />
-                <div style={{ ...fieldRowStyle, fontSize: 20, fontWeight: 700, color: '#389e0d' }}>
-                  <span style={labelFixedStyle}>Total:</span>
-                  <span style={valueFlexStyle}><IndianRupee size={18} style={{ marginRight: 2 }} />{total.toFixed(2)}</span>
+                <div style={{ ...fieldRowStyle, fontSize: 19, fontWeight: 700, color: '#389e0d' }}>
+                  <span style={labelFixedStyle}>Overall Amount:</span>
+                  <span style={valueFlexStyle}><IndianRupee size={18} style={{ marginRight: 2 }} />{financials.overall.toFixed(2)}</span>
                 </div>
               </div>
             </Card>
