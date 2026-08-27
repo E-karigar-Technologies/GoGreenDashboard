@@ -27,27 +27,24 @@ export const parseOrderIdNum = (record) => {
 export const calculateOrderFinancials = (record) => {
   if (!record) return { itemsPrice: 0, deliveryCharge: 0, fastDeliveryCharge: 0, tip: 0, tipPct: 0, overall: 0 };
 
-  const itemsPrice = Number(record.items_price || record.total_price || 0);
-  const deliveryCharge = Number(record.rider_deliveryCharge || 0);
-  const fastDeliveryCharge = Number(record.fast_delivery_charges || 0);
+  const extra = record.extra_details || {};
 
-  let tip = Number(record.tip_amount || 0);
-  const tipPct = Number(record.tip_percentage || 0);
+  const itemsPrice = Number(extra.items_price ?? record.items_price ?? record.total_price ?? 0);
+  const deliveryCharge = Number(extra.rider_deliveryCharge ?? record.rider_deliveryCharge ?? record.delivery_charge ?? 0);
+  const fastDeliveryCharge = Number(extra.fast_delivery_charges ?? record.fast_delivery_charges ?? 0);
+
+  let tip = Number(extra.tip_amount ?? record.tip_amount ?? 0);
+  const tipPct = Number(extra.tip_percentage ?? record.tip_percentage ?? 0);
 
   if (tip === 0 && tipPct > 0 && itemsPrice > 0) {
     tip = (itemsPrice * tipPct) / 100;
   }
 
-  let overall = Number(record.overall_amount || 0);
+  let overall = Number(extra.overall_amount ?? record.overall_amount ?? 0);
   const calculatedSum = itemsPrice + deliveryCharge + fastDeliveryCharge + tip;
 
   if (!overall || overall <= 0) {
     overall = calculatedSum;
-  } else {
-    const baseTotal = itemsPrice + deliveryCharge + fastDeliveryCharge;
-    if (tip > 0 && Math.abs(overall - baseTotal) < 0.1) {
-      overall = baseTotal + tip;
-    }
   }
 
   return {

@@ -266,7 +266,7 @@ export default function DashSales() {
     {
       title: 'Store',
       key: 'vendor',
-      render: (_, record) => record.vendor?.store_name || 'Store N/A',
+      render: (_, record) => record.store_name || record.vendor?.store_name || record.vendor_name || 'Store N/A',
     },
     {
       title: 'Total Amount',

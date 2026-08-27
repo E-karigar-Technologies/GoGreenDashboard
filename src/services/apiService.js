@@ -585,9 +585,41 @@ export const getRiderAnalytics = async (rider_Id, start_date, end_date) => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Customers / Users (delivery app)
-// ---------------------------------------------------------------------------
+// GET https://cx.ekarigar.com/delievery-api/users/fetchusers
+// Query params: page, limit, vendor_id, order_status, date_filter, start_date, end_date, search, role_id
+export const fetchUsersList = async (params = {}) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      params,
+    };
+    const response = await axios.get(`/users/fetchusers`, reqConfig);
+    if (response.data && response.data.success !== undefined) {
+      return {
+        success: response.data.success,
+        data: response.data.data || [],
+        pagination: response.data.pagination || { totalUsers: 0, currentPage: 1, limit: 10, totalPages: 1 },
+      };
+    }
+    const list = Array.isArray(response.data) ? response.data : response.data?.users || response.data?.data || [];
+    return {
+      success: true,
+      data: list,
+      pagination: { totalUsers: list.length, currentPage: 1, limit: list.length, totalPages: 1 },
+    };
+  } catch (error) {
+    console.error("Failed to fetch users list:", error);
+    return {
+      success: false,
+      error: error.response?.data || error.message,
+      data: [],
+      pagination: { totalUsers: 0, currentPage: 1, limit: 10, totalPages: 1 },
+    };
+  }
+};
 
 // GET https://cx.ekarigar.com/delievery-api/users/user-details
 export const getAllUserDetails = async () => {

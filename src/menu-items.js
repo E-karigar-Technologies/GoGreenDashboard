@@ -60,30 +60,30 @@ const menuItems = {
       icon: 'icon-support',
       children: [
         {
+          id: 'manage-users-group',
+          title: 'Users',
+          type: 'collapse',
+          icon: 'material-icons-two-tone',
+          iconname: 'people',
+          children: [
+            {
+              id: 'all-users-item',
+              title: 'All Users',
+              type: 'item',
+              url: '/all-users',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'people_alt'
+            }
+          ]
+        },
+        {
           id: 'manage-users',
-          title: 'Varification Requests',
+          title: 'Verification Requests',
           type: 'collapse',
           icon: 'material-icons-two-tone',
           iconname: 'group',
           children: [
-            // {
-            //   id: 'add-user',
-            //   title: 'Add User',
-            //   type: 'item',
-            //   url: '/add-users',
-            //   classes: 'nav-item',
-            //   icon: 'material-icons-two-tone',
-            //   iconname: 'person_add'
-            // },
-            // {
-            //   id: 'all-users',
-            //   title: 'All Users',
-            //   type: 'item',
-            //   url: '/all-users',
-            //   classes: 'nav-item',
-            //   icon: 'material-icons-two-tone',
-            //   iconname: 'people_alt'
-            // },
             {
               id: 'unverified-vendors',
               title: 'All Unverified Vendors',
