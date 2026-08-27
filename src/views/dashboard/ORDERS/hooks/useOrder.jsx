@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import dayjs from 'dayjs';
+import { getOrdersList } from '../../../../services/apiService';
 
 export const parseOrderTime = (record) => {
   if (!record) return 0;
@@ -76,7 +76,7 @@ const useOrder = () => {
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [vendorId, setVendorId] = useState('');
   const [status, setStatus] = useState(null);
@@ -100,38 +100,38 @@ const useOrder = () => {
         limit,
         vendor_id: vendorId || undefined,
         status: status !== null ? status : undefined,
-        start_date: dateRange.start.format('YYYY-MM-DD'),
-        end_date: dateRange.end.format('YYYY-MM-DD'),
+        start_date: dateRange?.start ? dateRange.start.format('YYYY-MM-DD') : undefined,
+        end_date: dateRange?.end ? dateRange.end.format('YYYY-MM-DD') : undefined,
         sort_order: 'DESC',
         sort_by: 'created_at',
-        order: 'DESC',
       };
-      const config = {
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      };
-      const { data } = await axios.post(`${API_URL}/order/list`, payload, config);
-      const rawOrders = data.orders || [];
-      const sortedOrders = [...rawOrders].sort((a, b) => {
-        const timeA = parseOrderTime(a);
-        const timeB = parseOrderTime(b);
-        if (timeA !== timeB && timeA > 0 && timeB > 0) {
-          return timeB - timeA;
-        }
-        const idA = parseOrderIdNum(a);
-        const idB = parseOrderIdNum(b);
-        if (idA !== idB && idA > 0 && idB > 0) {
-          return idB - idA;
-        }
-        return String(b.order_id || b.id || '').localeCompare(String(a.order_id || a.id || ''), undefined, { numeric: true });
-      });
-      setOrders(sortedOrders);
-      setTotal(data.total || 0);
+      const result = await getOrdersList(payload);
+      if (result.success) {
+        const rawOrders = result.data || [];
+        const sortedOrders = [...rawOrders].sort((a, b) => {
+          const timeA = parseOrderTime(a);
+          const timeB = parseOrderTime(b);
+          if (timeA !== timeB && timeA > 0 && timeB > 0) {
+            return timeB - timeA;
+          }
+          const idA = parseOrderIdNum(a);
+          const idB = parseOrderIdNum(b);
+          if (idA !== idB && idA > 0 && idB > 0) {
+            return idB - idA;
+          }
+          return String(b.order_id || b.id || '').localeCompare(String(a.order_id || a.id || ''), undefined, { numeric: true });
+        });
+        setOrders(sortedOrders);
+        setTotal(result.total || sortedOrders.length);
+      } else {
+        setError(result.error || 'Failed to fetch orders');
+      }
     } catch (err) {
       setError(err);
     } finally {
       setLoading(false);
     }
-  }, [search, page, limit, vendorId, status, dateRange.start, dateRange.end, API_URL, token]);
+  }, [search, page, limit, vendorId, status, dateRange?.start, dateRange?.end]);
 
   useEffect(() => {
     fetchOrders();
@@ -139,10 +139,8 @@ const useOrder = () => {
 
   // Reset page to 1 when search, vendorId, status, or dateRange changes
   useEffect(() => {
-    if (page !== 1) {
-      setPage(1);
-    }
-  }, [search, vendorId, status, dateRange.start, dateRange.end]);
+    setPage(1);
+  }, [search, vendorId, status, dateRange?.start, dateRange?.end]);
 
   return {
     orders,

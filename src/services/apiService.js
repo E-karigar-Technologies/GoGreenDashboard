@@ -661,3 +661,36 @@ export const reverseGeocode = async (lat, lng) => {
     return { success: false, error: error.response?.data || error.message };
   }
 };
+
+// ---------------------------------------------------------------------------
+// Orders API
+// ---------------------------------------------------------------------------
+
+// POST https://cx.ekarigar.com/delievery-api/order/list
+export const getOrdersList = async (payload = {}) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    const response = await axios.post(`/order/list`, payload, reqConfig);
+    return {
+      success: true,
+      data: response.data?.orders || [],
+      total: response.data?.total || 0,
+      raw: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to fetch order list:", error);
+    return {
+      success: false,
+      error: error.response?.data || error.message,
+      data: [],
+      total: 0,
+    };
+  }
+};
+

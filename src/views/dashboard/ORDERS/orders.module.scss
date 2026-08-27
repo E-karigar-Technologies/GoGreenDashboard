@@ -14,7 +14,8 @@
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 1.5rem;
-  
+  align-items: center;
+
   @media (max-width: 768px) {
     flex-direction: column;
   }
@@ -22,8 +23,7 @@
 
 .filterItem {
   min-width: 180px;
-  // flex: 1;
-  
+
   @media (max-width: 768px) {
     width: 100%;
   }
@@ -31,8 +31,7 @@
 
 .dateRangeContainer {
   margin-top: 1rem;
-  // margin-bottom: 1rem;
-  
+
   @media (min-width: 768px) {
     margin-top: 0;
   }
@@ -40,12 +39,12 @@
 
 .statusSelect {
   min-width: 150px;
-  
+
   :global {
     .ant-select-selector {
-      border-radius: 4px;
+      border-radius: 6px;
     }
-    
+
     .ant-select-selection-item {
       display: flex;
       align-items: center;
@@ -64,29 +63,70 @@
     background-color: #faad14;
     color: #fff;
   }
-  
+
   &.confirmed {
     background-color: #1890ff;
     color: #fff;
   }
-  
+
   &.assigned {
     background-color: #722ed1;
     color: #fff;
   }
-  
+
   &.pickedUp {
     background-color: #13c2c2;
     color: #fff;
   }
-  
+
   &.delivered {
     background-color: #52c41a;
     color: #fff;
   }
-  
+
   &.rejected {
     background-color: #f5222d;
     color: #fff;
+  }
+}
+
+.orderStepsCard {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
+}
+
+.detailCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  }
+}
+
+@media print {
+  .noPrint {
+    display: none !important;
+  }
+
+  .printOnly {
+    display: block !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .printableReceipt {
+    padding: 20px;
+    font-family: inherit;
   }
 }
