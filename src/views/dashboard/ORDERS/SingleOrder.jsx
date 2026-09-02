@@ -146,13 +146,13 @@ const SingleOrder = ({ order, onBack }) => {
 
   // Determine current step index for the tracker
   let currentStep = 0;
-  if (order.order_status === 1) currentStep = 1;
-  else if (order.order_status === 2) currentStep = 2;
-  else if (order.order_status === 3) currentStep = 3;
-  else if (order.order_status === 4) currentStep = 4;
-  else if (order.order_status === 5) currentStep = 4; // Rejected step
+  const statusNum = Number(order.order_status);
+  if (statusNum === 1) currentStep = 1;
+  else if (statusNum === 2) currentStep = 2;
+  else if (statusNum === 4) currentStep = 4;
+  else if (statusNum === 3 || statusNum === 5) currentStep = 4; // Rejected step
 
-  const isRejected = order.order_status === 5;
+  const isRejected = statusNum === 3 || statusNum === 5;
 
   return (
     <div style={{ margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>

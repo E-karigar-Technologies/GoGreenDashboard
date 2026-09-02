@@ -105,8 +105,8 @@ export default function DashSales() {
 
           if (ord.order_status === 4) deliveredCount += 1;
           else if (ord.order_status === 0) pendingCount += 1;
-          else if (ord.order_status === 5) rejectedCount += 1;
-          else if (ord.order_status === 1 || ord.order_status === 2 || ord.order_status === 3) inProgressCount += 1;
+          else if (ord.order_status === 3 || ord.order_status === 5) rejectedCount += 1;
+          else if (ord.order_status === 1 || ord.order_status === 2) inProgressCount += 1;
 
           if (ord.created_at) {
             const date = new Date(ord.created_at);

@@ -58,11 +58,12 @@ export const calculateOrderFinancials = (record) => {
 };
 
 export const getOrderStatus = (status) => {
-  switch (status) {
+  const num = status === null || status === undefined ? 0 : Number(status);
+  switch (num) {
     case 0: return { text: 'Pending', color: 'orange' };
     case 1: return { text: 'Confirmed', color: 'blue' };
     case 2: return { text: 'Delivery Assigned', color: 'purple' };
-    case 3: return { text: 'Order Picked Up', color: 'cyan' };
+    case 3: return { text: 'Order Rejected', color: 'red' };
     case 4: return { text: 'Order Delivered', color: 'green' };
     case 5: return { text: 'Order Rejected', color: 'red' };
     default: return { text: 'Unknown', color: 'gray' };

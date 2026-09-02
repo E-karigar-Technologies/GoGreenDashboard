@@ -416,7 +416,7 @@ const UserList = () => {
               onChange={(val) => setOrderStatus(val)}
               style={{ width: '100%' }}
             >
-              {[0, 1, 2, 3, 4, 5].map((code) => {
+              {[0, 1, 2, 3, 4].map((code) => {
                 const s = getOrderStatus(code);
                 return (
                   <Select.Option key={code} value={code}>

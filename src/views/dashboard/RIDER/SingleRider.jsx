@@ -147,7 +147,7 @@ const RiderDashboard = () => {
       case 0: return { text: 'Pending', color: 'orange' };
       case 1: return { text: 'Confirmed', color: 'blue' };
       case 2: return { text: 'Delivery Assigned', color: 'purple' };
-      case 3: return { text: 'Order Picked Up', color: 'cyan' };
+      case 3: return { text: 'Order Rejected', color: 'red' };
       case 4: return { text: 'Order Delivered', color: 'green' };
       case 5: return { text: 'Order Rejected', color: 'red' };
       default: return { text: 'Pending', color: 'orange' };
@@ -198,7 +198,7 @@ const RiderDashboard = () => {
         totalDeliveredRiderShare += totalRiderShare;
         deliveredCount++;
         dailyMap[dateKey].deliveredEarnings += totalRiderShare;
-      } else if (status === 5) {
+      } else if (status === 3 || status === 5) {
         // Rejected
         rejectedCount++;
       } else {
@@ -206,7 +206,6 @@ const RiderDashboard = () => {
         pendingRiderShare += totalRiderShare;
         dailyMap[dateKey].pendingEarnings += totalRiderShare;
         if (status === 1) confirmedCount++;
-        else if (status === 3) pickedUpCount++;
         else pendingCount++;
       }
     });
@@ -393,7 +392,7 @@ const RiderDashboard = () => {
         const { totalRiderShare, delCharge, fastDelCharge, tipAmt, tipPct } = computeOrderFinancials(record);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-            <strong style={{ color: record.order_status === 4 ? '#16a34a' : record.order_status === 5 ? '#dc2626' : '#d97706', fontSize: '15px' }}>
+            <strong style={{ color: record.order_status === 4 ? '#16a34a' : (record.order_status === 3 || record.order_status === 5) ? '#dc2626' : '#d97706', fontSize: '15px' }}>
               ${totalRiderShare.toFixed(2)}
             </strong>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 2 }}>

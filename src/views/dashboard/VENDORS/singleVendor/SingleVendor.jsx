@@ -308,7 +308,7 @@ const VendorDashboard = () => {
       case 0: return { text: 'Pending', color: 'orange' };
       case 1: return { text: 'Confirmed', color: 'blue' };
       case 2: return { text: 'Delivery Assigned', color: 'purple' };
-      case 3: return { text: 'Order Picked Up', color: 'cyan' };
+      case 3: return { text: 'Order Rejected', color: 'red' };
       case 4: return { text: 'Order Delivered', color: 'green' };
       case 5: return { text: 'Order Rejected', color: 'red' };
       default: return { text: 'Pending', color: 'orange' };
@@ -587,7 +587,7 @@ const VendorDashboard = () => {
         deliveredCount++;
         dailyMap[dateKey].deliveredRevenue += vendorShare;
         dailyMap[dateKey].adminCommission += adminCommission;
-      } else if (status === 5) {
+      } else if (status === 3 || status === 5) {
         // Rejected
         rejectedCount++;
       } else {
@@ -595,7 +595,6 @@ const VendorDashboard = () => {
         pendingVendorShare += vendorShare;
         dailyMap[dateKey].pendingRevenue += vendorShare;
         if (status === 1) confirmedCount++;
-        else if (status === 3) pickedUpCount++;
         else pendingCount++;
       }
     });
