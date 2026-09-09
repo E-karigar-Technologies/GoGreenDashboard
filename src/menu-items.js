@@ -362,6 +362,24 @@ const menuItems = {
   ]
 },
 
+// Pick & Drop Group
+{
+  id: 'pick-drop-group',
+  type: 'group',
+  icon: 'icon-delivery',
+  children: [
+    {
+      id: 'pick-and-drop',
+      title: 'Pick & Drop',
+      type: 'item',
+      icon: 'material-icons-two-tone',
+      iconname: 'local_shipping',
+      url: '/pick-and-drop'
+    }
+  ]
+},
+
+
 
   
 

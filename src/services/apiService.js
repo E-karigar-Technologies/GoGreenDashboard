@@ -719,10 +719,48 @@ export const getOrdersList = async (payload = {}) => {
     console.error("Failed to fetch order list:", error);
     return {
       success: false,
-      error: error.response?.data || error.message,
-      data: [],
       total: 0,
     };
   }
 };
+
+// ---------------------------------------------------------------------------
+// Pick & Drop Parcels API
+// ---------------------------------------------------------------------------
+
+// GET /parcels/getall-parcels/all
+// GET /parcels/getall-parcels/today
+// GET /parcels/getall-parcels/{date}
+export const getAllParcels = async (type = "all", dateStr = null) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    let endpoint = "/parcels/getall-parcels/all";
+    if (type === "today") {
+      endpoint = "/parcels/getall-parcels/today";
+    } else if (type === "date" && dateStr) {
+      endpoint = `/parcels/getall-parcels/${dateStr}`;
+    }
+    const response = await axios.get(endpoint, reqConfig);
+    const parcelsData = response.data?.parcels || response.data?.data || (Array.isArray(response.data) ? response.data : []);
+    return {
+      success: true,
+      data: parcelsData,
+      raw: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to fetch parcels:", error);
+    return {
+      success: false,
+      error: error.response?.data || error.message,
+      data: [],
+    };
+  }
+};
+
 
