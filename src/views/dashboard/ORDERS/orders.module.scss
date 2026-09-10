@@ -112,21 +112,44 @@
 }
 
 @media print {
-  .noPrint {
+  .noPrint,
+  :global(.noPrint),
+  :global(.pc-sidebar),
+  :global(.pc-header),
+  :global(.mobile-header),
+  :global(.pc-mob-header),
+  :global(.navbar),
+  :global(header),
+  :global(nav),
+  :global(aside) {
     display: none !important;
   }
 
-  .printOnly {
+  .printOnly,
+  :global(.printOnly) {
     display: block !important;
   }
 
-  body {
+  :global(body),
+  :global(html) {
     background: #fff !important;
     color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  :global(.pc-container) {
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
   }
 
   .printableReceipt {
-    padding: 20px;
+    padding: 0 !important;
+    margin: 0 !important;
     font-family: inherit;
+    border: none !important;
+    box-shadow: none !important;
   }
 }

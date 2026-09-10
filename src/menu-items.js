@@ -328,6 +328,16 @@ const menuItems = {
               icon: 'material-icons-two-tone',
               iconname: 'apartment'
             },
+            {
+              id: 'vendor-withdrawals',
+              title: 'Vendor Withdrawals',
+              type: 'item',
+              url: '/vendor-withdrawals',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'account_balance_wallet'
+            },
+
            
           ]
         }
@@ -356,6 +366,15 @@ const menuItems = {
           classes: 'nav-item',
           icon: 'material-icons-two-tone',
           iconname: 'two_wheeler' // Rider's vehicle
+        },
+        {
+          id: 'rider-withdrawals-item',
+          title: 'Rider Withdrawals',
+          type: 'item',
+          url: '/rider-withdrawals',
+          classes: 'nav-item',
+          icon: 'material-icons-two-tone',
+          iconname: 'account_balance_wallet'
         }
       ]
     }
@@ -378,6 +397,9 @@ const menuItems = {
     }
   ]
 },
+
+
+
 
 
 

@@ -78,6 +78,7 @@ import useWindowSize from 'hooks/useWindowSize';
 import navigation from 'menu-items';
 import navitemcollapse from 'menu-items-collapse';
 import * as actionType from 'store/actions';
+import { getAllUnverifiedUsers, getVendorWithdrawals, getRiderWithdrawals } from '../../../services/apiService';
 import './sidebar.scss';
 // assets
 import avatar2 from 'assets/images/user/avatar-2.svg';
@@ -123,24 +124,101 @@ const getIcon = (iconname, id) => {
   return iconMap[iconname] || iconMap.default;
 };
 
-// Convert menu items to Ant Design format
-const convertMenuItems = (items) => {
+// Convert menu items to Ant Design format with dynamic badge counts
+const convertMenuItems = (items, counts = {}) => {
   return items.flatMap(item => {
     if (item.type === 'group') {
       // Skip group titles, just return their children
-      return item.children ? convertMenuItems(item.children) : [];
+      return item.children ? convertMenuItems(item.children, counts) : [];
     } else if (item.type === 'collapse') {
+      let badgeCount = 0;
+      if (item.id === 'manage-users') {
+        badgeCount = (counts.vendorUnverified || 0) + (counts.riderUnverified || 0) + (counts.customerUnverified || 0);
+      } else if (item.id === 'manage-vendor') {
+        badgeCount = counts.vendorWithdrawalsPending || 0;
+      } else if (item.id === 'manage-rider') {
+        badgeCount = counts.riderWithdrawalsPending || 0;
+      }
+
+      const labelContent = (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: 4 }}>
+          <span>{item.title}</span>
+          {badgeCount > 0 && (
+            <Badge
+              count={badgeCount}
+              overflowCount={99}
+              style={{
+                backgroundColor: '#ef4444',
+                color: '#fff',
+                fontSize: '11px',
+                fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)'
+              }}
+            />
+          )}
+        </div>
+      );
+
       return [{
         key: item.id,
         icon: getIcon(item.iconname, item.id),
-        label: item.title,
-        children: item.children ? convertMenuItems(item.children) : []
+        label: labelContent,
+        children: item.children ? convertMenuItems(item.children, counts) : []
       }];
     } else if (item.type === 'item') {
+      let badgeCount = 0;
+      if (item.id === 'unverified-vendors') {
+        badgeCount = counts.vendorUnverified || 0;
+      } else if (item.id === 'unverified-partners') {
+        badgeCount = counts.riderUnverified || 0;
+      } else if (item.id === 'unverified-customers') {
+        badgeCount = counts.customerUnverified || 0;
+      } else if (item.id === 'vendor-withdrawals' || item.id === 'vendor-withdrawals-item' || item.id === 'vendor-withdrawals-main') {
+        badgeCount = counts.vendorWithdrawalsPending || 0;
+      } else if (item.id === 'rider-withdrawals-item' || item.id === 'rider-withdrawals-main') {
+        badgeCount = counts.riderWithdrawalsPending || 0;
+      }
+
+      const labelContent = item.url ? (
+        <Link to={item.url} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: 4 }}>
+          <span>{item.title}</span>
+          {badgeCount > 0 && (
+            <Badge
+              count={badgeCount}
+              overflowCount={99}
+              style={{
+                backgroundColor: '#f97316',
+                color: '#fff',
+                fontSize: '10px',
+                fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(249, 115, 22, 0.3)'
+              }}
+            />
+          )}
+        </Link>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: 4 }}>
+          <span>{item.title}</span>
+          {badgeCount > 0 && (
+            <Badge
+              count={badgeCount}
+              overflowCount={99}
+              style={{
+                backgroundColor: '#f97316',
+                color: '#fff',
+                fontSize: '10px',
+                fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(249, 115, 22, 0.3)'
+              }}
+            />
+          )}
+        </div>
+      );
+
       return [{
         key: item.id,
         icon: getIcon(item.iconname, item.id),
-        label: item.url ? <Link to={item.url}>{item.title}</Link> : item.title,
+        label: labelContent,
         url: item.url
       }];
     }
@@ -178,6 +256,60 @@ export default function ModernNavigation() {
   
   const [selectedKeys, setSelectedKeys] = useState(['dashboard']);
   const [openKeys, setOpenKeys] = useState([]);
+  const [counts, setCounts] = useState({
+    vendorUnverified: 0,
+    riderUnverified: 0,
+    customerUnverified: 0,
+    vendorWithdrawalsPending: 0,
+    riderWithdrawalsPending: 0,
+  });
+
+  const loadMenuCounts = async () => {
+    try {
+      const unverifiedRes = await getAllUnverifiedUsers();
+      let vCount = 0, rCount = 0, cCount = 0;
+      if (unverifiedRes?.success) {
+        const vList = unverifiedRes.vendors || [];
+        const rList = unverifiedRes.delivery_partners || [];
+        const cList = unverifiedRes.customers || [];
+
+        vCount = vList.filter(u => u.is_verified !== 1).length;
+        rCount = rList.filter(u => u.is_verified !== 1).length;
+        cCount = cList.filter(u => u.is_verified !== 1).length;
+      }
+
+      let vWdrCount = 0, rWdrCount = 0;
+      try {
+        const vWdrRes = await getVendorWithdrawals('all');
+        if (vWdrRes?.success && Array.isArray(vWdrRes.data)) {
+          vWdrCount = vWdrRes.data.filter(w => String(w.status || w.withdrawal_status || '').toLowerCase().trim() === 'pending').length;
+        }
+      } catch (e) {}
+
+      try {
+        const rWdrRes = await getRiderWithdrawals('all');
+        if (rWdrRes?.success && Array.isArray(rWdrRes.data)) {
+          rWdrCount = rWdrRes.data.filter(w => String(w.status || w.withdrawal_status || '').toLowerCase().trim() === 'pending').length;
+        }
+      } catch (e) {}
+
+      setCounts({
+        vendorUnverified: vCount,
+        riderUnverified: rCount,
+        customerUnverified: cCount,
+        vendorWithdrawalsPending: vWdrCount,
+        riderWithdrawalsPending: rWdrCount,
+      });
+    } catch (err) {
+      console.error('Failed to load menu counts:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadMenuCounts();
+    const interval = setInterval(loadMenuCounts, 20000);
+    return () => clearInterval(interval);
+  }, [location.pathname]);
 
   useEffect(() => {
     // Find current menu item and its parent based on location
@@ -259,8 +391,9 @@ export default function ModernNavigation() {
 
   // On mobile, always show full menu; on desktop, respect collapseLayout
   const menuItems = isMobile
-    ? convertMenuItems(navigation.items)
-    : convertMenuItems(collapseLayout ? navitemcollapse.items : navigation.items);
+    ? convertMenuItems(navigation.items, counts)
+    : convertMenuItems(collapseLayout ? navitemcollapse.items : navigation.items, counts);
+
 
   return (
     <>

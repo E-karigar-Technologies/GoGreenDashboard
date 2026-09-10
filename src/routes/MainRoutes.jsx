@@ -22,6 +22,8 @@ const VendorTable = lazy(() => import('../views/dashboard/VENDORS/AllVendors/ven
 const RiderTable = lazy(() => import('../views/dashboard/RIDER/RiderTabel'));
 const SingleRider = lazy(() => import('../views/dashboard/RIDER/SingleRider'));
 const PickAndDrop = lazy(() => import('../views/pickAndDrop/PickAndDrop'));
+const VendorWithdrawals = lazy(() => import('../views/vendors/vendorWithdrawals/VendorWithdrawals'));
+const RiderWithdrawals = lazy(() => import('../views/dashboard/RIDER/riderWithdrawals/RiderWithdrawals'));
 
 const DashboardSales = lazy(() => import('../views/dashboard/DashSales/index'));
 
@@ -215,7 +217,16 @@ const MainRoutes = {
         {
           path: '/pick-and-drop',
           element: <PickAndDrop />
+        },
+        {
+          path: '/vendor-withdrawals',
+          element: <VendorWithdrawals />
+        },
+        {
+          path: '/rider-withdrawals',
+          element: <RiderWithdrawals />
         }
+
 
       ]
     },

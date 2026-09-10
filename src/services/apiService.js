@@ -763,4 +763,162 @@ export const getAllParcels = async (type = "all", dateStr = null) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Vendor Withdrawals API
+// ---------------------------------------------------------------------------
+
+// GET /order/all-vendor-withdrawals/all
+// GET /order/all-vendor-withdrawals/today
+// GET /order/all-vendor-withdrawals/{date}
+export const getVendorWithdrawals = async (type = "all", dateStr = null) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    let endpoint = "/order/all-vendor-withdrawals/all";
+    if (type === "today") {
+      endpoint = "/order/all-vendor-withdrawals/today";
+    } else if (type === "date" && dateStr) {
+      endpoint = `/order/all-vendor-withdrawals/${dateStr}`;
+    }
+    const response = await axios.get(endpoint, reqConfig);
+    const withdrawalsData =
+      response.data?.withdrawals ||
+      response.data?.data ||
+      (Array.isArray(response.data) ? response.data : []);
+    return {
+      success: true,
+      data: withdrawalsData,
+      raw: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to fetch vendor withdrawals:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: [],
+    };
+  }
+};
+
+// PUT /order/update-vendor-withdrawal
+// payload: { id, status, admin_remarks, transaction_reference }
+export const updateVendorWithdrawal = async (payload) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    const response = await axios.put("/order/update-vendor-withdrawal", payload, reqConfig);
+    return {
+      success: response.data?.status !== false,
+      message: response.data?.message || "Vendor withdrawal status updated successfully",
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to update vendor withdrawal:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+    };
+  }
+};
+
+// GET /rider/all-rider-withdrawals/all
+// GET /rider/all-rider-withdrawals/today
+// GET /rider/all-rider-withdrawals/{date}
+// POST /rider/all-rider-withdrawals
+export const getRiderWithdrawals = async (type = "all", dateStr = null) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    let endpoint = "/riders/all-rider-withdrawals/all";
+    if (type === "today") {
+      endpoint = "/riders/all-rider-withdrawals/today";
+    } else if (type === "date" && dateStr) {
+      endpoint = `/riders/all-rider-withdrawals/${dateStr}`;
+    }
+
+    let response;
+    try {
+      response = await axios.get(endpoint, reqConfig);
+    } catch (err) {
+      try {
+        response = await axios.get("/riders/all-rider-withdrawals", reqConfig);
+      } catch (err2) {
+        response = await axios.post("/riders/all-rider-withdrawals", { type, date: dateStr }, reqConfig);
+      }
+    }
+
+    const withdrawalsData =
+      response.data?.withdrawals ||
+      response.data?.data ||
+      (Array.isArray(response.data) ? response.data : []);
+
+    return {
+      success: true,
+      data: withdrawalsData,
+      raw: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to fetch rider withdrawals:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: [],
+    };
+  }
+};
+
+// PUT /rider/update-rider-withdrawal
+// payload: { id, status, admin_remarks, transaction_ref }
+export const updateRiderWithdrawal = async (payload) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put("/riders/update-rider-withdrawal", payload, reqConfig);
+    } catch (err) {
+      try {
+        response = await axios.put("/riders/update-rider-withdrawal", payload, reqConfig);
+      } catch (err2) {
+        response = await axios.post("/riders/update-rider-withdrawal", payload, reqConfig);
+      }
+    }
+
+    return {
+      success: response.data?.status !== false,
+      message: response.data?.message || "Rider withdrawal status updated successfully",
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Failed to update rider withdrawal:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+    };
+  }
+};
+
+
+
 
