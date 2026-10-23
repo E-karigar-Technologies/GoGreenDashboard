@@ -21,6 +21,20 @@ export default function useVendorType() {
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
+  // Vendor list drawer state
+  const [selectedVendorType, setSelectedVendorType] = useState(null);
+  const [vendorsDrawerOpen, setVendorsDrawerOpen] = useState(false);
+
+  const openVendorsDrawer = (record) => {
+    setSelectedVendorType(record);
+    setVendorsDrawerOpen(true);
+  };
+
+  const closeVendorsDrawer = () => {
+    setVendorsDrawerOpen(false);
+    setSelectedVendorType(null);
+  };
+
   // Fetch all vendor types once
   useEffect(() => {
     fetchVendorTypes();
@@ -266,5 +280,12 @@ export default function useVendorType() {
     requestDelete,
     cancelDelete,
     confirmDelete,
+    // vendor list drawer
+    selectedVendorType,
+    setSelectedVendorType,
+    vendorsDrawerOpen,
+    setVendorsDrawerOpen,
+    openVendorsDrawer,
+    closeVendorsDrawer,
   };
 }

@@ -172,10 +172,10 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Badge, Button, Statistic, Table, Progress, DatePicker, message, Spin, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Modal } from 'antd';
-import { SearchOutlined, FilterOutlined, EyeOutlined, ReloadOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Tabs, Badge, Button, Statistic, Table, Progress, DatePicker, message, Spin, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Modal, Alert } from 'antd';
+import { SearchOutlined, FilterOutlined, EyeOutlined, ReloadOutlined, EnvironmentOutlined, StopOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import DateRangeSelector from '../../../../components/DateRangeSelector';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   DollarSign,
   ShoppingCart,
@@ -201,11 +201,22 @@ import {
   Truck,
   AlertCircle,
   Award,
-  Layers
+  Layers,
+  Wallet,
+  ArrowDownLeft,
+  ArrowUpRight
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import dayjs from 'dayjs';
-import { getVendorAnalytics, getVendorById } from '../../../../services/apiService';
+import { 
+  getVendorAnalytics, 
+  getVendorById, 
+  updateVendorStatus, 
+  updateVendorDeactivateStatus,
+  getVendorShares,
+  getVendorWithdrawalsById,
+  getVendorWithdrawals
+} from '../../../../services/apiService';
 import { convertTimeRange, formatPhone } from '../../../../services/utils/gen_utility';
 
 const { TabPane } = Tabs;
@@ -286,6 +297,7 @@ const VendorDashboard = () => {
   
 
   const params = useParams();
+  const navigate = useNavigate();
   const routeVendorId = params?.vendorId || params?.id || window.location.pathname.split('/').pop();
   const vendorIdNumber = Number(routeVendorId);
 
@@ -293,11 +305,60 @@ const VendorDashboard = () => {
   const [vendorData, setVendorData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Block & Unblock Modal States
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
+  const [blockReason, setBlockReason] = useState('Policy Violation');
+  const [blockRemarks, setBlockRemarks] = useState('');
+  const [blockLoading, setBlockLoading] = useState(false);
+
+  const [unblockModalVisible, setUnblockModalVisible] = useState(false);
+  const [unblockLoading, setUnblockLoading] = useState(false);
+
+  const handleConfirmBlock = async () => {
+    setBlockLoading(true);
+    const finalRemark = blockReason === 'Other' && blockRemarks.trim()
+      ? blockRemarks.trim()
+      : [blockReason, blockRemarks.trim()].filter(Boolean).join(' - ');
+
+    const res = await updateVendorDeactivateStatus(vendorIdNumber, 1, finalRemark);
+    setBlockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Vendor has been blocked successfully.');
+      setVendorData((prev) => (prev ? { ...prev, deactivate_status: 1, remark: finalRemark } : prev));
+      setBlockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.error || 'Failed to block vendor');
+    }
+  };
+
+  const handleConfirmUnblock = async () => {
+    setUnblockLoading(true);
+    const res = await updateVendorDeactivateStatus(vendorIdNumber, 0, 'Reactivated by Admin');
+    setUnblockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Vendor has been unblocked and reactivated.');
+      setVendorData((prev) => (prev ? { ...prev, deactivate_status: 0, remark: '' } : prev));
+      setUnblockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.error || 'Failed to unblock vendor');
+    }
+  };
+
   // Vendor orders filter state
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [orderDateRange, setOrderDateRange] = useState(null);
   const [selectedVendorOrder, setSelectedVendorOrder] = useState(null);
+
+  // Vendor Wallet & Transactions state
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletWithdrawals, setWalletWithdrawals] = useState([]);
+  const [vendorSharesData, setVendorSharesData] = useState(null);
+  const [selectedWithdrawalDetail, setSelectedWithdrawalDetail] = useState(null);
+  const [walletTypeFilter, setWalletTypeFilter] = useState('all');
+  const [walletStatusFilter, setWalletStatusFilter] = useState('all');
+  const [walletSearch, setWalletSearch] = useState('');
+  const [walletDateRange, setWalletDateRange] = useState(null);
 
   // Status helper
   const getVendorOrderStatus = (status) => {
@@ -528,6 +589,318 @@ const VendorDashboard = () => {
           icon={<EyeOutlined />}
           style={{ borderRadius: '6px', background: '#088b46', border: 'none' }}
           onClick={() => setSelectedVendorOrder(record)}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
+
+  // Fetch Vendor Wallet data (Shares & Withdrawals)
+  const fetchWalletData = React.useCallback(async () => {
+    if (!vendorIdNumber) return;
+    setWalletLoading(true);
+    try {
+      const [sharesRes, withdrawalsRes] = await Promise.allSettled([
+        getVendorShares(vendorIdNumber),
+        getVendorWithdrawalsById(vendorIdNumber),
+      ]);
+
+      if (sharesRes.status === 'fulfilled' && sharesRes.value?.success) {
+        setVendorSharesData(sharesRes.value.data);
+      }
+
+      let wList = [];
+      if (withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value?.success && Array.isArray(withdrawalsRes.value.data)) {
+        wList = withdrawalsRes.value.data;
+      }
+
+      // If specific vendor withdrawals endpoint returns empty, check all-vendor-withdrawals as fallback
+      if (!wList || wList.length === 0) {
+        try {
+          const allWdrRes = await getVendorWithdrawals('all');
+          if (allWdrRes?.success && Array.isArray(allWdrRes.data)) {
+            wList = allWdrRes.data.filter(w => Number(w.vendor_id) === vendorIdNumber || Number(w.vendor?.id) === vendorIdNumber);
+          }
+        } catch (e) {
+          console.warn('Fallback fetch of all vendor withdrawals failed:', e);
+        }
+      }
+
+      setWalletWithdrawals(wList || []);
+    } catch (err) {
+      console.error('Error fetching wallet data:', err);
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [vendorIdNumber]);
+
+  useEffect(() => {
+    fetchWalletData();
+  }, [fetchWalletData]);
+
+  // Wallet summary metrics & transaction ledger
+  const walletSummary = React.useMemo(() => {
+    const ordersList = Array.isArray(vendorSharesData?.orders) && vendorSharesData.orders.length > 0
+      ? vendorSharesData.orders
+      : (Array.isArray(vendorData?.orders) ? vendorData.orders : []);
+
+    let totalDeliveredEarnings = 0;
+    let deliveredOrdersCount = 0;
+    const earningTransactions = [];
+
+    ordersList.forEach(order => {
+      const isDelivered = Number(order.order_status) === 4;
+      const totalAmt = Number(order.overall_amount || order.total_price || 0);
+      const vendorShare = Number(order.vendor_share !== undefined && order.vendor_share !== null ? order.vendor_share : totalAmt);
+
+      if (isDelivered) {
+        totalDeliveredEarnings += vendorShare;
+        deliveredOrdersCount += 1;
+
+        const custName = [order.customer?.firstname, order.customer?.lastname].filter(Boolean).join(' ') || order.firstname || 'Customer';
+        const dateVal = order.order_date || order.created_at;
+
+        earningTransactions.push({
+          key: `order-${order.id}`,
+          id: order.id,
+          uid: order.order_uid || `ORD#${order.id}`,
+          type: 'earning',
+          typeLabel: 'Order Earning',
+          title: `Delivered Order #${order.order_uid || order.id}`,
+          subtitle: `${order.products?.length || 0} item(s) • Customer: ${custName}`,
+          date: dateVal,
+          amount: vendorShare,
+          status: 'completed',
+          statusLabel: 'Credited',
+          statusColor: 'green',
+          rawRecord: order,
+          category: 'order',
+        });
+      }
+    });
+
+    let totalCompletedWithdrawals = 0;
+    let totalPendingWithdrawals = 0;
+    let completedWithdrawalsCount = 0;
+    let pendingWithdrawalsCount = 0;
+    const withdrawalTransactions = [];
+
+    (walletWithdrawals || []).forEach(w => {
+      const amt = Number(w.amount || w.requested_amount || 0);
+      const rawStatus = String(w.status || w.withdrawal_status || 'pending').toLowerCase().trim();
+      const isCompleted = ['completed', 'approved', 'success', 'paid'].includes(rawStatus);
+      const isPending = rawStatus === 'pending';
+
+      if (isCompleted) {
+        totalCompletedWithdrawals += amt;
+        completedWithdrawalsCount += 1;
+      } else if (isPending) {
+        totalPendingWithdrawals += amt;
+        pendingWithdrawalsCount += 1;
+      }
+
+      let statusColor = 'orange';
+      let statusLabel = 'Pending';
+      if (isCompleted) {
+        statusColor = 'green';
+        statusLabel = 'Completed';
+      } else if (['rejected', 'failed', 'cancelled', 'canceled'].includes(rawStatus)) {
+        statusColor = 'red';
+        statusLabel = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+      }
+
+      const bankName = w.bank_name || w.bank_details?.bank_name || vendorData?.bank_name || 'Bank Account';
+      const accNo = w.account_number || w.bank_details?.account_number || vendorData?.account_number;
+      const maskedAcc = accNo ? `••••${String(accNo).slice(-4)}` : '';
+      const dateVal = w.created_at || w.date || w.requested_at;
+
+      withdrawalTransactions.push({
+        key: `wdr-${w.id || Math.random()}`,
+        id: w.id,
+        uid: w.withdrawal_uid || (w.id ? `WDR#${w.id}` : 'WDR'),
+        type: 'withdrawal',
+        typeLabel: 'Withdrawal',
+        title: `Payout Request ${w.withdrawal_uid || (w.id ? `#${w.id}` : '')}`,
+        subtitle: `To: ${bankName} ${maskedAcc} ${w.transaction_reference ? `• Ref: ${w.transaction_reference}` : ''}`.trim(),
+        date: dateVal,
+        amount: amt,
+        status: rawStatus,
+        statusLabel,
+        statusColor,
+        rawRecord: w,
+        category: 'withdrawal',
+      });
+    });
+
+    const availableBalance = Math.max(0, totalDeliveredEarnings - totalCompletedWithdrawals);
+
+    const allTransactions = [...earningTransactions, ...withdrawalTransactions];
+    allTransactions.sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : 0;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    return {
+      totalDeliveredEarnings,
+      deliveredOrdersCount,
+      totalCompletedWithdrawals,
+      completedWithdrawalsCount,
+      totalPendingWithdrawals,
+      pendingWithdrawalsCount,
+      availableBalance,
+      allTransactions,
+    };
+  }, [vendorSharesData, vendorData, walletWithdrawals]);
+
+  // Filtered wallet transactions
+  const filteredWalletTransactions = React.useMemo(() => {
+    return walletSummary.allTransactions.filter(item => {
+      if (walletTypeFilter !== 'all' && item.type !== walletTypeFilter) {
+        return false;
+      }
+
+      if (walletStatusFilter !== 'all') {
+        if (walletStatusFilter === 'completed' && !['completed', 'approved', 'success', 'paid'].includes(item.status)) return false;
+        if (walletStatusFilter === 'pending' && item.status !== 'pending') return false;
+        if (walletStatusFilter === 'rejected' && !['rejected', 'failed', 'cancelled', 'canceled'].includes(item.status)) return false;
+      }
+
+      if (walletDateRange && walletDateRange[0] && walletDateRange[1]) {
+        if (!item.date) return false;
+        const itemTime = dayjs(item.date);
+        const start = dayjs(walletDateRange[0]).startOf('day');
+        const end = dayjs(walletDateRange[1]).endOf('day');
+        if (itemTime.isBefore(start) || itemTime.isAfter(end)) return false;
+      }
+
+      if (walletSearch.trim()) {
+        const query = walletSearch.toLowerCase().trim();
+        const matchesUid = String(item.uid || '').toLowerCase().includes(query);
+        const matchesTitle = String(item.title || '').toLowerCase().includes(query);
+        const matchesSubtitle = String(item.subtitle || '').toLowerCase().includes(query);
+        const matchesAmount = String(item.amount || '').includes(query);
+        if (!matchesUid && !matchesTitle && !matchesSubtitle && !matchesAmount) return false;
+      }
+
+      return true;
+    });
+  }, [walletSummary.allTransactions, walletTypeFilter, walletStatusFilter, walletDateRange, walletSearch]);
+
+  const walletTableColumns = [
+    {
+      title: 'Reference / ID',
+      key: 'uid',
+      width: 175,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
+            {record.uid}
+          </div>
+          <div style={{ marginTop: 3 }}>
+            {record.type === 'earning' ? (
+              <Tag color="green" style={{ borderRadius: 10, fontSize: 11, padding: '1px 8px', fontWeight: 600 }}>
+                <TrendingUp size={11} style={{ marginRight: 4, display: 'inline', verticalAlign: '-1px' }} /> Earning
+              </Tag>
+            ) : (
+              <Tag color="red" style={{ borderRadius: 10, fontSize: 11, padding: '1px 8px', fontWeight: 600 }}>
+                <TrendingDown size={11} style={{ marginRight: 4, display: 'inline', verticalAlign: '-1px' }} /> Withdrawal
+              </Tag>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Details & Description',
+      key: 'description',
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '13px' }}>
+            {record.title}
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
+            {record.subtitle}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Date & Time',
+      key: 'date',
+      width: 160,
+      sorter: (a, b) => (new Date(a.date).getTime() || 0) - (new Date(b.date).getTime() || 0),
+      render: (_, record) => {
+        return record.date ? (
+          <div>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12.5px' }}>
+              {dayjs(record.date).format('DD MMM YYYY')}
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              {dayjs(record.date).format('hh:mm A')}
+            </div>
+          </div>
+        ) : <span style={{ color: '#94a3b8' }}>-</span>;
+      },
+    },
+    {
+      title: 'Amount',
+      key: 'amount',
+      width: 160,
+      sorter: (a, b) => a.amount - b.amount,
+      render: (_, record) => {
+        const isCredit = record.type === 'earning';
+        return (
+          <div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: '15px',
+                color: isCredit ? '#088b46' : '#dc2626',
+              }}
+            >
+              {isCredit ? `+$${Number(record.amount).toFixed(2)}` : `-$${Number(record.amount).toFixed(2)}`}
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              {isCredit ? 'Credit to Wallet' : 'Debit / Payout'}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 130,
+      render: (_, record) => (
+        <Tag color={record.statusColor} style={{ borderRadius: 12, padding: '2px 10px', fontWeight: 600 }}>
+          {record.statusLabel}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 90,
+      align: 'center',
+      render: (_, record) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<EyeOutlined />}
+          style={{
+            borderRadius: '6px',
+            background: record.type === 'earning' ? '#088b46' : '#2563eb',
+            border: 'none',
+          }}
+          onClick={() => {
+            if (record.category === 'order') {
+              setSelectedVendorOrder(record.rawRecord);
+            } else {
+              setSelectedWithdrawalDetail(record.rawRecord);
+            }
+          }}
         >
           View
         </Button>
@@ -1109,7 +1482,7 @@ const VendorDashboard = () => {
           </Col>
           <Col xs={24} md={8} style={{ textAlign: 'right' }}>
             <Space direction="vertical" align="end" size={6}>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Badge 
                   status={vendorData?.is_verified === 1 ? 'success' : 'warning'}
                   text={<span style={{ fontWeight: 600 }}>{vendorData?.is_verified === 1 ? 'Verified' : 'Pending Verification'}</span>}
@@ -1118,12 +1491,39 @@ const VendorDashboard = () => {
                   status={vendorData?.status === 1 ? 'processing' : 'default'}
                   text={<span style={{ fontWeight: 600 }}>{vendorData?.status === 1 ? 'Active' : 'Inactive'}</span>}
                 />
+                {vendorData?.deactivate_status === 1 && (
+                  <Badge 
+                    status="error"
+                    text={<span style={{ fontWeight: 700, color: '#dc2626' }}>Blocked</span>}
+                  />
+                )}
               </div>
+              {vendorData?.deactivate_status === 1 && vendorData?.remark && (
+                <div style={{ fontSize: 11.5, color: '#dc2626' }}>
+                  <strong>Remark:</strong> {vendorData.remark}
+                </div>
+              )}
               {vendorData?.business_reg_number && (
                 <div style={{ fontSize: 12, color: '#64748b' }}>
                   Reg: <strong>{vendorData.business_reg_number}</strong>
                 </div>
               )}
+              <Button
+                size="small"
+                danger={vendorData?.deactivate_status !== 1}
+                icon={vendorData?.deactivate_status === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                style={{
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  marginTop: 4,
+                  backgroundColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
+                  color: vendorData?.deactivate_status === 1 ? '#ffffff' : undefined,
+                  borderColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
+                }}
+                onClick={() => (vendorData?.deactivate_status === 1 ? setUnblockModalVisible(true) : setBlockModalVisible(true))}
+              >
+                {vendorData?.deactivate_status === 1 ? 'Unblock Vendor' : 'Block Vendor'}
+              </Button>
             </Space>
           </Col>
         </Row>
@@ -1284,6 +1684,189 @@ const VendorDashboard = () => {
                 </Card>
               </Col>
             </Row>
+          </TabPane>
+
+          {/* Wallet & Transactions Tab (Next to Bank Details) */}
+          <TabPane tab={<span><Wallet size={16} /> Wallet & Transactions</span>} key="wallet">
+            {/* Header & Quick Refresh */}
+            <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 8, marginBottom: 16 }}>
+              <div className="d-flex align-items-center justify-content-between flex-md-row flex-column gap-3">
+                <div>
+                  <h4 className="mb-0" style={{ fontWeight: 700, color: '#0f172a' }}>
+                    Vendor Wallet & Transaction Ledger
+                  </h4>
+                  <p className="text-muted mb-0" style={{ fontSize: 12 }}>
+                    Real-time vendor balance, order earnings credited, withdrawal payout requests, and complete financial ledger.
+                  </p>
+                </div>
+                <div className="d-flex align-items-center" style={{ gap: 10 }}>
+                  <Button
+                    icon={<ReloadOutlined spin={walletLoading} />}
+                    onClick={fetchWalletData}
+                    style={{ borderRadius: 6 }}
+                  >
+                    Refresh Ledger
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Financial Summary Metric Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: `4px solid ${THEME.primary}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Available Wallet Balance</span>
+                    <div style={{ ...styles.iconWrapper, width: 36, height: 36, borderRadius: 8, background: '#088b4618', margin: 0 }}>
+                      <Wallet size={18} color="#088b46" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#088b46' }}>
+                    ${walletSummary.availableBalance.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Total Delivered Payout - Total Withdrawn
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #2563eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Total Earnings (Delivered)</span>
+                    <div style={{ ...styles.iconWrapper, width: 36, height: 36, borderRadius: 8, background: '#2563eb18', margin: 0 }}>
+                      <TrendingUp size={18} color="#2563eb" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#2563eb' }}>
+                    ${walletSummary.totalDeliveredEarnings.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    From {walletSummary.deliveredOrdersCount} delivered orders credited
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #dc2626' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Total Withdrawn (Paid)</span>
+                    <div style={{ ...styles.iconWrapper, width: 36, height: 36, borderRadius: 8, background: '#dc262618', margin: 0 }}>
+                      <TrendingDown size={18} color="#dc2626" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#dc2626' }}>
+                    ${walletSummary.totalCompletedWithdrawals.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {walletSummary.completedWithdrawalsCount} payout transfers completed
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #d97706' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Pending Withdrawals</span>
+                    <div style={{ ...styles.iconWrapper, width: 36, height: 36, borderRadius: 8, background: '#d9770618', margin: 0 }}>
+                      <Clock size={18} color="#d97706" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#d97706' }}>
+                    ${walletSummary.totalPendingWithdrawals.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {walletSummary.pendingWithdrawalsCount} request(s) awaiting processing
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Filter & Search Bar */}
+            <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, marginBottom: 16 }}>
+              <Row gutter={[12, 12]} align="middle">
+                <Col xs={24} md={8}>
+                  <Input
+                    placeholder="Search by ID, Order UID, Txn Ref, or notes..."
+                    prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                    value={walletSearch}
+                    onChange={(e) => setWalletSearch(e.target.value)}
+                    allowClear
+                    style={{ borderRadius: 6 }}
+                  />
+                </Col>
+
+                <Col xs={12} md={4}>
+                  <Select
+                    value={walletTypeFilter}
+                    onChange={setWalletTypeFilter}
+                    style={{ width: '100%' }}
+                    options={[
+                      { label: 'All Types', value: 'all' },
+                      { label: '+ Earnings (Credits)', value: 'earning' },
+                      { label: '- Withdrawals (Debits)', value: 'withdrawal' },
+                    ]}
+                  />
+                </Col>
+
+                <Col xs={12} md={4}>
+                  <Select
+                    value={walletStatusFilter}
+                    onChange={setWalletStatusFilter}
+                    style={{ width: '100%' }}
+                    options={[
+                      { label: 'All Statuses', value: 'all' },
+                      { label: 'Completed / Credited', value: 'completed' },
+                      { label: 'Pending', value: 'pending' },
+                      { label: 'Rejected / Cancelled', value: 'rejected' },
+                    ]}
+                  />
+                </Col>
+
+                <Col xs={24} md={5}>
+                  <DatePicker.RangePicker
+                    value={walletDateRange}
+                    onChange={setWalletDateRange}
+                    style={{ width: '100%', borderRadius: 6 }}
+                    placeholder={['Start Date', 'End Date']}
+                  />
+                </Col>
+
+                <Col xs={24} md={3} style={{ textAlign: 'right' }}>
+                  <Button
+                    onClick={() => {
+                      setWalletSearch('');
+                      setWalletTypeFilter('all');
+                      setWalletStatusFilter('all');
+                      setWalletDateRange(null);
+                    }}
+                    style={{ borderRadius: 6, width: '100%' }}
+                  >
+                    Reset Filters
+                  </Button>
+                </Col>
+              </Row>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#64748b', textAlign: 'right' }}>
+                Showing <strong>{filteredWalletTransactions.length}</strong> of <strong>{walletSummary.allTransactions.length}</strong> total transactions
+              </div>
+            </Card>
+
+            {/* Transactions Ledger Table */}
+            <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: 8, overflow: 'hidden' }}>
+              <Table
+                columns={walletTableColumns}
+                dataSource={filteredWalletTransactions}
+                rowKey="key"
+                loading={walletLoading}
+                scroll={{ x: 800 }}
+                pagination={{
+                  pageSize: 15,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '15', '30', '50'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} transactions`,
+                }}
+              />
+            </Card>
           </TabPane>
 
           {/* Vendor Orders & Analytics Tab */}
@@ -1638,6 +2221,261 @@ const VendorDashboard = () => {
             })()}
           </div>
         )}
+      </Modal>
+
+      {/* Withdrawal Details Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Wallet size={18} color="#088b46" />
+            <span style={{ fontWeight: 700 }}>
+              Withdrawal Details #{selectedWithdrawalDetail?.withdrawal_uid || selectedWithdrawalDetail?.id}
+            </span>
+            {selectedWithdrawalDetail && (
+              <Tag
+                color={
+                  ['completed', 'approved', 'success', 'paid'].includes(String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || '').toLowerCase())
+                    ? 'green'
+                    : String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || '').toLowerCase() === 'pending'
+                    ? 'orange'
+                    : 'red'
+                }
+                style={{ borderRadius: 12, fontWeight: 600, marginLeft: 8 }}
+              >
+                {String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || 'Pending').toUpperCase()}
+              </Tag>
+            )}
+          </div>
+        }
+        open={!!selectedWithdrawalDetail}
+        onCancel={() => setSelectedWithdrawalDetail(null)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setSelectedWithdrawalDetail(null)} style={{ background: '#088b46', borderColor: '#088b46' }}>
+            Close
+          </Button>,
+        ]}
+        width={620}
+      >
+        {selectedWithdrawalDetail && (
+          <div>
+            <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: 8, marginBottom: 16, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 13, color: '#64748b' }}>Requested Amount</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#059669', marginTop: 2 }}>
+                ${Number(selectedWithdrawalDetail.amount || selectedWithdrawalDetail.requested_amount || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                Requested on:{' '}
+                {selectedWithdrawalDetail.created_at || selectedWithdrawalDetail.date
+                  ? dayjs(selectedWithdrawalDetail.created_at || selectedWithdrawalDetail.date).format('DD MMMM YYYY, hh:mm A')
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <Card size="small" title="Vendor Bank Account Details" style={{ marginBottom: 16, borderRadius: 8 }}>
+              <Row gutter={[12, 12]}>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Bank Name</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.bank_name || selectedWithdrawalDetail.bank_details?.bank_name || vendorData?.bank_name || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Account Holder</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.account_holder_name || selectedWithdrawalDetail.bank_details?.account_holder_name || vendorData?.account_holder_name || `${vendorData?.firstname || ''} ${vendorData?.lastname || ''}`.trim() || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Account Number</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.account_number || selectedWithdrawalDetail.bank_details?.account_number || vendorData?.account_number || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Transit / Branch No</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.transit_number || selectedWithdrawalDetail.bank_details?.transit_number || vendorData?.transit_number || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Institution Number</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.institution_number || selectedWithdrawalDetail.bank_details?.institution_number || vendorData?.institution_number || 'Not Provided'}
+                  </div>
+                </Col>
+                {(selectedWithdrawalDetail.ifsc_code || selectedWithdrawalDetail.bank_details?.ifsc_code) && (
+                  <Col span={12}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>IFSC Code</div>
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                      {selectedWithdrawalDetail.ifsc_code || selectedWithdrawalDetail.bank_details?.ifsc_code}
+                    </div>
+                  </Col>
+                )}
+                {(selectedWithdrawalDetail.upi_id || selectedWithdrawalDetail.bank_details?.upi_id) && (
+                  <Col span={12}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>UPI ID</div>
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                      {selectedWithdrawalDetail.upi_id || selectedWithdrawalDetail.bank_details?.upi_id}
+                    </div>
+                  </Col>
+                )}
+              </Row>
+            </Card>
+
+            <Card size="small" title="Transaction & Processing Details" style={{ borderRadius: 8 }}>
+              <Row gutter={[12, 10]}>
+                <Col span={24}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Transaction / UTR Reference</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b', marginTop: 2 }}>
+                    {selectedWithdrawalDetail.transaction_reference ? (
+                      <Tag color="blue">{selectedWithdrawalDetail.transaction_reference}</Tag>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>None recorded</span>
+                    )}
+                  </div>
+                </Col>
+                {selectedWithdrawalDetail.notes && (
+                  <Col span={24}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Vendor Notes</div>
+                    <div style={{ color: '#334155', background: '#f1f5f9', padding: '6px 10px', borderRadius: 6, fontSize: 12, marginTop: 2 }}>
+                      {selectedWithdrawalDetail.notes}
+                    </div>
+                  </Col>
+                )}
+                {selectedWithdrawalDetail.admin_remarks && (
+                  <Col span={24}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Admin Remarks</div>
+                    <div style={{ color: '#334155', background: '#fef3c7', padding: '6px 10px', borderRadius: 6, fontSize: 12, border: '1px solid #fde68a', marginTop: 2 }}>
+                      {selectedWithdrawalDetail.admin_remarks}
+                    </div>
+                  </Col>
+                )}
+              </Row>
+            </Card>
+          </div>
+        )}
+      </Modal>
+
+      {/* Block Vendor Modal Form */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#dc2626' }}>
+            <StopOutlined style={{ fontSize: 18 }} />
+            <span>Block Vendor</span>
+          </div>
+        }
+        open={blockModalVisible}
+        onCancel={() => {
+          if (!blockLoading) {
+            setBlockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setBlockModalVisible(false)} disabled={blockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={blockLoading}
+            onClick={handleConfirmBlock}
+            icon={<StopOutlined />}
+            style={{ fontWeight: 600 }}
+          >
+            Confirm & Block Vendor
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 14 }}>
+              {vendorData?.store_name || 'Unnamed Store'}
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              Owner: <strong>{[vendorData?.firstname, vendorData?.lastname].filter(Boolean).join(' ') || 'N/A'}</strong>
+              {' • '}ID: <strong>{vendorData?.custom_id || `VEN#${vendorIdNumber}`}</strong>
+            </div>
+          </div>
+
+          <Alert
+            type="warning"
+            showIcon
+            message="Vendor store will be blocked"
+            description="Blocking this vendor will deactivate their store and hide products from customer ordering."
+            style={{ fontSize: 12.5 }}
+          />
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Reason for Blocking: <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <Select
+              value={blockReason}
+              onChange={setBlockReason}
+              style={{ width: '100%' }}
+              options={[
+                { label: 'Policy Violation (Breach of Platform Terms)', value: 'Policy Violation' },
+                { label: 'Fraudulent Activity / Suspicious Transactions', value: 'Fraudulent Activity' },
+                { label: 'High Order Cancellation Rate', value: 'High Order Cancellation Rate' },
+                { label: 'Customer Complaints & Low Ratings', value: 'Customer Complaints' },
+                { label: 'Quality / Food Hygiene Issues', value: 'Quality/Hygiene Issues' },
+                { label: 'Unsettled Fees / Payment Disputes', value: 'Payment Dispute' },
+                { label: 'Vendor Requested Temporary Block', value: 'Vendor Requested' },
+                { label: 'Other', value: 'Other' },
+              ]}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Additional Remarks / Details:
+            </label>
+            <Input.TextArea
+              rows={3}
+              placeholder="Enter details about why this vendor is being blocked..."
+              value={blockRemarks}
+              onChange={(e) => setBlockRemarks(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unblock Vendor Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a' }}>
+            <CheckCircleOutlined style={{ fontSize: 18 }} />
+            <span>Unblock & Reactivate Vendor</span>
+          </div>
+        }
+        open={unblockModalVisible}
+        onCancel={() => {
+          if (!unblockLoading) {
+            setUnblockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setUnblockModalVisible(false)} disabled={unblockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={unblockLoading}
+            onClick={handleConfirmUnblock}
+            icon={<CheckCircleOutlined />}
+            style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontWeight: 600 }}
+          >
+            Reactivate Vendor
+          </Button>,
+        ]}
+      >
+        <p style={{ margin: 0, fontSize: 13.5 }}>
+          Are you sure you want to unblock and reactivate <strong>{vendorData?.store_name}</strong>?
+          Their store will be marked active and their products will be visible to customers again.
+        </p>
       </Modal>
     </div>
   );

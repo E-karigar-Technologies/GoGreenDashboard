@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { getOrdersList } from '../../../../services/apiService';
 
@@ -71,74 +72,221 @@ export const getOrderStatus = (status) => {
 };
 
 const useOrder = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Parse initial values from URL searchParams
+  const initSearch = searchParams.get('search') || '';
+  const initVendorId = searchParams.get('vendor_id') || '';
+  const initRiderId = searchParams.get('rider_id') || '';
+  const initUserId = searchParams.get('user_id') || '';
+  const initStatusStr = searchParams.get('status');
+  const initStatus = initStatusStr !== null && initStatusStr !== '' ? Number(initStatusStr) : null;
+  const initSort = searchParams.get('sort') || 'latest';
+  const initPage = parseInt(searchParams.get('page') || '1', 10);
+  const initLimit = parseInt(searchParams.get('limit') || '10', 10);
+
+  // Date parsing
+  const urlDate = searchParams.get('date');
+  const urlStartDate = searchParams.get('startDate');
+  const urlEndDate = searchParams.get('endDate');
+
+  let initDateType = 'month';
+  let initSingleDate = null;
+  let initRangeDates = null;
+
+  if (urlStartDate && urlEndDate) {
+    initDateType = 'range';
+    initRangeDates = [dayjs(urlStartDate), dayjs(urlEndDate)];
+  } else if (urlDate) {
+    if (['today', 'yesterday', 'week', 'month', 'all'].includes(urlDate)) {
+      initDateType = urlDate;
+    } else {
+      initDateType = 'single';
+      initSingleDate = dayjs(urlDate);
+    }
+  }
+
+  // States
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
-  const [vendorId, setVendorId] = useState('');
-  const [status, setStatus] = useState(null);
-  const [dateRange, setDateRange] = useState({
-    preset: 'this_month',
-    start: dayjs().startOf('month'),
-    end: dayjs().endOf('month')
-  });
+  const [page, setPage] = useState(initPage > 0 ? initPage : 1);
+  const [limit, setLimit] = useState(initLimit > 0 ? initLimit : 10);
+  const [search, setSearch] = useState(initSearch);
+  const [vendorId, setVendorId] = useState(initVendorId);
+  const [riderId, setRiderId] = useState(initRiderId);
+  const [userId, setUserId] = useState(initUserId);
+  const [status, setStatus] = useState(initStatus);
+  const [sort, setSort] = useState(initSort);
+
+  const [dateType, setDateType] = useState(initDateType);
+  const [singleDate, setSingleDate] = useState(initSingleDate);
+  const [rangeDates, setRangeDates] = useState(initRangeDates);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const API_URL = import.meta.env.VITE_API_URL;
-  const token = localStorage.getItem('token');
 
+  // Synchronize state with URL search params
+  const updateUrlParams = useCallback((newParams) => {
+    const params = new URLSearchParams();
+    if (newParams.search) params.set('search', newParams.search);
+    if (newParams.status !== null && newParams.status !== undefined && newParams.status !== '') {
+      params.set('status', newParams.status);
+    }
+    if (newParams.vendorId) params.set('vendor_id', newParams.vendorId);
+    if (newParams.riderId) params.set('rider_id', newParams.riderId);
+    if (newParams.userId) params.set('user_id', newParams.userId);
+    if (newParams.sort && newParams.sort !== 'latest') params.set('sort', newParams.sort);
+
+    // Date
+    if (newParams.dateType === 'range' && newParams.rangeDates?.[0] && newParams.rangeDates?.[1]) {
+      params.set('startDate', dayjs(newParams.rangeDates[0]).format('YYYY-MM-DD'));
+      params.set('endDate', dayjs(newParams.rangeDates[1]).format('YYYY-MM-DD'));
+    } else if (newParams.dateType === 'single' && newParams.singleDate) {
+      params.set('date', dayjs(newParams.singleDate).format('YYYY-MM-DD'));
+    } else if (['today', 'yesterday', 'week', 'month'].includes(newParams.dateType)) {
+      params.set('date', newParams.dateType);
+    }
+
+    if (newParams.page > 1) params.set('page', newParams.page);
+    if (newParams.limit !== 10) params.set('limit', newParams.limit);
+
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
+
+  // Fetch orders
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const payload = {
-        search: search || undefined,
         page,
         limit,
-        vendor_id: vendorId || undefined,
-        status: status !== null ? status : undefined,
-        start_date: dateRange?.start ? dateRange.start.format('YYYY-MM-DD') : undefined,
-        end_date: dateRange?.end ? dateRange.end.format('YYYY-MM-DD') : undefined,
-        sort_order: 'DESC',
-        sort_by: 'created_at',
+        sort: sort || 'latest',
       };
+
+      if (search && search.trim()) {
+        payload.search = search.trim();
+      }
+      if (status !== null && status !== undefined && status !== '') {
+        payload.status = status;
+      }
+      if (vendorId) {
+        payload.vendor_id = vendorId;
+      }
+      if (riderId) {
+        payload.rider_id = riderId;
+      }
+      if (userId) {
+        payload.user_id = userId;
+      }
+
+      // Date parameter mapping
+      if (['today', 'yesterday', 'week', 'month'].includes(dateType)) {
+        payload.date = dateType;
+      } else if (dateType === 'single' && singleDate) {
+        payload.date = dayjs(singleDate).format('YYYY-MM-DD');
+      } else if (dateType === 'range' && rangeDates && rangeDates[0] && rangeDates[1]) {
+        payload.startDate = dayjs(rangeDates[0]).format('YYYY-MM-DD');
+        payload.endDate = dayjs(rangeDates[1]).format('YYYY-MM-DD');
+      }
+
       const result = await getOrdersList(payload);
+
       if (result.success) {
         const rawOrders = result.data || [];
-        const sortedOrders = [...rawOrders].sort((a, b) => {
-          const timeA = parseOrderTime(a);
-          const timeB = parseOrderTime(b);
-          if (timeA !== timeB && timeA > 0 && timeB > 0) {
-            return timeB - timeA;
-          }
-          const idA = parseOrderIdNum(a);
-          const idB = parseOrderIdNum(b);
-          if (idA !== idB && idA > 0 && idB > 0) {
-            return idB - idA;
-          }
-          return String(b.order_id || b.id || '').localeCompare(String(a.order_id || a.id || ''), undefined, { numeric: true });
-        });
-        setOrders(sortedOrders);
-        setTotal(result.total || sortedOrders.length);
+        setOrders(rawOrders);
+        setTotal(result.total ?? rawOrders.length);
       } else {
         setError(result.error || 'Failed to fetch orders');
+        setOrders([]);
+        setTotal(0);
       }
     } catch (err) {
-      setError(err);
+      setError(err?.message || 'Error occurred while loading orders');
+      setOrders([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [search, page, limit, vendorId, status, dateRange?.start, dateRange?.end]);
+  }, [search, page, limit, vendorId, riderId, userId, status, sort, dateType, singleDate, rangeDates]);
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    updateUrlParams({
+      search,
+      vendorId,
+      riderId,
+      userId,
+      status,
+      sort,
+      dateType,
+      singleDate,
+      rangeDates,
+      page,
+      limit,
+    });
+  }, [fetchOrders, updateUrlParams]);
 
-  // Reset page to 1 when search, vendorId, status, or dateRange changes
-  useEffect(() => {
+  // Reset page to 1 when any filter condition changes
+  const handleSearchChange = useCallback((val) => {
+    setSearch(val);
     setPage(1);
-  }, [search, vendorId, status, dateRange?.start, dateRange?.end]);
+  }, []);
+
+  const handleVendorChange = useCallback((val) => {
+    setVendorId(val || '');
+    setPage(1);
+  }, []);
+
+  const handleRiderChange = useCallback((val) => {
+    setRiderId(val || '');
+    setPage(1);
+  }, []);
+
+  const handleUserChange = useCallback((val) => {
+    setUserId(val || '');
+    setPage(1);
+  }, []);
+
+  const handleStatusChange = useCallback((val) => {
+    setStatus(val);
+    setPage(1);
+  }, []);
+
+  const handleSortChange = useCallback((val) => {
+    setSort(val || 'latest');
+    setPage(1);
+  }, []);
+
+  const handleDateTypeChange = useCallback((val) => {
+    setDateType(val);
+    if (val !== 'single') setSingleDate(null);
+    if (val !== 'range') setRangeDates(null);
+    setPage(1);
+  }, []);
+
+  const handleSingleDateChange = useCallback((val) => {
+    setSingleDate(val);
+    setPage(1);
+  }, []);
+
+  const handleRangeDatesChange = useCallback((vals) => {
+    setRangeDates(vals);
+    setPage(1);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setVendorId('');
+    setRiderId('');
+    setUserId('');
+    setStatus(null);
+    setSort('latest');
+    setDateType('month');
+    setSingleDate(null);
+    setRangeDates(null);
+    setPage(1);
+  }, []);
 
   return {
     orders,
@@ -147,16 +295,27 @@ const useOrder = () => {
     limit,
     search,
     vendorId,
+    riderId,
+    userId,
     status,
-    dateRange,
+    sort,
+    dateType,
+    singleDate,
+    rangeDates,
     loading,
     error,
     setPage,
     setLimit,
-    setSearch,
-    setVendorId,
-    setStatus,
-    setDateRange,
+    setSearch: handleSearchChange,
+    setVendorId: handleVendorChange,
+    setRiderId: handleRiderChange,
+    setUserId: handleUserChange,
+    setStatus: handleStatusChange,
+    setSort: handleSortChange,
+    setDateType: handleDateTypeChange,
+    setSingleDate: handleSingleDateChange,
+    setRangeDates: handleRangeDatesChange,
+    resetFilters,
     refetch: fetchOrders,
   };
 };

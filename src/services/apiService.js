@@ -283,14 +283,52 @@ export const deleteBanner = async (bannerId) => {
       return { success: false, error: err.response?.data || err.message };
     }
   };
-  export const getAllUnverifiedUsers = async () => {
-    try {
-        const response = await axios.get(`/users/unverifiedUsers`, config); // ✅ Pass directly
-        return { success: true, vendors: response.data.vendors, delivery_partners: response.data.delivery_partners };
-    } catch (error) {
-        console.error("Error fetching unverified vendors:", error);
-        return { success: false, data: [] };
+export const getAllUnverifiedUsers = async (params = {}) => {
+  try {
+    const currentToken = localStorage.getItem("token") || token;
+    const requestConfig = {
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        "Content-Type": "application/json",
+      },
+      params: {},
+    };
+
+    if (params?.sort) {
+      requestConfig.params.sort = params.sort;
     }
+    if (params?.search && String(params.search).trim()) {
+      requestConfig.params.search = String(params.search).trim();
+    }
+    if (params?.date) {
+      requestConfig.params.date = params.date;
+    }
+    if (params?.startDate) {
+      requestConfig.params.startDate = params.startDate;
+    }
+    if (params?.endDate) {
+      requestConfig.params.endDate = params.endDate;
+    }
+
+    const response = await axios.get(`/users/unverifiedUsers`, requestConfig);
+    return {
+      success: true,
+      vendors: response.data?.vendors || [],
+      delivery_partners: response.data?.delivery_partners || [],
+      customers: response.data?.customers || [],
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching unverified users:", error);
+    return {
+      success: false,
+      data: [],
+      vendors: [],
+      delivery_partners: [],
+      customers: [],
+      error: error.response?.data || error.message,
+    };
+  }
 };
 
 export const verifyUser = async (userId,verification_status) => {
@@ -436,10 +474,24 @@ export const getProductById = async (id) => {
   }
 };
 
-export const getAllVendors = async (active = false) => {   
+export const getAllVendors = async (params = {}) => {   
   try {
-    
-    const response = await axios.get(`/vendors/getallvendorsforadmin${active ? "?filter=active":""}`,config);
+    let query = '';
+    if (typeof params === 'boolean') {
+      query = params ? '?filter=active' : '';
+    } else if (typeof params === 'string') {
+      query = params ? (params.startsWith('?') ? params : `?${params}`) : '';
+    } else if (params && typeof params === 'object') {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, val);
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) query = `?${qs}`;
+    }
+    const response = await axios.get(`/vendors/getallvendorsforadmin${query}`, config);
     return response.data;
   } catch (error) {
     return { success: false, message: error.message, data: [] };
@@ -505,23 +557,65 @@ export const deleteVendorType = async (id) => {
 
 
 // Toggle vendor status
-export const updateVendorStatus = async (vendorId, newStatus) => {
+export const updateVendorStatus = async (vendorId, newStatus, extra = {}) => {
   try {
-    // const token = localStorage.getItem('token');
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
     const response = await axios.post(
       `/vendors/vendor-status`,
       {
         user_id: vendorId,
         status: newStatus,
         role_id: 1,
+        ...extra,
       },
-     config
-      
+      reqConfig
     );
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }
+};
+
+// Update vendor deactivate status (deactivate_status: 1 = blocked, 0 = active, with remark)
+export const updateVendorDeactivateStatus = async (vendorId, deactivateStatus, remark = '') => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+    const response = await axios.post(
+      `/vendors/vendor-status`,
+      {
+        user_id: vendorId,
+        deactivate_status: deactivateStatus,
+        remark: remark,
+        role_id: 1,
+      },
+      reqConfig
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// Convenience helper to block a vendor (deactivate_status = 1)
+export const blockVendor = async (vendorId, remark = '') => {
+  return updateVendorDeactivateStatus(vendorId, 1, remark);
+};
+
+// Convenience helper to unblock/reactivate a vendor (deactivate_status = 0)
+export const unblockVendor = async (vendorId, remark = '') => {
+  return updateVendorDeactivateStatus(vendorId, 0, remark);
 };
 export const getRiderById = async (id) => {
   try {
@@ -586,50 +680,143 @@ export const getRiderAnalytics = async (rider_Id, start_date, end_date) => {
 };
 
 // GET https://cx.ekarigar.com/delievery-api/users/fetchusers
-// Query params: page, limit, vendor_id, order_status, date_filter, start_date, end_date, search, role_id
-export const fetchUsersList = async (params = {}) => {
+// Query params: search, date, startDate, endDate, status, vendor_id, sort, page, limit
+export const fetchUsersList = async (payload = {}) => {
   try {
     const token = localStorage.getItem("token");
     const reqConfig = {
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
       },
-      params,
+      params: {},
     };
-    const response = await axios.get(`/users/fetchusers`, reqConfig);
-    if (response.data && response.data.success !== undefined) {
-      return {
-        success: response.data.success,
-        data: response.data.data || [],
-        pagination: response.data.pagination || { totalUsers: 0, currentPage: 1, limit: 10, totalPages: 1 },
-      };
+
+    const params = {};
+    if (payload.search !== undefined && payload.search !== null && String(payload.search).trim() !== "") {
+      params.search = String(payload.search).trim();
     }
-    const list = Array.isArray(response.data) ? response.data : response.data?.users || response.data?.data || [];
+    if (payload.date) {
+      params.date = payload.date;
+    } else if (payload.date_filter && payload.date_filter !== "all") {
+      params.date = payload.date_filter;
+    }
+    const startDate = payload.startDate || payload.start_date;
+    if (startDate) {
+      params.startDate = startDate;
+    }
+    const endDate = payload.endDate || payload.end_date;
+    if (endDate) {
+      params.endDate = endDate;
+    }
+    const statusVal = payload.status !== undefined && payload.status !== null ? payload.status : payload.order_status;
+    if (statusVal !== undefined && statusVal !== null && statusVal !== "") {
+      params.status = statusVal;
+    }
+    if (payload.vendor_id !== undefined && payload.vendor_id !== null && payload.vendor_id !== "") {
+      params.vendor_id = payload.vendor_id;
+    }
+    if (payload.sort) {
+      params.sort = payload.sort;
+    }
+    if (payload.page !== undefined && payload.page !== null && payload.page !== "") {
+      params.page = payload.page;
+    }
+    if (payload.limit !== undefined && payload.limit !== null && payload.limit !== "") {
+      params.limit = payload.limit;
+    }
+    if (payload.role_id !== undefined && payload.role_id !== null && payload.role_id !== "") {
+      params.role_id = payload.role_id;
+    }
+    if (payload.id !== undefined && payload.id !== null && payload.id !== "") {
+      params.id = payload.id;
+    } else if (payload.userId !== undefined && payload.userId !== null && payload.userId !== "") {
+      params.id = payload.userId;
+    }
+
+    reqConfig.params = params;
+    const response = await axios.get(`/users/fetchusers`, reqConfig);
+
+    const usersList =
+      response.data?.data ||
+      response.data?.users ||
+      (Array.isArray(response.data) ? response.data : []);
+
+    const totalCount =
+      response.data?.total ??
+      response.data?.pagination?.totalUsers ??
+      usersList.length;
+
     return {
-      success: true,
-      data: list,
-      pagination: { totalUsers: list.length, currentPage: 1, limit: list.length, totalPages: 1 },
+      success: response.data?.success !== undefined ? response.data.success : true,
+      data: usersList,
+      total: Number(totalCount) || 0,
+      pagination: response.data?.pagination || {
+        totalUsers: Number(totalCount) || 0,
+        currentPage: Number(params.page) || 1,
+        limit: Number(params.limit) || 10,
+        totalPages: Math.ceil((Number(totalCount) || 0) / (Number(params.limit) || 10)),
+      },
+      raw: response.data,
     };
   } catch (error) {
     console.error("Failed to fetch users list:", error);
     return {
       success: false,
-      error: error.response?.data || error.message,
+      error: error.response?.data?.message || error.response?.data || error.message || "Failed to fetch users list",
       data: [],
+      total: 0,
       pagination: { totalUsers: 0, currentPage: 1, limit: 10, totalPages: 1 },
     };
   }
 };
 
-// GET https://cx.ekarigar.com/delievery-api/users/user-details
-export const getAllUserDetails = async () => {
+// Fetch single user with their orders and details by ID
+export const getUserDetailsById = async (id) => {
   try {
-    const response = await axios.get(`/users/user-details`, config);
+    const res = await fetchUsersList({ id });
+    if (res.success && res.data && res.data.length > 0) {
+      return { success: true, data: res.data[0] };
+    }
+    return { success: false, error: "User not found", data: null };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to fetch user", data: null };
+  }
+};
+
+// GET https://cx.ekarigar.com/delievery-api/users/user-details
+export const getAllUserDetails = async (params = {}) => {
+  try {
+    const currentToken = localStorage.getItem("token") || token;
+    const requestConfig = {
+      headers: {
+        Authorization: currentToken ? `Bearer ${currentToken}` : "",
+        "Content-Type": "application/json",
+      },
+      params: {},
+    };
+
+    if (params?.sort) {
+      requestConfig.params.sort = params.sort;
+    }
+    if (params?.search && String(params.search).trim()) {
+      requestConfig.params.search = String(params.search).trim();
+    }
+    if (params?.date) {
+      requestConfig.params.date = params.date;
+    }
+    if (params?.startDate) {
+      requestConfig.params.startDate = params.startDate;
+    }
+    if (params?.endDate) {
+      requestConfig.params.endDate = params.endDate;
+    }
+
+    const response = await axios.get(`/users/user-details`, requestConfig);
     const payload = response.data;
     const list = Array.isArray(payload)
       ? payload
       : payload?.users || payload?.data || [];
-    return { success: true, data: list };
+    return { success: true, data: list, raw: payload };
   } catch (error) {
     console.error("Failed to fetch user details:", error);
     return { success: false, error: error.response?.data || error.message, data: [] };
@@ -698,7 +885,7 @@ export const reverseGeocode = async (lat, lng) => {
 // Orders API
 // ---------------------------------------------------------------------------
 
-// POST https://cx.ekarigar.com/delievery-api/order/list
+// POST / GET https://cx.ekarigar.com/delievery-api/order/list
 export const getOrdersList = async (payload = {}) => {
   try {
     const token = localStorage.getItem("token");
@@ -707,18 +894,83 @@ export const getOrdersList = async (payload = {}) => {
         Authorization: token ? `Bearer ${token}` : "",
         "Content-Type": "application/json",
       },
+      params: {},
     };
-    const response = await axios.post(`/order/list`, payload, reqConfig);
+
+    // Sanitize and build query params
+    const params = {};
+    if (payload.search !== undefined && payload.search !== null && String(payload.search).trim() !== "") {
+      params.search = String(payload.search).trim();
+    }
+    if (payload.date) {
+      params.date = payload.date;
+    }
+    const startDate = payload.startDate || payload.start_date;
+    if (startDate) {
+      params.startDate = startDate;
+    }
+    const endDate = payload.endDate || payload.end_date;
+    if (endDate) {
+      params.endDate = endDate;
+    }
+    if (payload.status !== undefined && payload.status !== null && payload.status !== "") {
+      params.status = payload.status;
+    }
+    if (payload.vendor_id !== undefined && payload.vendor_id !== null && payload.vendor_id !== "") {
+      params.vendor_id = payload.vendor_id;
+    }
+    if (payload.rider_id !== undefined && payload.rider_id !== null && payload.rider_id !== "") {
+      params.rider_id = payload.rider_id;
+    }
+    if (payload.user_id !== undefined && payload.user_id !== null && payload.user_id !== "") {
+      params.user_id = payload.user_id;
+    }
+    if (payload.page !== undefined && payload.page !== null && payload.page !== "") {
+      params.page = payload.page;
+    }
+    if (payload.limit !== undefined && payload.limit !== null && payload.limit !== "") {
+      params.limit = payload.limit;
+    }
+    if (payload.sort) {
+      params.sort = payload.sort;
+    }
+
+    reqConfig.params = params;
+
+    let response;
+    try {
+      response = await axios.get(`/order/list`, reqConfig);
+    } catch (getErr) {
+      if (getErr.response && (getErr.response.status === 404 || getErr.response.status === 405)) {
+        response = await axios.post(`/order/list`, params, reqConfig);
+      } else {
+        throw getErr;
+      }
+    }
+
+    const ordersData =
+      response.data?.orders ||
+      response.data?.data ||
+      (Array.isArray(response.data) ? response.data : []);
+
+    const totalCount =
+      response.data?.total ??
+      response.data?.totalOrders ??
+      response.data?.count ??
+      (Array.isArray(ordersData) ? ordersData.length : 0);
+
     return {
       success: true,
-      data: response.data?.orders || [],
-      total: response.data?.total || 0,
+      data: ordersData,
+      total: Number(totalCount) || 0,
       raw: response.data,
     };
   } catch (error) {
     console.error("Failed to fetch order list:", error);
     return {
       success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || "Failed to fetch orders",
+      data: [],
       total: 0,
     };
   }
@@ -827,6 +1079,62 @@ export const updateVendorWithdrawal = async (payload) => {
     return {
       success: false,
       error: error.response?.data?.message || error.response?.data || error.message,
+    };
+  }
+};
+
+// POST /order/getvendorshares
+export const getVendorShares = async (vendorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    const response = await axios.post(
+      "/order/getvendorshares",
+      { vendor_id: Number(vendorId) },
+      reqConfig
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch vendor shares:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: null,
+    };
+  }
+};
+
+// POST /order/getvendorwithdrawals
+export const getVendorWithdrawalsById = async (vendorId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    const response = await axios.post(
+      "/order/getvendorwithdrawals",
+      { vendor_id: Number(vendorId) },
+      reqConfig
+    );
+    const withdrawals =
+      response.data?.withdrawals ||
+      response.data?.data ||
+      (Array.isArray(response.data) ? response.data : []);
+    return { success: true, data: withdrawals, raw: response.data };
+  } catch (error) {
+    console.error("Failed to fetch vendor withdrawals by id:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: [],
     };
   }
 };

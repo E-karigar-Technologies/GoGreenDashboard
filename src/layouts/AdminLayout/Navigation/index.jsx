@@ -70,7 +70,10 @@ import {
   BellOutlined,
   CloseOutlined,
   SafetyCertificateOutlined,
-  BranchesOutlined
+  BranchesOutlined,
+  PlusSquareOutlined,
+  UnorderedListOutlined,
+  PlaySquareOutlined
 } from '@ant-design/icons';
 // project imports
 import { ConfigContext } from 'contexts/ConfigContext';
@@ -103,13 +106,17 @@ const iconMap = {
 
 // Specific icon mapping by menu item id for enhanced visual distinction
 const itemSpecificIcons = {
-  'manage-appbanners': <PictureOutlined />,
+  'customer-settings': <SettingOutlined />,
+  'manage-appbanners': <PlaySquareOutlined />,
+  'add-banner': <PlusSquareOutlined />,
+  'all-banner': <UnorderedListOutlined />,
   'manage-users': <SafetyCertificateOutlined />,
+  'manage-users-group': <UserOutlined />,
   'vendortype': <ShopOutlined />,
+  'manage-products': <ShoppingCartOutlined />,
   'product-brands': <TagOutlined />,
   'manage-category': <AppstoreOutlined />,
   'manage-subcategory': <BranchesOutlined />,
-  'manage-products': <ShoppingCartOutlined />,
   'manage-orders': <FileTextOutlined />,
   'manage-vendor': <ShopOutlined />,
   'manage-rider': <CarOutlined />,
@@ -230,15 +237,14 @@ const convertMenuItems = (items, counts = {}) => {
 const getGroupTitle = (groupId) => {
   const groupTitles = {
     'navigation-group': 'Navigation',
-    'banner-group': 'App Management',
+    'customer-settings-group': 'Customer Settings',
     'users-group': 'User Management',
     'vendortype-group': 'Vendor Types',
-    'brands-group': 'Brand Management',
-    'category-group': 'Category Management',
     'products-group': 'Product Management',
     'orders-group': 'Order Management',
     'vendor-group': 'Vendor Management',
     'rider-group': 'Rider Management',
+    'pick-drop-group': 'Pick & Drop',
     'category-div-data': 'Category Data'
   };
   return groupTitles[groupId] || 'Menu';
@@ -307,60 +313,80 @@ export default function ModernNavigation() {
 
   useEffect(() => {
     loadMenuCounts();
-    const interval = setInterval(loadMenuCounts, 20000);
-    return () => clearInterval(interval);
   }, [location.pathname]);
 
   useEffect(() => {
-    // Find current menu item and its parent based on location
-    const findCurrentItemAndParent = (items, path, parentId = null) => {
+    // Find current menu item and ALL ancestor keys based on location
+    const findCurrentItemAndAncestors = (items, path, ancestorKeys = []) => {
       for (const item of items) {
         // Check for exact match first
         if (item.url === path) {
-          return { currentKey: item.id, parentKey: parentId };
+          return { currentKey: item.id, ancestorKeys };
         }
-        
+
         // Check for dynamic route match
         if (item.url && item.url.includes(':')) {
           const urlPattern = item.url.replace(/:[^/]+/g, '[^/]+');
           const regex = new RegExp(`^${urlPattern}$`);
           if (regex.test(path)) {
-            return { currentKey: item.id, parentKey: parentId };
+            return { currentKey: item.id, ancestorKeys };
           }
         }
-        
+
         // Check for base path match (e.g., /vendors matches /vendors/123)
         if (item.url && !item.url.includes(':') && path.startsWith(item.url + '/')) {
-          return { currentKey: item.id, parentKey: parentId };
+          return { currentKey: item.id, ancestorKeys };
         }
-        
+
         if (item.children) {
-          const found = findCurrentItemAndParent(item.children, path, item.id);
+          const found = findCurrentItemAndAncestors(item.children, path, [...ancestorKeys, item.id]);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const result = findCurrentItemAndParent(navigation.items, location.pathname);
+    const result = findCurrentItemAndAncestors(navigation.items, location.pathname);
     if (result) {
       setSelectedKeys([result.currentKey]);
-      // Accordion: keep ONLY the parent of current route open
-      if (result.parentKey) {
-        setOpenKeys([result.parentKey]);
+      // Keep ALL ancestor collapse menus open so nested routes work correctly
+      if (result.ancestorKeys && result.ancestorKeys.length > 0) {
+        setOpenKeys(result.ancestorKeys);
       } else {
         setOpenKeys([]);
       }
     }
   }, [location.pathname]);
 
-  // Accordion behavior: Opening a new tab automatically closes/hides all other tabs
+  // Build a map of parent -> children for the menu tree
+  const buildParentMap = (items, parentId = null, map = {}) => {
+    for (const item of items) {
+      if (parentId) {
+        map[item.id] = parentId;
+      }
+      if (item.children) {
+        buildParentMap(item.children, item.id, map);
+      }
+    }
+    return map;
+  };
+
+  // Nested-aware open change: when a new key is opened, keep all its ancestors open too
   const handleOpenChange = (keys) => {
     const latestOpenKey = keys.find((key) => !openKeys.includes(key));
     if (latestOpenKey) {
-      setOpenKeys([latestOpenKey]);
+      // Collect all ancestor keys for the newly opened submenu
+      const parentMap = buildParentMap(navigation.items);
+      const ancestors = [];
+      let current = latestOpenKey;
+      while (parentMap[current]) {
+        ancestors.push(parentMap[current]);
+        current = parentMap[current];
+      }
+      setOpenKeys([...ancestors, latestOpenKey]);
     } else {
-      setOpenKeys([]);
+      // A key was closed — just use the remaining keys directly
+      setOpenKeys(keys);
     }
   };
 

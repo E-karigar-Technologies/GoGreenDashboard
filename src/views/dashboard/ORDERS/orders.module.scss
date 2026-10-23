@@ -11,18 +11,62 @@
 
 .filtersContainer {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 1.5rem;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.filterHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   align-items: center;
 
   @media (max-width: 768px) {
     flex-direction: column;
+    align-items: stretch;
   }
 }
 
+.filterSecondaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding-top: 4px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.filterActiveTagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  margin-top: 4px;
+}
+
 .filterItem {
-  min-width: 180px;
+  min-width: 170px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+}
+
+.searchItem {
+  flex: 1;
+  min-width: 240px;
 
   @media (max-width: 768px) {
     width: 100%;
@@ -30,15 +74,18 @@
 }
 
 .dateRangeContainer {
-  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 
-  @media (min-width: 768px) {
-    margin-top: 0;
+  @media (max-width: 768px) {
+    width: 100%;
   }
 }
 
 .statusSelect {
-  min-width: 150px;
+  min-width: 160px;
 
   :global {
     .ant-select-selector {
@@ -52,10 +99,23 @@
   }
 }
 
+.sheetFilterItem {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
 .sheetActions {
   display: flex;
   gap: 12px;
-  padding-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .statusTag {
@@ -110,6 +170,94 @@
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   }
 }
+
+.expandedOrderContainer {
+  background: #f8fafc;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin: 6px 0;
+}
+
+.expandedSection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expandedSectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.expandedSectionContent {
+  font-size: 13px;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.expandedItemsBox {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.ordersTable {
+  :global {
+    .ant-table-thead > tr > th {
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+
+    .ant-table-tbody > tr > td {
+      padding: 10px 12px;
+      vertical-align: middle;
+    }
+
+    .ant-table-row {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+
+      &:hover > td {
+        background: #f8fafc !important;
+      }
+    }
+
+    .ant-table-row-expand-icon {
+      border-radius: 4px;
+      border-color: #cbd5e1;
+      color: #088b46;
+      width: 18px;
+      height: 18px;
+      line-height: 16px;
+
+      &:hover {
+        border-color: #088b46;
+        color: #088b46;
+      }
+    }
+  }
+}
+
+
 
 @media print {
   .noPrint,

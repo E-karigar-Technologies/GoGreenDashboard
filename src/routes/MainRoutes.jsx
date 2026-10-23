@@ -40,6 +40,7 @@ const Register = lazy(() => import('../views/auth/register'));
 const Sample = lazy(() => import('../views/sample'));
 const AddUser = lazy(() => import('../views/users/addUser'));
 const AllUser = lazy(() => import('../views/users/allUser'));
+const SingleUser = lazy(() => import('../views/users/singleUser/SingleUser'));
 const AddProducts = lazy(() => import('../views/products/addProducts'));
 const AddProducts2 = lazy(() => import('../views/products/addProducts_redesigned'));
 
@@ -106,6 +107,14 @@ const MainRoutes = {
         {
           path: '/all-users',
           element: <AllUser />
+        },
+        {
+          path: '/users/:id',
+          element: <SingleUser />
+        },
+        {
+          path: '/all-users/:id',
+          element: <SingleUser />
         },
         {
           path: '/all-unverified-vendors',
@@ -181,6 +190,10 @@ const MainRoutes = {
           path: '/all-orders',
           element: <Orders />
         },                                                                                                                                                                                                        
+        {
+          path: '/add-banner',
+          element: <AddAppBanner />
+        },
         {
           path: '/all-banner',
           element: <AllAppBanner />

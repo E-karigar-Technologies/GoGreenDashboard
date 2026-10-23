@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Tag, Input, Select, Button, Spin, Alert, Card, Badge, Tooltip, Drawer, Avatar } from 'antd';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  Table,
+  Tag,
+  Input,
+  Select,
+  Button,
+  DatePicker,
+  Alert,
+  Card,
+  Badge,
+  Tooltip,
+  Drawer,
+  Avatar,
+  Space,
+} from 'antd';
 import {
   UserOutlined,
   SearchOutlined,
@@ -14,45 +29,77 @@ import {
   MailOutlined,
   ClearOutlined,
   TeamOutlined,
+  SortAscendingOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { fetchUsersList, getAllVendors } from '../../services/apiService';
-import DateRangeSelector from '../../components/DateRangeSelector';
 import { getOrderStatus, calculateOrderFinancials } from '../dashboard/ORDERS/hooks/useOrder';
 import useDebounce from '../../hooks/useDebounce';
 
 const UserList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Read initial filter values from URL query parameters
+  const initSearch = searchParams.get('search') || '';
+  const initVendorId = searchParams.get('vendor_id') ? Number(searchParams.get('vendor_id')) : undefined;
+  const initStatusStr = searchParams.get('status');
+  const initStatus = initStatusStr !== null && initStatusStr !== '' ? Number(initStatusStr) : undefined;
+  const initSort = searchParams.get('sort') || '';
+  const initRoleId = searchParams.get('role_id') || undefined;
+  const initPage = parseInt(searchParams.get('page') || '1', 10);
+  const initLimit = parseInt(searchParams.get('limit') || '10', 10);
+
+  // Date parsing from URL
+  const urlDate = searchParams.get('date');
+  const urlStartDate = searchParams.get('startDate');
+  const urlEndDate = searchParams.get('endDate');
+
+  let initDateType = 'all';
+  let initSingleDate = null;
+  let initRangeDates = null;
+
+  if (urlStartDate && urlEndDate) {
+    initDateType = 'range';
+    initRangeDates = [dayjs(urlStartDate), dayjs(urlEndDate)];
+  } else if (urlDate) {
+    if (['today', 'yesterday', 'week', 'month', 'all'].includes(urlDate)) {
+      initDateType = urlDate;
+    } else {
+      initDateType = 'single';
+      initSingleDate = dayjs(urlDate);
+    }
+  }
+
+  // Data & loading states
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  // Pagination states
+  const [page, setPage] = useState(initPage > 0 ? initPage : 1);
+  const [limit, setLimit] = useState(initLimit > 0 ? initLimit : 10);
   const [totalUsers, setTotalUsers] = useState(0);
 
-  // Filters state
-  const [searchInput, setSearchInput] = useState('');
-  const debouncedSearch = useDebounce(searchInput, 500);
+  // Filter states
+  const [searchInput, setSearchInput] = useState(initSearch);
+  const debouncedSearch = useDebounce(searchInput, 400);
 
-  const [vendorId, setVendorId] = useState(undefined);
-  const [orderStatus, setOrderStatus] = useState(undefined);
-  const [roleId, setRoleId] = useState(undefined);
+  const [vendorId, setVendorId] = useState(initVendorId);
+  const [status, setStatus] = useState(initStatus);
+  const [sort, setSort] = useState(initSort);
+  const [roleId, setRoleId] = useState(initRoleId);
 
-  // Date Filter State
-  const [dateRange, setDateRange] = useState({
-    preset: 'all',
-    start: null,
-    end: null,
-  });
+  // Date Filter States
+  const [dateType, setDateType] = useState(initDateType);
+  const [singleDate, setSingleDate] = useState(initSingleDate);
+  const [rangeDates, setRangeDates] = useState(initRangeDates);
 
   // Vendors list for vendor_id filter
   const [vendorsList, setVendorsList] = useState([]);
   const [vendorsLoading, setVendorsLoading] = useState(false);
 
-  // User detail drawer
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+
 
   // Load vendors list for dropdown
   useEffect(() => {
@@ -74,6 +121,33 @@ const UserList = () => {
     loadVendors();
   }, []);
 
+  // Sync state with URL search params
+  const updateUrlParams = useCallback(
+    (newParams) => {
+      const p = new URLSearchParams();
+      if (newParams.search) p.set('search', newParams.search);
+      if (newParams.dateType === 'range' && newParams.rangeDates?.[0] && newParams.rangeDates?.[1]) {
+        p.set('startDate', dayjs(newParams.rangeDates[0]).format('YYYY-MM-DD'));
+        p.set('endDate', dayjs(newParams.rangeDates[1]).format('YYYY-MM-DD'));
+      } else if (newParams.dateType === 'single' && newParams.singleDate) {
+        p.set('date', dayjs(newParams.singleDate).format('YYYY-MM-DD'));
+      } else if (['today', 'yesterday', 'week', 'month'].includes(newParams.dateType)) {
+        p.set('date', newParams.dateType);
+      }
+      if (newParams.status !== undefined && newParams.status !== null && newParams.status !== '') {
+        p.set('status', newParams.status);
+      }
+      if (newParams.vendorId) p.set('vendor_id', newParams.vendorId);
+      if (newParams.sort) p.set('sort', newParams.sort);
+      if (newParams.roleId) p.set('role_id', newParams.roleId);
+      if (newParams.page > 1) p.set('page', newParams.page);
+      if (newParams.limit !== 10) p.set('limit', newParams.limit);
+
+      setSearchParams(p, { replace: true });
+    },
+    [setSearchParams]
+  );
+
   // Fetch users with dynamic query parameters
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -92,84 +166,116 @@ const UserList = () => {
         params.vendor_id = vendorId;
       }
 
-      if (orderStatus !== undefined && orderStatus !== null && orderStatus !== '') {
-        params.order_status = orderStatus;
+      if (status !== undefined && status !== null && status !== '') {
+        params.status = status;
+      }
+
+      if (sort) {
+        params.sort = sort;
       }
 
       if (roleId !== undefined && roleId !== null && roleId !== '') {
         params.role_id = roleId;
       }
 
-      // Date filtering logic
-      if (dateRange.preset === 'today') {
-        params.date_filter = 'today';
-      } else if (dateRange.preset === 'custom' && dateRange.start && dateRange.end) {
-        params.start_date = dateRange.start.format('YYYY-MM-DD');
-        params.end_date = dateRange.end.format('YYYY-MM-DD');
-      } else if (dateRange.start && dateRange.end) {
-        params.start_date = dateRange.start.format('YYYY-MM-DD');
-        params.end_date = dateRange.end.format('YYYY-MM-DD');
-      } else if (dateRange.preset && dateRange.preset !== 'all') {
-        params.date_filter = dateRange.preset;
+      // Date filtering logic matching API specification
+      if (['today', 'yesterday', 'week', 'month'].includes(dateType)) {
+        params.date = dateType;
+      } else if (dateType === 'single' && singleDate) {
+        params.date = dayjs(singleDate).format('YYYY-MM-DD');
+      } else if (dateType === 'range' && rangeDates?.[0] && rangeDates?.[1]) {
+        params.startDate = dayjs(rangeDates[0]).format('YYYY-MM-DD');
+        params.endDate = dayjs(rangeDates[1]).format('YYYY-MM-DD');
       }
 
       const res = await fetchUsersList(params);
 
       if (res.success) {
         const rawUsers = res.data || [];
-        // Sort users in DESCENDING order (newest/highest ID first)
-        rawUsers.sort((a, b) => {
-          const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
-          const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
-          if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
-            return dateB - dateA;
-          }
-          const idA = Number(a.id || a.user_id || 0);
-          const idB = Number(b.id || b.user_id || 0);
-          return idB - idA;
-        });
+        // Only apply client-side date/id sorting if server sort (e.g. a-z) is NOT requested
+        if (!sort) {
+          rawUsers.sort((a, b) => {
+            const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+            const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+            if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+              return dateB - dateA;
+            }
+            const idA = Number(a.id || a.user_id || 0);
+            const idB = Number(b.id || b.user_id || 0);
+            return idB - idA;
+          });
+        }
 
         setUsers(rawUsers);
-        setTotalUsers(res.pagination?.totalUsers || rawUsers.length);
+        setTotalUsers(res.total ?? res.pagination?.totalUsers ?? rawUsers.length);
       } else {
         setUsers([]);
         setError(res.error || 'Failed to fetch users list');
+        setTotalUsers(0);
       }
     } catch (err) {
       console.error('Failed to fetch users:', err);
       setError(err.message || String(err));
+      setUsers([]);
+      setTotalUsers(0);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch, vendorId, orderStatus, roleId, dateRange]);
+  }, [page, limit, debouncedSearch, vendorId, status, sort, roleId, dateType, singleDate, rangeDates]);
 
   useEffect(() => {
     loadUsers();
-  }, [loadUsers]);
+    updateUrlParams({
+      search: debouncedSearch,
+      dateType,
+      singleDate,
+      rangeDates,
+      status,
+      vendorId,
+      sort,
+      roleId,
+      page,
+      limit,
+    });
+  }, [loadUsers, updateUrlParams]);
 
-  // Reset page when filters change
+  // Reset page to 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, vendorId, orderStatus, roleId, dateRange]);
+  }, [debouncedSearch, vendorId, status, sort, roleId, dateType, singleDate, rangeDates]);
 
   const resetAllFilters = () => {
     setSearchInput('');
     setVendorId(undefined);
-    setOrderStatus(undefined);
+    setStatus(undefined);
+    setSort('');
     setRoleId(undefined);
-    setDateRange({ preset: 'all', start: null, end: null });
+    setDateType('all');
+    setSingleDate(null);
+    setRangeDates(null);
     setPage(1);
   };
+
+  // Active filter count
+  let activeFilterCount = 0;
+  if (searchInput) activeFilterCount++;
+  if (dateType && dateType !== 'all') activeFilterCount++;
+  if (status !== undefined && status !== null && status !== '') activeFilterCount++;
+  if (vendorId !== undefined && vendorId !== null && vendorId !== '') activeFilterCount++;
+  if (sort) activeFilterCount++;
+  if (roleId !== undefined && roleId !== null && roleId !== '') activeFilterCount++;
 
   // Stat Counters
   const activeCount = users.filter((u) => u.status === 1 || u.is_verified === 1 || u.active === 1).length;
   const inactiveCount = Math.max(0, users.length - activeCount);
 
+  const selectedVendor = vendorsList.find((v) => String(v.id) === String(vendorId));
+
   const columns = [
     {
       title: 'User ID',
       key: 'userId',
-      width: 130,
+      width: 110,
       render: (_, record) => (
         <Tag color="blue" style={{ borderRadius: '6px', fontWeight: 600, padding: '2px 8px' }}>
           #{record.id || record.user_id || '-'}
@@ -180,15 +286,16 @@ const UserList = () => {
       title: 'User Details',
       key: 'user',
       render: (_, record) => {
-        const fullName = [record.firstname || record.first_name, record.lastname || record.last_name]
-          .filter(Boolean)
-          .join(' ') || record.name || record.username || 'Unnamed User';
+        const fullName =
+          [record.firstname || record.first_name, record.lastname || record.last_name]
+            .filter(Boolean)
+            .join(' ') || record.name || record.username || 'Unnamed User';
         const initial = fullName ? fullName.charAt(0).toUpperCase() : 'U';
 
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar
-              size={48}
+              size={40}
               src={record.profile_pic || record.avatar}
               alt="user"
               style={{
@@ -201,13 +308,9 @@ const UserList = () => {
               {initial}
             </Avatar>
             <div>
-              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14.5px' }}>
-                {fullName}
-              </div>
+              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>{fullName}</div>
               {record.username && (
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
-                  @{record.username}
-                </div>
+                <div style={{ fontSize: 11.5, color: '#64748b' }}>@{record.username}</div>
               )}
             </div>
           </div>
@@ -222,16 +325,16 @@ const UserList = () => {
         const email = record.email;
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '12.5px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '12px' }}>
             {phone && (
               <span style={{ fontWeight: 500, color: '#0f172a' }}>
-                <PhoneOutlined style={{ color: '#0284c7', marginRight: 5 }} />
+                <PhoneOutlined style={{ color: '#0284c7', marginRight: 4 }} />
                 {phone}
               </span>
             )}
             {email && (
               <span style={{ color: '#64748b', wordBreak: 'break-all' }}>
-                <MailOutlined style={{ color: '#088b46', marginRight: 5 }} />
+                <MailOutlined style={{ color: '#088b46', marginRight: 4 }} />
                 {email}
               </span>
             )}
@@ -242,13 +345,32 @@ const UserList = () => {
     {
       title: 'Role',
       key: 'role',
-      width: 140,
+      width: 130,
       render: (_, record) => {
-        const rName = record.role_name || (record.role_id === 1 ? 'Super Admin' : record.role_id === 2 ? 'Manager' : record.role_id === 3 ? 'Vendor' : record.role_id === 4 ? 'Delivery Partner' : 'Customer');
-        const color = record.role_id === 1 ? 'red' : record.role_id === 2 ? 'purple' : record.role_id === 3 ? 'gold' : record.role_id === 4 ? 'cyan' : 'blue';
+        const rName =
+          record.role_name ||
+          (record.role_id === 1
+            ? 'Super Admin'
+            : record.role_id === 2
+            ? 'Manager'
+            : record.role_id === 3
+            ? 'Vendor'
+            : record.role_id === 4
+            ? 'Delivery Partner'
+            : 'Customer');
+        const color =
+          record.role_id === 1
+            ? 'red'
+            : record.role_id === 2
+            ? 'purple'
+            : record.role_id === 3
+            ? 'gold'
+            : record.role_id === 4
+            ? 'cyan'
+            : 'blue';
 
         return (
-          <Tag color={color} style={{ fontWeight: 700, borderRadius: 10, padding: '2px 10px' }}>
+          <Tag color={color} style={{ fontWeight: 700, borderRadius: 10, padding: '2px 8px', fontSize: '11px' }}>
             {rName}
           </Tag>
         );
@@ -258,7 +380,7 @@ const UserList = () => {
       title: 'Orders',
       key: 'orders',
       align: 'center',
-      width: 100,
+      width: 85,
       render: (_, record) => {
         const ordersList = record.orders || [];
         return (
@@ -273,12 +395,12 @@ const UserList = () => {
     {
       title: 'Status',
       key: 'status',
-      width: 110,
+      width: 95,
       align: 'center',
       render: (_, record) => {
         const isVer = record.status === 1 || record.is_verified === 1 || record.active === 1;
         return (
-          <Tag color={isVer ? 'green' : 'volcano'} style={{ fontWeight: 700, borderRadius: 10, padding: '2px 10px' }}>
+          <Tag color={isVer ? 'green' : 'volcano'} style={{ fontWeight: 700, borderRadius: 10, padding: '2px 8px', fontSize: '11px' }}>
             {isVer ? 'Active' : 'Inactive'}
           </Tag>
         );
@@ -287,18 +409,19 @@ const UserList = () => {
     {
       title: 'Action',
       key: 'action',
-      width: 90,
+      width: 80,
       align: 'center',
       render: (_, record) => (
-        <Tooltip title="View User Details & Orders">
+        <Tooltip title="View Customer Profile, Total Spend & Orders">
           <Button
             type="primary"
             size="small"
             icon={<EyeOutlined />}
-            style={{ background: '#088b46', border: 'none', borderRadius: 6, fontWeight: 600 }}
+            style={{ background: '#088b46', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '11.5px' }}
             onClick={() => {
-              setSelectedUser(record);
-              setDrawerOpen(true);
+              navigate(`/users/${record.id || record.user_id}`, {
+                state: { user: record },
+              });
             }}
           >
             View
@@ -310,11 +433,11 @@ const UserList = () => {
 
   return (
     <div className="page-container">
-      {/* Page Header matching Vendors and Riders layout */}
+      {/* Page Header */}
       <div className="page-header-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div className="header-title-block">
           <h2>Users Management</h2>
-          <p>View, monitor, and manage system user accounts, roles, vendor connections, and order histories.</p>
+          <p>Search, filter by vendor, date, order status, role, and manage user accounts and order histories.</p>
         </div>
         <Button
           icon={<ReloadOutlined spin={loading} />}
@@ -326,7 +449,7 @@ const UserList = () => {
         </Button>
       </div>
 
-      {/* KPI Stats Grid matching Vendors & Riders pages */}
+      {/* KPI Stats Grid */}
       <div className="page-stats-grid">
         <div className="page-stat-card">
           <div className="stat-meta">
@@ -369,95 +492,258 @@ const UserList = () => {
         </div>
       </div>
 
-      {/* Filter Bar & Content Card */}
+      {/* Filter Bar Card */}
       <div className="page-content-card">
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <FilterOutlined style={{ color: '#088b46' }} /> Filter User Accounts
-        </div>
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {/* Row 1: Search, Date Filter, Order Status, Alphabetical Sort */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            {/* Search Input: name, email, phone, or store */}
+            <div style={{ minWidth: 240, flex: 1 }}>
+              <Input
+                placeholder="Search by name, email, phone, or store..."
+                prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                allowClear
+              />
+            </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
-          {/* Search Bar */}
-          <div style={{ minWidth: 200, flex: 1 }}>
-            <Input
-              placeholder="Search by name, email, username, phone..."
-              prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              allowClear
-            />
+            {/* Date Preset Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Select
+                value={dateType}
+                onChange={(val) => {
+                  setDateType(val);
+                  if (val !== 'single') setSingleDate(null);
+                  if (val !== 'range') setRangeDates(null);
+                }}
+                style={{ width: 140 }}
+                suffixIcon={<CalendarOutlined style={{ color: '#0284c7' }} />}
+                options={[
+                  { label: 'All Time', value: 'all' },
+                  { label: 'Today', value: 'today' },
+                  { label: 'Yesterday', value: 'yesterday' },
+                  { label: 'This Week', value: 'week' },
+                  { label: 'This Month', value: 'month' },
+                  { label: 'Specific Date', value: 'single' },
+                  { label: 'Custom Range', value: 'range' },
+                ]}
+              />
+
+              {dateType === 'single' && (
+                <DatePicker
+                  value={singleDate}
+                  onChange={(date) => setSingleDate(date)}
+                  format="YYYY-MM-DD"
+                  placeholder="Select Date"
+                  allowClear={false}
+                  style={{ width: 140 }}
+                />
+              )}
+
+              {dateType === 'range' && (
+                <DatePicker.RangePicker
+                  value={rangeDates}
+                  onChange={(dates) => setRangeDates(dates)}
+                  format="YYYY-MM-DD"
+                  allowClear={false}
+                  style={{ width: 230 }}
+                />
+              )}
+            </div>
+
+            {/* Order Status Filter */}
+            <div style={{ minWidth: 160 }}>
+              <Select
+                allowClear
+                placeholder="Filter by Order Status"
+                value={status}
+                onChange={(val) => setStatus(val !== undefined ? val : undefined)}
+                style={{ width: '100%' }}
+              >
+                {[0, 1, 2, 3, 4, 5].map((code) => {
+                  const s = getOrderStatus(code);
+                  return (
+                    <Select.Option key={code} value={code}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor:
+                              code === 4
+                                ? '#22c55e'
+                                : code === 0
+                                ? '#f59e0b'
+                                : code === 1
+                                ? '#3b82f6'
+                                : code === 2
+                                ? '#a855f7'
+                                : '#ef4444',
+                          }}
+                        />
+                        {s.text}
+                      </span>
+                    </Select.Option>
+                  );
+                })}
+              </Select>
+            </div>
+
+            {/* Alphabetical Sort */}
+            <div style={{ minWidth: 150 }}>
+              <Select
+                value={sort || ''}
+                onChange={(val) => setSort(val || '')}
+                style={{ width: '100%' }}
+                suffixIcon={<SortAscendingOutlined style={{ color: '#088b46' }} />}
+                options={[
+                  { label: 'Default Sort', value: '' },
+                  { label: 'Name (A - Z)', value: 'a-z' },
+                  { label: 'Name (Z - A)', value: 'z-a' },
+                ]}
+              />
+            </div>
           </div>
 
-          {/* Vendor ID Filter */}
-          <div style={{ minWidth: 180 }}>
-            <Select
-              showSearch
-              allowClear
-              loading={vendorsLoading}
-              placeholder="Filter by Vendor ID"
-              value={vendorId}
-              onChange={(val) => setVendorId(val)}
-              style={{ width: '100%' }}
-              optionFilterProp="children"
+          {/* Row 2: Vendor Filter, Role Filter, Reset Button */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', paddingTop: 2 }}>
+            {/* Vendor Filter */}
+            <div style={{ minWidth: 200, flex: '1 1 200px' }}>
+              <Select
+                showSearch
+                allowClear
+                loading={vendorsLoading}
+                placeholder="Filter by Vendor (store or ID)"
+                value={vendorId}
+                onChange={(val) => setVendorId(val)}
+                style={{ width: '100%' }}
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                suffixIcon={<ShopOutlined style={{ color: '#d97706' }} />}
+                options={vendorsList.map((v) => ({
+                  value: v.id,
+                  label: `${v.name} (ID: ${v.id})`,
+                }))}
+              />
+            </div>
+
+            {/* Role Filter */}
+            <div style={{ minWidth: 160 }}>
+              <Select
+                allowClear
+                placeholder="Filter by Role"
+                value={roleId}
+                onChange={(val) => setRoleId(val)}
+                style={{ width: '100%' }}
+              >
+                <Select.Option value="1">Super Admin</Select.Option>
+                <Select.Option value="2">Manager</Select.Option>
+                <Select.Option value="3">Vendor</Select.Option>
+                <Select.Option value="4">Delivery Partner</Select.Option>
+              </Select>
+            </div>
+
+            {/* Reset Filters */}
+            <Button
+              icon={<ClearOutlined />}
+              onClick={resetAllFilters}
+              type="default"
+              disabled={activeFilterCount === 0}
+              style={{ borderRadius: 6 }}
             >
-              {vendorsList.map((v) => (
-                <Select.Option key={v.id} value={v.id}>
-                  {v.name} (ID: {v.id})
-                </Select.Option>
-              ))}
-            </Select>
+              Reset Filters
+            </Button>
           </div>
 
-          {/* Order Status Filter */}
-          <div style={{ minWidth: 160 }}>
-            <Select
-              allowClear
-              placeholder="Filter by Order Status"
-              value={orderStatus}
-              onChange={(val) => setOrderStatus(val)}
-              style={{ width: '100%' }}
+          {/* Row 3: Active Filters Tags */}
+          {activeFilterCount > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                alignItems: 'center',
+                paddingTop: 8,
+                borderTop: '1px dashed #e2e8f0',
+                marginTop: 2,
+              }}
             >
-              {[0, 1, 2, 3, 4].map((code) => {
-                const s = getOrderStatus(code);
-                return (
-                  <Select.Option key={code} value={code}>
-                    {s.text}
-                  </Select.Option>
-                );
-              })}
-            </Select>
-          </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Active Filters:</span>
 
-          {/* Role Filter */}
-          <div style={{ minWidth: 150 }}>
-            <Select
-              allowClear
-              placeholder="Filter by Role"
-              value={roleId}
-              onChange={(val) => setRoleId(val)}
-              style={{ width: '100%' }}
-            >
-              <Select.Option value="1">Super Admin</Select.Option>
-              <Select.Option value="2">Manager</Select.Option>
-              <Select.Option value="3">Vendor</Select.Option>
-              <Select.Option value="4">Delivery Partner</Select.Option>
-            </Select>
-          </div>
+              {searchInput && (
+                <Tag closable onClose={() => setSearchInput('')} color="blue">
+                  Search: {searchInput}
+                </Tag>
+              )}
 
-          {/* Date Range Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', padding: '4px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-            <CalendarOutlined style={{ color: '#088b46' }} />
-            <DateRangeSelector
-              preset={dateRange.preset}
-              start={dateRange.start}
-              end={dateRange.end}
-              onChange={(newRange) => setDateRange(newRange)}
-            />
-          </div>
+              {dateType && dateType !== 'all' && (
+                <Tag closable onClose={() => setDateType('all')} color="cyan">
+                  Date:{' '}
+                  {dateType === 'today'
+                    ? 'Today'
+                    : dateType === 'yesterday'
+                    ? 'Yesterday'
+                    : dateType === 'week'
+                    ? 'This Week'
+                    : dateType === 'month'
+                    ? 'This Month'
+                    : dateType === 'single' && singleDate
+                    ? dayjs(singleDate).format('YYYY-MM-DD')
+                    : dateType === 'range' && rangeDates?.[0] && rangeDates?.[1]
+                    ? `${dayjs(rangeDates[0]).format('YYYY-MM-DD')} to ${dayjs(rangeDates[1]).format('YYYY-MM-DD')}`
+                    : dateType}
+                </Tag>
+              )}
 
-          {/* Reset Filters */}
-          <Button icon={<ClearOutlined />} onClick={resetAllFilters} type="default">
-            Reset
-          </Button>
+              {status !== undefined && status !== null && status !== '' && (
+                <Tag closable onClose={() => setStatus(undefined)} color="orange">
+                  Order Status: {getOrderStatus(status).text}
+                </Tag>
+              )}
+
+              {vendorId !== undefined && vendorId !== null && vendorId !== '' && (
+                <Tag closable onClose={() => setVendorId(undefined)} color="gold">
+                  Vendor: {selectedVendor ? selectedVendor.name : `#${vendorId}`}
+                </Tag>
+              )}
+
+              {sort && (
+                <Tag closable onClose={() => setSort('')} color="green">
+                  Sort: {sort === 'a-z' ? 'A - Z' : sort === 'z-a' ? 'Z - A' : sort}
+                </Tag>
+              )}
+
+              {roleId && (
+                <Tag closable onClose={() => setRoleId(undefined)} color="purple">
+                  Role: {roleId === '1' ? 'Super Admin' : roleId === '2' ? 'Manager' : roleId === '3' ? 'Vendor' : 'Delivery Partner'}
+                </Tag>
+              )}
+
+              <Button
+                type="link"
+                size="small"
+                onClick={resetAllFilters}
+                style={{ fontSize: 11.5, padding: 0, height: 'auto', color: '#ef4444' }}
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -480,7 +766,6 @@ const UserList = () => {
           dataSource={users}
           rowKey={(record) => record.id || record.username}
           loading={loading}
-          scroll={{ x: 'max-content' }}
           pagination={{
             current: page,
             pageSize: limit,
@@ -496,171 +781,6 @@ const UserList = () => {
         />
       </div>
 
-      {/* User Details Drawer */}
-      <Drawer
-        title="User & Associated Orders Detail"
-        placement="right"
-        width={480}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-      >
-        {selectedUser && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
-              <Avatar size={54} src={selectedUser.profile_pic || selectedUser.avatar} style={{ backgroundColor: '#0284c7' }}>
-                {selectedUser.firstname ? selectedUser.firstname.charAt(0).toUpperCase() : 'U'}
-              </Avatar>
-              <div>
-                <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a' }}>
-                  {[selectedUser.firstname, selectedUser.lastname].filter(Boolean).join(' ') || selectedUser.name || selectedUser.username}
-                </h4>
-                <span style={{ fontSize: 12, color: '#64748b' }}>User ID: #{selectedUser.id}</span>
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 600, color: '#64748b', fontSize: 12, marginBottom: 4 }}>Contact Info</div>
-              <div><strong>Phone:</strong> {[selectedUser.prefix, selectedUser.phonenumber || selectedUser.phone].filter(Boolean).join(' ') || 'N/A'}</div>
-              <div><strong>Email:</strong> {selectedUser.email || 'N/A'}</div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 600, color: '#64748b', fontSize: 12, marginBottom: 4 }}>Role & Status</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Tag color="blue" style={{ fontWeight: 700 }}>{selectedUser.role_name || 'User'}</Tag>
-                <Tag color={selectedUser.status === 1 || selectedUser.is_verified === 1 ? 'green' : 'volcano'} style={{ fontWeight: 700 }}>
-                  {selectedUser.status === 1 || selectedUser.is_verified === 1 ? 'Active' : 'Inactive'}
-                </Tag>
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, marginBottom: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 4 }}>
-                Associated Orders ({(selectedUser.orders || []).length})
-              </div>
-
-              {(selectedUser.orders || []).length === 0 ? (
-                <div style={{ color: '#94a3b8', fontStyle: 'italic' }}>No orders found for this user in filter.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 420, overflowY: 'auto' }}>
-                  {[...(selectedUser.orders || [])]
-                    .sort((a, b) => {
-                      const dateA = new Date(a.created_at || a.createdAt || a.order_date || 0).getTime();
-                      const dateB = new Date(b.created_at || b.createdAt || b.order_date || 0).getTime();
-                      if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
-                        return dateB - dateA;
-                      }
-                      const idA = Number(a.order_id || a.id || 0);
-                      const idB = Number(b.order_id || b.id || 0);
-                      return idB - idA;
-                    })
-                    .map((ord, idx) => {
-                      const statusObj = getOrderStatus(ord.order_status);
-                      const fin = calculateOrderFinancials(ord);
-                      const itemsList = ord.order_items || ord.items || ord.products || [];
-
-                      return (
-                        <Card key={idx} size="small" style={{ borderRadius: 10, background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
-                          {/* Order Header */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '13.5px' }}>
-                              Order #{ord.order_uid || ord.order_id || ord.id}
-                            </span>
-                            <Tag color={statusObj.color} style={{ fontWeight: 700, margin: 0, borderRadius: 10 }}>
-                              {statusObj.text}
-                            </Tag>
-                          </div>
-
-                          {/* Store Name & Date */}
-                          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Store: <strong style={{ color: '#334155' }}>{ord.store_name || ord.vendor?.store_name || ord.vendor_name || 'N/A'}</strong></span>
-                            {ord.created_at && (
-                              <span>{dayjs(ord.created_at).format('MMM D, YYYY h:mm A')}</span>
-                            )}
-                          </div>
-
-                          {/* Items List Breakdown */}
-                          {itemsList.length > 0 && (
-                            <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 8, marginBottom: 8 }}>
-                              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
-                                Order Items ({itemsList.length}):
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {itemsList.map((item, itemIdx) => {
-                                  const qty = item.quantity || item.qty || 1;
-                                  const unitPrice = Number(item.price || item.unit_price || 0);
-                                  const itemTotal = qty * unitPrice;
-                                  const pName = item.name || item.product_name || item.title || `Item #${itemIdx + 1}`;
-                                  const pImg = item.product_image || item.image || item.img;
-
-                                  return (
-                                    <div key={itemIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        {pImg ? (
-                                          <img src={pImg} alt={pName} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
-                                        ) : (
-                                          <span style={{ fontSize: 10, background: '#cbd5e1', padding: '2px 4px', borderRadius: 4, color: '#334155' }}>📦</span>
-                                        )}
-                                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{pName}</span>
-                                        <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0, borderRadius: 4 }}>
-                                          x{qty}
-                                        </Tag>
-                                      </div>
-                                      <span style={{ fontWeight: 600, color: '#475569' }}>
-                                        ${itemTotal.toFixed(2)}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Financial Summary */}
-                          <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
-                              <span>Items Price:</span>
-                              <strong style={{ color: '#334155' }}>${fin.itemsPrice.toFixed(2)}</strong>
-                            </div>
-
-                            {fin.deliveryCharge > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
-                                <span>Delivery Fee (rider_deliveryCharge):</span>
-                                <span style={{ color: '#334155', fontWeight: 600 }}>${fin.deliveryCharge.toFixed(2)}</span>
-                              </div>
-                            )}
-
-                            {fin.fastDeliveryCharge > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
-                                <span>Fast Delivery Charge:</span>
-                                <span style={{ color: '#334155', fontWeight: 600 }}>${fin.fastDeliveryCharge.toFixed(2)}</span>
-                              </div>
-                            )}
-
-                            {(fin.tip > 0 || fin.tipPct > 0) && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7' }}>
-                                <span>Tip {fin.tipPct > 0 ? `(${fin.tipPct}%)` : ''}:</span>
-                                <strong style={{ color: '#0284c7' }}>${fin.tip.toFixed(2)}</strong>
-                              </div>
-                            )}
-
-                            {/* Final Amount (overall_amount) */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid #f1f5f9' }}>
-                              <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px' }}>Final Amount:</span>
-                              <strong style={{ fontSize: '15px', color: '#088b46', fontWeight: 800 }}>
-                                ${fin.overall.toFixed(2)}
-                              </strong>
-                            </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Drawer>
     </div>
   );
 };

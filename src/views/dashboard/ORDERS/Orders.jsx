@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Alert, Space, Button, Tag, Badge, Tooltip, Avatar, Popover } from 'antd';
+import { Table, Alert, Space, Button, Tag, Badge, Tooltip, Avatar, Popover, Row, Col } from 'antd';
 import {
   ShoppingCartOutlined,
   DollarOutlined,
@@ -12,12 +12,15 @@ import {
   CarOutlined,
   UserOutlined,
   UnorderedListOutlined,
+  RightOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import useOrder, { getOrderStatus, parseOrderTime, parseOrderIdNum, calculateOrderFinancials } from './hooks/useOrder';
-import useVendors from './hooks/useVendors';
+import useOrderFilterOptions from './hooks/useOrderFilterOptions';
 import SingleOrder from './SingleOrder';
 import OrderFilters from './OrderFilters';
 import useDebounce from '../../../hooks/useDebounce';
+import styles from './orders.module.scss';
 
 const Orders = () => {
   const {
@@ -27,22 +30,38 @@ const Orders = () => {
     limit,
     search,
     vendorId,
+    riderId,
+    userId,
     status,
-    dateRange,
+    sort,
+    dateType,
+    singleDate,
+    rangeDates,
     loading,
     error,
     setPage,
     setLimit,
     setSearch,
     setVendorId,
+    setRiderId,
+    setUserId,
     setStatus,
-    setDateRange,
+    setSort,
+    setDateType,
+    setSingleDate,
+    setRangeDates,
+    resetFilters,
     refetch,
   } = useOrder();
 
-  const { vendors, loading: vendorsLoading } = useVendors();
+  const { vendors, riders, customers, loading: filterOptionsLoading } = useOrderFilterOptions();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchInput, setSearchInput] = useState(search);
+
+  // Sync internal search input with external/URL search state
+  React.useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
 
   const debouncedSearch = useDebounce(searchInput, 500);
 
@@ -56,76 +75,247 @@ const Orders = () => {
   const deliveredCount = orders.filter((o) => o.order_status === 4).length;
   const pendingCount = orders.filter((o) => o.order_status === 0).length;
 
+  // Expanded row renderer (dropdown panel for full order details without horizontal scroll)
+  const renderExpandedRow = (record) => {
+    const { itemsPrice, deliveryCharge, fastDeliveryCharge, tip, tipPct, overall } = calculateOrderFinancials(record);
+    const u = record.user || {};
+    const addr = record.address || {};
+    const addrText = typeof addr === 'string' ? addr : addr?.address;
+    const floor = addr?.floor ? `Floor ${addr.floor}` : null;
+    const landmark = addr?.landmark;
+    const extraAddrInfo = [floor, landmark].filter(Boolean).join(', ');
+    const v = record.vendor || {};
+    const r = record.rider;
+    const products = record.products || [];
+    const pm = record.payment_method || 'COD';
+    const isPaid = record.order_payment_status === 1;
+
+    return (
+      <div className={styles.expandedOrderContainer}>
+        <Row gutter={[12, 12]}>
+          {/* Col 1: Customer & Delivery Address */}
+          <Col xs={24} sm={12} xl={6}>
+            <div className={styles.expandedSection}>
+              <div className={styles.expandedSectionTitle}>
+                <EnvironmentOutlined style={{ color: '#0284c7' }} /> Delivery Address
+              </div>
+              <div className={styles.expandedSectionContent}>
+                <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                  {[u.firstname, u.lastname].filter(Boolean).join(' ') || u.name || 'Customer'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 6px 0' }}>
+                  {[u.prefix, u.phonenumber].filter(Boolean).join(' ')} {u.email && `• ${u.email}`}
+                </div>
+                {addrText ? (
+                  <div style={{ fontSize: '12px', color: '#334155', background: '#f1f5f9', padding: '6px 8px', borderRadius: '6px' }}>
+                    {addr?.type && (
+                      <Tag color="purple" style={{ fontSize: '10px', padding: '0 4px', marginRight: 4 }}>
+                        {addr.type === 1 ? 'Home' : addr.type === 2 ? 'Work' : 'Other'}
+                      </Tag>
+                    )}
+                    {addrText}
+                    {extraAddrInfo && <div style={{ color: '#64748b', fontSize: '11px', marginTop: 2 }}>{extraAddrInfo}</div>}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>No address provided</div>
+                )}
+              </div>
+            </div>
+          </Col>
+
+          {/* Col 2: Store / Vendor */}
+          <Col xs={24} sm={12} xl={6}>
+            <div className={styles.expandedSection}>
+              <div className={styles.expandedSectionTitle}>
+                <ShopOutlined style={{ color: '#d97706' }} /> Store / Vendor
+              </div>
+              <div className={styles.expandedSectionContent}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {v.store_image ? (
+                    <img src={v.store_image} alt="Store" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} />
+                  ) : (
+                    <Avatar size={36} icon={<ShopOutlined />} style={{ backgroundColor: '#fef3c7', color: '#d97706' }} />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{v.store_name || 'Vendor'}</div>
+                    {v.store_address && (
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{v.store_address}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Col>
+
+          {/* Col 3: Assigned Rider */}
+          <Col xs={24} sm={12} xl={6}>
+            <div className={styles.expandedSection}>
+              <div className={styles.expandedSectionTitle}>
+                <CarOutlined style={{ color: '#9333ea' }} /> Assigned Rider
+              </div>
+              <div className={styles.expandedSectionContent}>
+                {r ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Avatar size={36} icon={<CarOutlined />} style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }} />
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                        {[r.firstname, r.lastname].filter(Boolean).join(' ') || 'Rider'}
+                      </div>
+                      {r.custom_id && <div style={{ fontSize: '11px', color: '#64748b' }}>ID: {r.custom_id}</div>}
+                      {r.phonenumber && <div style={{ fontSize: '11px', color: '#64748b' }}>{r.phonenumber}</div>}
+                    </div>
+                  </div>
+                ) : (
+                  <Tag color="default" style={{ padding: '4px 8px', fontSize: '12px' }}>No Rider Assigned</Tag>
+                )}
+              </div>
+            </div>
+          </Col>
+
+          {/* Col 4: Financials & Payment Details */}
+          <Col xs={24} sm={12} xl={6}>
+            <div className={styles.expandedSection}>
+              <div className={styles.expandedSectionTitle}>
+                <DollarOutlined style={{ color: '#088b46' }} /> Financials & Payment
+              </div>
+              <div className={styles.expandedSectionContent} style={{ fontSize: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <span style={{ color: '#64748b' }}>Items Subtotal:</span>
+                  <strong>${itemsPrice.toFixed(2)}</strong>
+                </div>
+                {deliveryCharge > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ color: '#64748b' }}>Delivery Fee:</span>
+                    <span>${deliveryCharge.toFixed(2)}</span>
+                  </div>
+                )}
+                {fastDeliveryCharge > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ color: '#64748b' }}>Express Fee:</span>
+                    <span>${fastDeliveryCharge.toFixed(2)}</span>
+                  </div>
+                )}
+                {tip > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ color: '#64748b' }}>Tip:</span>
+                    <span>${tip.toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: 4, marginTop: 4 }}>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>Total:</span>
+                  <span style={{ fontWeight: 800, color: '#088b46', fontSize: '14px' }}>${overall.toFixed(2)}</span>
+                </div>
+                <div style={{ marginTop: 6, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Tag color="purple" style={{ margin: 0, textTransform: 'uppercase', fontWeight: 700, fontSize: '10px' }}>
+                    {pm}
+                  </Tag>
+                  <Tag color={isPaid ? 'green' : 'red'} style={{ margin: 0, fontWeight: 700, fontSize: '10px' }}>
+                    {isPaid ? 'Paid' : 'Unpaid'}
+                  </Tag>
+                  {record.created_at && (
+                    <span style={{ fontSize: '11px', color: '#64748b', marginLeft: 'auto' }}>
+                      {new Date(record.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Col>
+
+          {/* Ordered Items Preview */}
+          {products.length > 0 && (
+            <Col span={24}>
+              <div className={styles.expandedItemsBox}>
+                <div style={{ fontWeight: 700, fontSize: '12px', color: '#475569', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Ordered Items ({products.length})</span>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<EyeOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOrder(record);
+                    }}
+                    style={{ background: '#088b46', borderColor: '#088b46', fontSize: '11px' }}
+                  >
+                    View Full Order & Invoice
+                  </Button>
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {products.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                      {(item.featured_image || item.image) ? (
+                        <img src={item.featured_image || item.image} alt={item.product_name} style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: 4, background: '#e2e8f0' }} />
+                      )}
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>
+                        {item.product_name || item.name}
+                      </div>
+                      <Tag color="blue" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
+                        x{item.product_quantity || 1}
+                      </Tag>
+                      {item.price && (
+                        <span style={{ fontSize: '11.5px', color: '#088b46', fontWeight: 700 }}>
+                          ${Number(item.price).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Col>
+          )}
+        </Row>
+      </div>
+    );
+  };
+
   const columns = [
     {
-      title: 'Order ID',
+      title: 'ORDER ID',
       key: 'order_id',
-      width: 140,
       sorter: (a, b) => parseOrderIdNum(a) - parseOrderIdNum(b),
       render: (_, record) => {
         const uid = record.order_uid || record.order_id || record.id;
+        const dateStr = record.created_at
+          ? new Date(record.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+          : null;
         return (
-          <div>
-            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13.5px', letterSpacing: '0.2px' }}>
+          <div style={{ minWidth: 140 }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px', letterSpacing: '0.2px' }}>
               #{uid ? String(uid) : '-'}
             </div>
-            {record.order_id && record.order_id !== uid && (
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                Ref: #{record.order_id}
-              </span>
-            )}
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {record.order_id && record.order_id !== uid && <span>Ref: #{record.order_id}</span>}
+              {dateStr && <span>• {dateStr}</span>}
+            </div>
           </div>
         );
       },
     },
     {
-      title: 'Customer & Delivery Address',
+      title: 'CUSTOMER',
       key: 'customer',
-      width: 270,
       render: (_, record) => {
         const u = record.user || {};
-        const addr = record.address || {};
-
         const fullName = [u.firstname, u.lastname].filter(Boolean).join(' ') || u.name || 'Customer';
         const phone = [u.prefix, u.phonenumber].filter(Boolean).join(' ');
-        const email = u.email;
-        const customId = u.custom_id;
-
-        const addrText = typeof addr === 'string' ? addr : addr?.address;
-        const addrType = addr?.type === 1 ? 'Home' : addr?.type === 2 ? 'Work' : addr?.type === 3 ? 'Other' : null;
-        const floor = addr?.floor ? `Floor ${addr.floor}` : null;
-        const landmark = addr?.landmark;
-        const extraAddrInfo = [floor, landmark].filter(Boolean).join(', ');
+        const addr = record.address || {};
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
+          <div style={{ minWidth: 150 }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>
               {fullName}
-              {customId && <span style={{ fontSize: '11px', color: '#64748b', marginLeft: 4 }}>(ID: {customId})</span>}
+              {addr?.type && (
+                <Tag color="purple" style={{ fontSize: '9px', padding: '0 3px', marginLeft: 4, height: 16, lineHeight: '14px' }}>
+                  {addr.type === 1 ? 'Home' : addr.type === 2 ? 'Work' : 'Other'}
+                </Tag>
+              )}
             </div>
-
-            {(phone || email) && (
+            {phone && (
               <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                {phone && <span>{phone}</span>}
-                {phone && email && <span style={{ margin: '0 4px' }}>•</span>}
-                {email && <span style={{ wordBreak: 'break-all' }}>{email}</span>}
-              </div>
-            )}
-
-            {addrText && (
-              <div style={{ marginTop: 2, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-                {addrType && (
-                  <Tag color="purple" style={{ fontSize: '10px', padding: '0 5px', margin: '2px 0 0 0', height: '18px', lineHeight: '16px' }}>
-                    {addrType}
-                  </Tag>
-                )}
-                <Tooltip title={extraAddrInfo ? `${addrText} (${extraAddrInfo})` : addrText}>
-                  <div style={{ fontSize: '11.5px', color: '#475569', lineHeight: '1.3' }}>
-                    <EnvironmentOutlined style={{ color: '#0284c7', marginRight: 3 }} />
-                    {addrText.length > 40 ? `${addrText.slice(0, 40)}...` : addrText}
-                    {extraAddrInfo && <span style={{ color: '#94a3b8', display: 'block', fontSize: '10.5px' }}>{extraAddrInfo}</span>}
-                  </div>
-                </Tooltip>
+                {phone}
               </div>
             )}
           </div>
@@ -133,209 +323,84 @@ const Orders = () => {
       },
     },
     {
-      title: 'Store / Vendor',
+      title: 'STORE',
       key: 'vendor',
-      width: 180,
+      responsive: ['xxl'],
       render: (_, record) => {
         const v = record.vendor || {};
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120 }}>
             {v.store_image ? (
               <img
                 src={v.store_image}
                 alt="Store"
-                style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid #e2e8f0' }}
+                style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }}
               />
             ) : (
-              <Avatar size={32} icon={<ShopOutlined />} style={{ backgroundColor: '#fef3c7', color: '#d97706' }} />
+              <Avatar size={24} icon={<ShopOutlined />} style={{ backgroundColor: '#fef3c7', color: '#d97706' }} />
             )}
-            <div>
-              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>
-                {v.store_name || '-'}
-              </div>
-              {v.store_address && (
-                <div style={{ fontSize: '11px', color: '#64748b' }}>
-                  {v.store_address.length > 25 ? `${v.store_address.slice(0, 25)}...` : v.store_address}
-                </div>
-              )}
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {v.store_name || '-'}
             </div>
           </div>
         );
       },
     },
     {
-      title: 'Rider',
-      key: 'rider',
-      width: 150,
-      render: (_, record) => {
-        const r = record.rider;
-        if (!r) {
-          return <Tag color="default" style={{ color: '#64748b', fontSize: '11px' }}>Unassigned</Tag>;
-        }
-        const riderName = [r.firstname, r.lastname].filter(Boolean).join(' ') || 'Assigned Rider';
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Avatar size={24} icon={<CarOutlined />} style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }} />
-            <div>
-              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12px' }}>
-                {riderName}
-              </div>
-              {r.custom_id && (
-                <span style={{ fontSize: '10.5px', color: '#64748b' }}>ID: {r.custom_id}</span>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      title: 'Items',
-      key: 'items',
-      align: 'center',
-      width: 90,
-      render: (_, record) => {
-        const products = record.products || [];
-        const totalQty = record.total_quantity || products.reduce((sum, p) => sum + Number(p.product_quantity || 1), 0);
-
-        const itemsPopover = (
-          <div style={{ maxWidth: 280, padding: 4 }}>
-            <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: 6, borderBottom: '1px solid #e2e8f0', paddingBottom: 4 }}>
-              Ordered Products ({products.length})
-            </div>
-            {products.length === 0 ? (
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>No item details available</span>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                {products.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '12px' }}>
-                    {(item.featured_image || item.image) ? (
-                      <img src={item.featured_image || item.image} alt={item.product_name} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: 24, height: 24, borderRadius: 4, background: '#f1f5f9' }} />
-                    )}
-                    <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.product_name || item.name}
-                    </div>
-                    <Tag color="blue" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
-                      x{item.product_quantity || 1}
-                    </Tag>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-
-        return (
-          <Popover content={itemsPopover} title={null} trigger="hover">
-            <Tag color="cyan" style={{ cursor: 'pointer', fontWeight: 700, borderRadius: 12, padding: '2px 8px' }}>
-              <UnorderedListOutlined style={{ marginRight: 4 }} />
-              {totalQty}
-            </Tag>
-          </Popover>
-        );
-      },
-    },
-    {
-      title: 'Financials',
+      title: 'AMOUNT',
       key: 'overall_amount',
-      width: 150,
       sorter: (a, b) => calculateOrderFinancials(a).overall - calculateOrderFinancials(b).overall,
       render: (_, record) => {
-        const { itemsPrice, deliveryCharge, fastDeliveryCharge, tip, tipPct, overall } = calculateOrderFinancials(record);
-
-        const breakdownTooltip = (
-          <div style={{ padding: '4px', fontSize: '12px' }}>
-            <div>Items Subtotal: <strong>${itemsPrice.toFixed(2)}</strong></div>
-            {deliveryCharge > 0 && <div>Rider Delivery: <strong>${deliveryCharge.toFixed(2)}</strong></div>}
-            {fastDeliveryCharge > 0 && <div>Express Delivery: <strong>${fastDeliveryCharge.toFixed(2)}</strong></div>}
-            {tip > 0 && (
-              <div>
-                Tip {tipPct > 0 ? `(${tipPct}%)` : ''}: <strong>+${tip.toFixed(2)}</strong>
-              </div>
-            )}
-            <hr style={{ margin: '4px 0', borderColor: 'rgba(255,255,255,0.2)' }} />
-            <div>Overall Amount: <strong style={{ color: '#4ade80' }}>${overall.toFixed(2)}</strong></div>
-          </div>
-        );
-
-        return (
-          <Tooltip title={breakdownTooltip}>
-            <div style={{ cursor: 'pointer' }}>
-              <div style={{ fontWeight: 800, color: '#088b46', fontSize: '15px' }}>
-                ${overall.toFixed(2)}
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
-                {deliveryCharge > 0 && (
-                  <Tag color="cyan" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
-                    Del: ${deliveryCharge}
-                  </Tag>
-                )}
-                {tip > 0 && (
-                  <Tag color="gold" style={{ fontSize: '10px', padding: '0 4px', margin: 0 }}>
-                    Tip: ${tip.toFixed(2)}
-                  </Tag>
-                )}
-              </div>
-            </div>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      title: 'Payment Mode',
-      key: 'payment',
-      width: 120,
-      render: (_, record) => {
+        const { overall } = calculateOrderFinancials(record);
         const pm = record.payment_method || 'COD';
         const isPaid = record.order_payment_status === 1;
+
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Tag color="purple" style={{ textTransform: 'uppercase', width: 'fit-content', fontWeight: 700, borderRadius: 4 }}>
-              {pm}
-            </Tag>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: isPaid ? '#16a34a' : '#dc2626' }}>
-              {isPaid ? '• Paid' : '• Unpaid'}
-            </span>
+          <div style={{ minWidth: 110 }}>
+            <div style={{ fontWeight: 800, color: '#088b46', fontSize: '14px' }}>
+              ${overall.toFixed(2)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '1px 4px', borderRadius: 3 }}>
+                {pm.toUpperCase()}
+              </span>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: isPaid ? '#16a34a' : '#dc2626' }}>
+                {isPaid ? 'Paid' : 'Unpaid'}
+              </span>
+            </div>
           </div>
         );
       },
     },
     {
-      title: 'Status',
+      title: 'STATUS',
       dataIndex: 'order_status',
       key: 'order_status',
-      width: 140,
       render: (statusVal) => {
         const s = getOrderStatus(statusVal);
         return (
-          <Tag color={s.color} style={{ borderRadius: '12px', padding: '3px 10px', fontWeight: 700, fontSize: '12px' }}>
+          <Tag color={s.color} style={{ borderRadius: '12px', padding: '2px 8px', fontWeight: 700, fontSize: '11px', margin: 0 }}>
             {s.text}
           </Tag>
         );
       },
     },
     {
-      title: 'Order Date',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 140,
-      sorter: (a, b) => parseOrderTime(a) - parseOrderTime(b),
-      render: (text) => text ? new Date(text).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-',
-    },
-    {
-      title: 'Action',
+      title: 'ACTION',
       key: 'action',
-      width: 90,
+      width: 80,
       align: 'center',
       render: (_, record) => (
-        <Tooltip title="View Detailed Order Invoice">
+        <Tooltip title="View Full Order Invoice">
           <Button
             type="primary"
             size="small"
             icon={<EyeOutlined />}
-            style={{ borderRadius: '6px', background: '#088b46', border: 'none', fontWeight: 600 }}
-            onClick={() => setSelectedOrder(record)}
+            style={{ borderRadius: '6px', background: '#088b46', border: 'none', fontWeight: 600, fontSize: '11.5px' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedOrder(record);
+            }}
           >
             Details
           </Button>
@@ -414,15 +479,34 @@ const Orders = () => {
         <OrderFilters
           searchInput={searchInput}
           onSearchInputChange={setSearchInput}
-          onSearchSubmit={setSearch}
-          vendorId={vendorId}
-          onVendorChange={setVendorId}
+          onSearchSubmit={(val) => {
+            setSearchInput(val);
+            setSearch(val);
+          }}
+          dateType={dateType}
+          onDateTypeChange={setDateType}
+          singleDate={singleDate}
+          onSingleDateChange={setSingleDate}
+          rangeDates={rangeDates}
+          onRangeDatesChange={setRangeDates}
           status={status}
           onStatusChange={setStatus}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
+          vendorId={vendorId}
+          onVendorChange={setVendorId}
+          riderId={riderId}
+          onRiderChange={setRiderId}
+          userId={userId}
+          onUserChange={setUserId}
+          sort={sort}
+          onSortChange={setSort}
+          onReset={() => {
+            setSearchInput('');
+            resetFilters();
+          }}
           vendors={vendors}
-          vendorsLoading={vendorsLoading}
+          riders={riders}
+          customers={customers}
+          filterOptionsLoading={filterOptionsLoading}
         />
 
         {error && (
@@ -441,11 +525,16 @@ const Orders = () => {
         )}
 
         <Table
+          className={styles.ordersTable}
           columns={columns}
           dataSource={orders}
           rowKey={(record) => record.order_id || record.id || record.order_uid}
           loading={loading}
-          scroll={{ x: 'max-content' }}
+          expandable={{
+            expandedRowRender: renderExpandedRow,
+            rowExpandable: () => true,
+            expandRowByClick: true,
+          }}
           pagination={{
             current: page,
             pageSize: limit,

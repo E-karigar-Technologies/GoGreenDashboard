@@ -162,6 +162,55 @@
   }
 }
 
+/* Responsive Table with No Horizontal Scrollbar / Sliders */
+.responsive-table-no-scroll {
+  width: 100% !important;
+
+  .ant-table {
+    width: 100% !important;
+  }
+
+  .ant-table-container {
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .ant-table-content {
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  .ant-table-thead > tr > th {
+    padding: 12px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 12px 10px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .responsive-table-no-scroll {
+    .ant-table-thead > tr > th {
+      padding: 10px 6px !important;
+      font-size: 11.5px !important;
+    }
+
+    .ant-table-tbody > tr > td {
+      padding: 10px 6px !important;
+      font-size: 12px !important;
+    }
+  }
+}
+
 /* Button & Action styling */
 .btn-primary-gogreen {
   background: linear-gradient(135deg, #088b46 0%, #066e37 100%) !important;

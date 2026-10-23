@@ -16,67 +16,12 @@ const menuItems = {
         }
       ]
     },
-
-    // Users Management Group
-    {
-      id: 'banner-group',
-      type: 'group',
-      icon: 'icon-support',
-      children: [
-        {
-          id: 'manage-appbanners',
-          title: 'App Banners',
-          type: 'collapse',
-          icon: 'material-icons-two-tone',
-          iconname: 'group',
-          children: [
-            // {
-            //   id: 'add-banner',
-            //   title: 'Add Banners',
-            //   type: 'item',
-            //   url: '/add-banner',
-            //   classes: 'nav-item',
-            //   icon: 'material-icons-two-tone',
-            //   iconname: 'person_add'
-            // },
-            {
-              id: 'all-banner',
-              title: 'All Banners',
-              type: 'item',
-              url: '/all-banner',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
-            }
-          ]
-        }
-      ]
-    },
-
     // Users Management Group
     {
       id: 'users-group',
       type: 'group',
       icon: 'icon-support',
       children: [
-        {
-          id: 'manage-users-group',
-          title: 'Users',
-          type: 'collapse',
-          icon: 'material-icons-two-tone',
-          iconname: 'people',
-          children: [
-            {
-              id: 'all-users-item',
-              title: 'All Users',
-              type: 'item',
-              url: '/all-users',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
-            }
-          ]
-        },
         {
           id: 'manage-users',
           title: 'Verification Requests',
@@ -86,7 +31,7 @@ const menuItems = {
           children: [
             {
               id: 'unverified-vendors',
-              title: 'All Unverified Vendors',
+              title: 'Unverified Vendors',
               type: 'item',
               url: '/all-unverified-vendors',
               classes: 'nav-item',
@@ -95,7 +40,7 @@ const menuItems = {
             },
             {
               id: 'unverified-partners',
-              title: 'All Unverified Riders',
+              title: 'Unverified Riders',
               type: 'item',
               url: '/all-unverified-rider',
               classes: 'nav-item',
@@ -104,7 +49,7 @@ const menuItems = {
             },
             {
               id: 'unverified-customers',
-              title: 'All Unverified Customers',
+              title: 'Unverified Customers',
               type: 'item',
               url: '/all-unverified-customers',
               classes: 'nav-item',
@@ -115,126 +60,133 @@ const menuItems = {
         }
       ]
     },
-
-
-
+    // order Group
     {
-      id: 'vendortype-group',
+      id: 'orders-group',
       type: 'group',
-      icon: 'icon-navigation',
+      icon: 'icon-support',
       children: [
         {
-          id: 'vendortype',
-          title: 'Vendor Types',
+          id: 'manage-orders',
+          title: 'Orders',
+          type: 'collapse',
+          icon: 'material-icons-two-tone',
+          iconname: 'add_shopping_cart',
+          children: [
+         
+            {
+              id: 'all-orders',
+              title: 'All Orders',
+              type: 'item',
+              url: '/all-orders',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'people_alt'
+            },
+           
+          ]
+        }
+      ]
+    },
+    {
+      id: 'manage-users-group',
+      title: 'Customers',
+      type: 'collapse',
+      icon: 'material-icons-two-tone',
+      iconname: 'people',
+      children: [ 
+        {
+          id: 'all-users-item',
+          title: 'All Customers',
           type: 'item',
+          url: '/all-users',
+          classes: 'nav-item',
           icon: 'material-icons-two-tone',
-          iconname: 'home',
-          url: '/vendor-type/'
+          iconname: 'people_alt'
         }
       ]
     },
-     // Brands Group
-     {
-      id: 'brands-group',
-      type: 'group',
-      icon: 'icon-support',
-      children: [
-        {
-          id: 'product-brands',
-          title: 'Brands',
-          type: 'collapse',
-          icon: 'material-icons-two-tone',
-          iconname: 'history_edu',
-          children: [
-            {
-              id: 'add-product-brand',
-              title: 'Add Product Brand',
-              type: 'item',
-              url: '/add-product-brand',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'person_add'
-            },
-            {
-              id: 'all-product-brands',
-              title: 'All Product Brands',
-              type: 'item',
-              url: '/all-product-brands',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
-            }
-          ]
-        }
-      ]
-    },
-
-
-    // Categories Group
+    // vendor Group
     {
-      id: 'category-group',
+      id: 'vendor-group',
       type: 'group',
       icon: 'icon-support',
       children: [
         {
-          id: 'manage-category',
-          title: 'Product Categories',
+          id: 'manage-vendor',
+          title: 'Vendors',
           type: 'collapse',
           icon: 'material-icons-two-tone',
-          iconname: 'history_edu',
+          iconname: 'storefront',
           children: [
             {
-              id: 'add-category',
-              title: 'Add Category',
+              id: 'vendortype',
+              title: 'Vendor Types',
               type: 'item',
-              url: '/add-category',
+              url: '/vendor-type/',
               classes: 'nav-item',
               icon: 'material-icons-two-tone',
-              iconname: 'person_add'
+              iconname: 'category'
             },
             {
-              id: 'all-category',
-              title: 'All Categories',
+              id: 'all-vendors',
+              title: 'All Vendors',
               type: 'item',
-              url: '/all-category',
+              url: '/vendors',
               classes: 'nav-item',
               icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
-            }
-          ]
-        },
-        {
-          id: 'manage-subcategory',
-          title: 'Product Sub-Categories',
-          type: 'collapse',
-          icon: 'material-icons-two-tone',
-          iconname: 'history_edu',
-          children: [
-            {
-              id: 'add-subcategory',
-              title: 'Add Subcategory',
-              type: 'item',
-              url: '/add-subcategory',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'person_add'
+              iconname: 'apartment'
             },
             {
-              id: 'all-subcategory',
-              title: 'All Subcategories',
+              id: 'vendor-withdrawals',
+              title: 'Vendor Withdrawals',
               type: 'item',
-              url: '/all-subcategory',
+              url: '/vendor-withdrawals',
               classes: 'nav-item',
               icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
+              iconname: 'account_balance_wallet'
             }
           ]
         }
       ]
     },
-
-     // Products Group
-     {
+    // rider Group
+    {
+      id: 'rider-group',
+      type: 'group',
+      icon: 'icon-delivery', // optional custom icon
+      children: [
+        {
+          id: 'manage-rider',
+          title: 'Riders',
+          type: 'collapse',
+          icon: 'material-icons-two-tone',
+          iconname: 'two_wheeler', // Rider/delivery icon
+          children: [
+            {
+              id: 'all-riders',
+              title: 'All Riders',
+              type: 'item',
+              url: '/riders',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'two_wheeler' // Rider's vehicle
+            },
+            {
+              id: 'rider-withdrawals-item',
+              title: 'Rider Withdrawals',
+              type: 'item',
+              url: '/rider-withdrawals',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'account_balance_wallet'
+            }
+          ]
+        }
+      ]
+    },
+    // Products Group
+    {
       id: 'products-group',
       type: 'group',
       icon: 'icon-support',
@@ -264,147 +216,154 @@ const menuItems = {
               icon: 'material-icons-two-tone',
               iconname: 'people_alt'
             },
-            // {
-            //   id: 'product-discount',
-            //   title: 'Products Discount',
-            //   type: 'item',
-            //   url: '/products-discount',
-            //   classes: 'nav-item',
-            //   icon: 'material-icons-two-tone',
-            //   iconname: 'people_alt'
-            // }
+            // Brands sub-section
+            {
+              id: 'product-brands',
+              title: 'Brands',
+              type: 'collapse',
+              icon: 'material-icons-two-tone',
+              iconname: 'history_edu',
+              children: [
+                {
+                  id: 'add-product-brand',
+                  title: 'Add Product Brand',
+                  type: 'item',
+                  url: '/add-product-brand',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'person_add'
+                },
+                {
+                  id: 'all-product-brands',
+                  title: 'All Product Brands',
+                  type: 'item',
+                  url: '/all-product-brands',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'people_alt'
+                }
+              ]
+            },
+            // Product Categories sub-section
+            {
+              id: 'manage-category',
+              title: 'Product Categories',
+              type: 'collapse',
+              icon: 'material-icons-two-tone',
+              iconname: 'history_edu',
+              children: [
+                {
+                  id: 'add-category',
+                  title: 'Add Category',
+                  type: 'item',
+                  url: '/add-category',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'person_add'
+                },
+                {
+                  id: 'all-category',
+                  title: 'All Categories',
+                  type: 'item',
+                  url: '/all-category',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'people_alt'
+                }
+              ]
+            },
+            // Product Sub-Categories sub-section
+            {
+              id: 'manage-subcategory',
+              title: 'Product Sub-Categories',
+              type: 'collapse',
+              icon: 'material-icons-two-tone',
+              iconname: 'history_edu',
+              children: [
+                {
+                  id: 'add-subcategory',
+                  title: 'Add Subcategory',
+                  type: 'item',
+                  url: '/add-subcategory',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'person_add'
+                },
+                {
+                  id: 'all-subcategory',
+                  title: 'All Subcategories',
+                  type: 'item',
+                  url: '/all-subcategory',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'people_alt'
+                }
+              ]
+            }
           ]
         }
       ]
     },
-     // order Group
-     {
-      id: 'orders-group',
+    // Pick & Drop Group
+    {
+      id: 'pick-drop-group',
+      type: 'group',
+      icon: 'icon-delivery',
+      children: [
+        {
+          id: 'pick-and-drop',
+          title: 'Pick & Drop',
+          type: 'item',
+          icon: 'material-icons-two-tone',
+          iconname: 'local_shipping',
+          url: '/pick-and-drop'
+        }
+      ]
+    },
+    // Customer Settings Group
+    {
+      id: 'customer-settings-group',
       type: 'group',
       icon: 'icon-support',
       children: [
         {
-          id: 'manage-orders',
-          title: 'Orders',
+          id: 'customer-settings',
+          title: 'Customer App Settings',
           type: 'collapse',
           icon: 'material-icons-two-tone',
-          iconname: 'add_shopping_cart',
+          iconname: 'settings',
           children: [
-         
             {
-              id: 'all-orders',
-              title: 'All Orders',
-              type: 'item',
-              url: '/all-orders',
-              classes: 'nav-item',
+              id: 'manage-appbanners',
+              title: 'App Banners',
+              type: 'collapse',
               icon: 'material-icons-two-tone',
-              iconname: 'people_alt'
-            },
-           
+              iconname: 'view_carousel',
+              children: [
+                {
+                  id: 'add-banner',
+                  title: 'Add Banner',
+                  type: 'item',
+                  url: '/add-banner',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'add_photo_alternate'
+                },
+                {
+                  id: 'all-banner',
+                  title: 'All Banners',
+                  type: 'item',
+                  url: '/all-banner',
+                  classes: 'nav-item',
+                  icon: 'material-icons-two-tone',
+                  iconname: 'burst_mode'
+                }
+              ]
+            }
           ]
         }
       ]
     },
-     // vendor Group
-     {
-      id: 'vendor-group',
-      type: 'group',
-      icon: 'icon-support',
-      children: [
-        {
-          id: 'manage-vendor',
-          title: 'Vendors',
-          type: 'collapse',
-          icon: 'material-icons-two-tone',
-          iconname: 'storefront',
-          children: [
-         
-            {
-              id: 'all-vendors',
-              title: 'All Vendors',
-              type: 'item',
-              url: '/vendors',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'apartment'
-            },
-            {
-              id: 'vendor-withdrawals',
-              title: 'Vendor Withdrawals',
-              type: 'item',
-              url: '/vendor-withdrawals',
-              classes: 'nav-item',
-              icon: 'material-icons-two-tone',
-              iconname: 'account_balance_wallet'
-            },
-
-           
-          ]
-        }
-      ]
-    },
-
-
-// rider Group
-{
-  id: 'rider-group',
-  type: 'group',
-  icon: 'icon-delivery', // optional custom icon
-  children: [
-    {
-      id: 'manage-rider',
-      title: 'Riders',
-      type: 'collapse',
-      icon: 'material-icons-two-tone',
-      iconname: 'two_wheeler', // Rider/delivery icon
-      children: [
-        {
-          id: 'all-riders',
-          title: 'All Riders',
-          type: 'item',
-          url: '/riders',
-          classes: 'nav-item',
-          icon: 'material-icons-two-tone',
-          iconname: 'two_wheeler' // Rider's vehicle
-        },
-        {
-          id: 'rider-withdrawals-item',
-          title: 'Rider Withdrawals',
-          type: 'item',
-          url: '/rider-withdrawals',
-          classes: 'nav-item',
-          icon: 'material-icons-two-tone',
-          iconname: 'account_balance_wallet'
-        }
-      ]
-    }
-  ]
-},
-
-// Pick & Drop Group
-{
-  id: 'pick-drop-group',
-  type: 'group',
-  icon: 'icon-delivery',
-  children: [
-    {
-      id: 'pick-and-drop',
-      title: 'Pick & Drop',
-      type: 'item',
-      icon: 'material-icons-two-tone',
-      iconname: 'local_shipping',
-      url: '/pick-and-drop'
-    }
-  ]
-},
-
-
-
-
-
-
-  
-
     {
       id: 'category-div-data',
       type: 'group',
