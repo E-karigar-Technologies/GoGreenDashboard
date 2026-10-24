@@ -582,7 +582,7 @@ export const updateVendorStatus = async (vendorId, newStatus, extra = {}) => {
   }
 };
 
-// Update vendor deactivate status (deactivate_status: 1 = blocked, 0 = active, with remark) check this 
+// Update vendor deactivate status (deactivate_status: 1 = blocked, 0 = active, with remark) 
 export const updateVendorDeactivateStatus = async (vendorId, deactivateStatus, remark = '') => {
   try {
     const freshToken = localStorage.getItem('token');
