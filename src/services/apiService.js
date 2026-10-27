@@ -507,10 +507,24 @@ export const getVendorById = async (id) => {
   }
 };
 
-export const getAllRiders = async (active = false) => {
+export const getAllRiders = async (params = {}) => {
   try {
-
-    const response = await axios.get(`/riders/getallridersforadmin${active ? "?filter=active" : ""}`, config);
+    let query = '';
+    if (typeof params === 'boolean') {
+      query = params ? '?filter=active' : '';
+    } else if (typeof params === 'string') {
+      query = params ? (params.startsWith('?') ? params : `?${params}`) : '';
+    } else if (params && typeof params === 'object') {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, val);
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) query = `?${qs}`;
+    }
+    const response = await axios.get(`/riders/getallridersforadmin${query}`, config);
     return response.data;
   } catch (error) {
     return { success: false, message: error.message, data: [] };
@@ -615,6 +629,41 @@ export const blockVendor = async (vendorId, remark = '') => {
 // Convenience helper to unblock/reactivate a vendor (deactivate_status = 0)
 export const unblockVendor = async (vendorId, remark = '') => {
   return updateVendorDeactivateStatus(vendorId, 0, remark);
+};
+
+// Update rider deactivate status (deactivate_status: 1 = blocked, 0 = active, with remark)
+export const updateRiderDeactivateStatus = async (riderId, deactivateStatus, remark = '') => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+    const response = await axios.post(
+      `/riders/rider-block-status`,
+      {
+        user_id: riderId,
+        deactivate_status: deactivateStatus,
+        remark: remark
+      },
+      reqConfig
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// Convenience helper to block a rider (deactivate_status = 1)
+export const blockRider = async (riderId, remark = '') => {
+  return updateRiderDeactivateStatus(riderId, 1, remark);
+};
+
+// Convenience helper to unblock/reactivate a rider (deactivate_status = 0)
+export const unblockRider = async (riderId, remark = '') => {
+  return updateRiderDeactivateStatus(riderId, 0, remark);
 };
 export const getRiderById = async (id) => {
   try {
