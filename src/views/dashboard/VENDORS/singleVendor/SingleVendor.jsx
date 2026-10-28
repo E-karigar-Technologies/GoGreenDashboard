@@ -522,7 +522,7 @@ const VendorDashboard = () => {
       render: (_, record) => {
         const totalAmt = Number(record.overall_amount || record.total_price || 0);
         const vendorShare = Number(record.vendor_share !== undefined && record.vendor_share !== null ? record.vendor_share : totalAmt);
-        const adminCommission = Math.max(0, totalAmt - vendorShare);
+        const adminCommission = Number(record.admin_share !== undefined && record.admin_share !== null ? record.admin_share : Math.max(0, totalAmt - vendorShare));
 
         return (
           <div>
@@ -607,11 +607,20 @@ const VendorDashboard = () => {
       ]);
 
       if (sharesRes.status === 'fulfilled' && sharesRes.value?.success) {
-        setVendorSharesData(sharesRes.value.data);
+        const rawShares = sharesRes.value.data;
+        const sharesPayload =
+          rawShares?.data && typeof rawShares.data === 'object' && !Array.isArray(rawShares.data)
+            ? rawShares.data
+            : rawShares;
+        setVendorSharesData(sharesPayload);
       }
 
       let wList = [];
-      if (withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value?.success && Array.isArray(withdrawalsRes.value.data)) {
+      if (
+        withdrawalsRes.status === 'fulfilled' &&
+        withdrawalsRes.value?.success &&
+        Array.isArray(withdrawalsRes.value.data)
+      ) {
         wList = withdrawalsRes.value.data;
       }
 
@@ -620,7 +629,11 @@ const VendorDashboard = () => {
         try {
           const allWdrRes = await getVendorWithdrawals('all');
           if (allWdrRes?.success && Array.isArray(allWdrRes.data)) {
-            wList = allWdrRes.data.filter(w => Number(w.vendor_id) === vendorIdNumber || Number(w.vendor?.id) === vendorIdNumber);
+            wList = allWdrRes.data.filter(
+              (w) =>
+                Number(w.vendor_id) === vendorIdNumber ||
+                Number(w.vendor?.id) === vendorIdNumber
+            );
           }
         } catch (e) {
           console.warn('Fallback fetch of all vendor withdrawals failed:', e);
@@ -641,44 +654,115 @@ const VendorDashboard = () => {
 
   // Wallet summary metrics & transaction ledger
   const walletSummary = React.useMemo(() => {
-    const ordersList = Array.isArray(vendorSharesData?.orders) && vendorSharesData.orders.length > 0
-      ? vendorSharesData.orders
-      : (Array.isArray(vendorData?.orders) ? vendorData.orders : []);
+    const sharesOrders = Array.isArray(vendorSharesData?.orders) ? vendorSharesData.orders : null;
+    const vendorDataOrders = Array.isArray(vendorData?.orders) ? vendorData.orders : [];
+    const isFromSharesApi = !!sharesOrders && sharesOrders.length > 0;
+    const ordersList = isFromSharesApi ? sharesOrders : vendorDataOrders;
 
-    let totalDeliveredEarnings = 0;
-    let deliveredOrdersCount = 0;
+    let computedTotalEarnings = 0;
+    let computedDeliveredCount = 0;
     const earningTransactions = [];
 
-    ordersList.forEach(order => {
-      const isDelivered = Number(order.order_status) === 4;
+    ordersList.forEach((order) => {
+      // If data is from getvendorshares API, all orders returned are eligible credited vendor shares
+      const isDelivered = isFromSharesApi ? true : Number(order.order_status) === 4;
+      const orderId = order.order_id || order.id;
+      const orderUid = order.order_uid || (orderId ? `ORD#${orderId}` : 'ORD');
       const totalAmt = Number(order.overall_amount || order.total_price || 0);
-      const vendorShare = Number(order.vendor_share !== undefined && order.vendor_share !== null ? order.vendor_share : totalAmt);
+      const vendorShare = Number(
+        order.vendor_share !== undefined && order.vendor_share !== null
+          ? order.vendor_share
+          : totalAmt
+      );
+      const adminCommission = Number(
+        order.admin_share !== undefined && order.admin_share !== null
+          ? order.admin_share
+          : Math.max(0, totalAmt - vendorShare)
+      );
 
       if (isDelivered) {
-        totalDeliveredEarnings += vendorShare;
-        deliveredOrdersCount += 1;
+        computedTotalEarnings += vendorShare;
+        computedDeliveredCount += 1;
 
-        const custName = [order.customer?.firstname, order.customer?.lastname].filter(Boolean).join(' ') || order.firstname || 'Customer';
-        const dateVal = order.order_date || order.created_at;
+        // Find full order info from vendorData.orders if present to enrich customer / items data
+        const fullOrder = vendorDataOrders.find(
+          (vo) =>
+            (orderId && String(vo.id) === String(orderId)) ||
+            (orderUid && String(vo.order_uid) === String(orderUid))
+        );
+
+        const custName = [
+          fullOrder?.customer?.firstname || order.customer?.firstname,
+          fullOrder?.customer?.lastname || order.customer?.lastname,
+        ].filter(Boolean).join(' ') ||
+          fullOrder?.firstname ||
+          order.firstname ||
+          fullOrder?.customer_name ||
+          order.customer_name ||
+          '';
+
+        const dateVal =
+          order.order_date_time ||
+          order.order_date ||
+          order.created_at ||
+          fullOrder?.order_date ||
+          fullOrder?.created_at;
+
+        const qtyCount = fullOrder?.products?.length || order.total_quantity || 1;
+
+        const subtitleParts = [
+          `${qtyCount} item(s)`,
+          `Gross: $${totalAmt.toFixed(2)}`,
+          adminCommission > 0 ? `Comm: -$${adminCommission.toFixed(2)}` : null,
+          custName ? `Customer: ${custName}` : null,
+        ].filter(Boolean);
 
         earningTransactions.push({
-          key: `order-${order.id}`,
-          id: order.id,
-          uid: order.order_uid || `ORD#${order.id}`,
+          key: `order-${orderId || Math.random()}`,
+          id: orderId,
+          uid: orderUid,
           type: 'earning',
           typeLabel: 'Order Earning',
-          title: `Delivered Order #${order.order_uid || order.id}`,
-          subtitle: `${order.products?.length || 0} item(s) • Customer: ${custName}`,
+          title: `Delivered Order #${orderUid}`,
+          subtitle: subtitleParts.join(' • '),
           date: dateVal,
           amount: vendorShare,
           status: 'completed',
           statusLabel: 'Credited',
           statusColor: 'green',
-          rawRecord: order,
+          rawRecord: {
+            ...order,
+            ...(fullOrder || {}),
+            id: orderId,
+            order_id: orderId,
+            order_uid: orderUid,
+            vendor_share: vendorShare,
+            overall_amount: totalAmt,
+            order_date: dateVal,
+            created_at: dateVal,
+            order_status: fullOrder?.order_status !== undefined
+              ? fullOrder.order_status
+              : (order.order_status !== undefined ? order.order_status : 4),
+          },
           category: 'order',
         });
       }
     });
+
+    // Use total_vendor_share & total_orders_count from order/getvendorshares API as source of truth
+    const totalDeliveredEarnings =
+      vendorSharesData &&
+      vendorSharesData.total_vendor_share !== undefined &&
+      vendorSharesData.total_vendor_share !== null
+        ? Number(vendorSharesData.total_vendor_share)
+        : computedTotalEarnings;
+
+    const deliveredOrdersCount =
+      vendorSharesData &&
+      vendorSharesData.total_orders_count !== undefined &&
+      vendorSharesData.total_orders_count !== null
+        ? Number(vendorSharesData.total_orders_count)
+        : computedDeliveredCount;
 
     let totalCompletedWithdrawals = 0;
     let totalPendingWithdrawals = 0;
@@ -686,7 +770,7 @@ const VendorDashboard = () => {
     let pendingWithdrawalsCount = 0;
     const withdrawalTransactions = [];
 
-    (walletWithdrawals || []).forEach(w => {
+    (walletWithdrawals || []).forEach((w) => {
       const amt = Number(w.amount || w.requested_amount || 0);
       const rawStatus = String(w.status || w.withdrawal_status || 'pending').toLowerCase().trim();
       const isCompleted = ['completed', 'approved', 'success', 'paid'].includes(rawStatus);
@@ -735,7 +819,8 @@ const VendorDashboard = () => {
 
     const availableBalance = Math.max(0, totalDeliveredEarnings - totalCompletedWithdrawals);
 
-    const allTransactions = [...earningTransactions, ...withdrawalTransactions];
+    // Show only withdrawal transactions in the wallet transaction table
+    const allTransactions = [...withdrawalTransactions];
     allTransactions.sort((a, b) => {
       const timeA = a.date ? new Date(a.date).getTime() : 0;
       const timeB = b.date ? new Date(b.date).getTime() : 0;
@@ -895,11 +980,7 @@ const VendorDashboard = () => {
             border: 'none',
           }}
           onClick={() => {
-            if (record.category === 'order') {
-              setSelectedVendorOrder(record.rawRecord);
-            } else {
-              setSelectedWithdrawalDetail(record.rawRecord);
-            }
+            setSelectedWithdrawalDetail(record.rawRecord);
           }}
         >
           View
@@ -1693,7 +1774,7 @@ const VendorDashboard = () => {
               <div className="d-flex align-items-center justify-content-between flex-md-row flex-column gap-3">
                 <div>
                   <h4 className="mb-0" style={{ fontWeight: 700, color: '#0f172a' }}>
-                    Vendor Wallet & Transaction Ledger
+                    Vendor Wallet & Withdrawals
                   </h4>
                   <p className="text-muted mb-0" style={{ fontSize: 12 }}>
                     Real-time vendor balance, order earnings credited, withdrawal payout requests, and complete financial ledger.
@@ -1785,9 +1866,9 @@ const VendorDashboard = () => {
             {/* Filter & Search Bar */}
             <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, marginBottom: 16 }}>
               <Row gutter={[12, 12]} align="middle">
-                <Col xs={24} md={8}>
+                <Col xs={24} md={10}>
                   <Input
-                    placeholder="Search by ID, Order UID, Txn Ref, or notes..."
+                    placeholder="Search by ID, Txn Ref, bank, notes..."
                     prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                     value={walletSearch}
                     onChange={(e) => setWalletSearch(e.target.value)}
@@ -1796,34 +1877,21 @@ const VendorDashboard = () => {
                   />
                 </Col>
 
-                <Col xs={12} md={4}>
-                  <Select
-                    value={walletTypeFilter}
-                    onChange={setWalletTypeFilter}
-                    style={{ width: '100%' }}
-                    options={[
-                      { label: 'All Types', value: 'all' },
-                      { label: '+ Earnings (Credits)', value: 'earning' },
-                      { label: '- Withdrawals (Debits)', value: 'withdrawal' },
-                    ]}
-                  />
-                </Col>
-
-                <Col xs={12} md={4}>
+                <Col xs={12} md={5}>
                   <Select
                     value={walletStatusFilter}
                     onChange={setWalletStatusFilter}
                     style={{ width: '100%' }}
                     options={[
                       { label: 'All Statuses', value: 'all' },
-                      { label: 'Completed / Credited', value: 'completed' },
+                      { label: 'Completed / Paid', value: 'completed' },
                       { label: 'Pending', value: 'pending' },
                       { label: 'Rejected / Cancelled', value: 'rejected' },
                     ]}
                   />
                 </Col>
 
-                <Col xs={24} md={5}>
+                <Col xs={24} md={6}>
                   <DatePicker.RangePicker
                     value={walletDateRange}
                     onChange={setWalletDateRange}
@@ -1832,11 +1900,10 @@ const VendorDashboard = () => {
                   />
                 </Col>
 
-                <Col xs={24} md={3} style={{ textAlign: 'right' }}>
+                <Col xs={12} md={3} style={{ textAlign: 'right' }}>
                   <Button
                     onClick={() => {
                       setWalletSearch('');
-                      setWalletTypeFilter('all');
                       setWalletStatusFilter('all');
                       setWalletDateRange(null);
                     }}
@@ -1847,7 +1914,7 @@ const VendorDashboard = () => {
                 </Col>
               </Row>
               <div style={{ marginTop: 10, fontSize: 12, color: '#64748b', textAlign: 'right' }}>
-                Showing <strong>{filteredWalletTransactions.length}</strong> of <strong>{walletSummary.allTransactions.length}</strong> total transactions
+                Showing <strong>{filteredWalletTransactions.length}</strong> of <strong>{walletSummary.allTransactions.length}</strong> total withdrawal transactions
               </div>
             </Card>
 
@@ -1863,7 +1930,7 @@ const VendorDashboard = () => {
                   pageSize: 15,
                   showSizeChanger: true,
                   pageSizeOptions: ['10', '15', '30', '50'],
-                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} transactions`,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} withdrawals`,
                 }}
               />
             </Card>
@@ -2099,11 +2166,11 @@ const VendorDashboard = () => {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontWeight: 700, fontSize: 16 }}>
-              Order #{selectedVendorOrder?.order_uid || selectedVendorOrder?.id}
+              Order #{selectedVendorOrder?.order_uid || selectedVendorOrder?.order_id || selectedVendorOrder?.id}
             </span>
             {selectedVendorOrder && (
-              <Tag color={getVendorOrderStatus(selectedVendorOrder.order_status).color} style={{ borderRadius: 12, fontWeight: 600 }}>
-                {getVendorOrderStatus(selectedVendorOrder.order_status).text}
+              <Tag color={getVendorOrderStatus(selectedVendorOrder.order_status !== undefined ? selectedVendorOrder.order_status : 4).color} style={{ borderRadius: 12, fontWeight: 600 }}>
+                {getVendorOrderStatus(selectedVendorOrder.order_status !== undefined ? selectedVendorOrder.order_status : 4).text}
               </Tag>
             )}
           </div>
@@ -2119,7 +2186,7 @@ const VendorDashboard = () => {
             {/* Customer & Address Details */}
             <Card size="small" title="Customer & Order Details" style={{ borderRadius: 8, background: '#f8fafc' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                <div><strong>Order Date & Time:</strong> {selectedVendorOrder.order_date || selectedVendorOrder.created_at ? dayjs(selectedVendorOrder.order_date || selectedVendorOrder.created_at).format('DD MMM YYYY, hh:mm A') : '-'}</div>
+                <div><strong>Order Date & Time:</strong> {selectedVendorOrder.order_date_time || selectedVendorOrder.order_date || selectedVendorOrder.created_at ? dayjs(selectedVendorOrder.order_date_time || selectedVendorOrder.order_date || selectedVendorOrder.created_at).format('DD MMM YYYY, hh:mm A') : '-'}</div>
                 <div><strong>Customer Name:</strong> {[selectedVendorOrder.customer?.firstname, selectedVendorOrder.customer?.lastname].filter(Boolean).join(' ') || selectedVendorOrder.firstname || '-'}</div>
                 <div><strong>Email:</strong> {selectedVendorOrder.customer?.email || selectedVendorOrder.email || '-'}</div>
                 <div><strong>Phone:</strong> {[selectedVendorOrder.customer?.prefix || selectedVendorOrder.prefix, selectedVendorOrder.customer?.phonenumber || selectedVendorOrder.phonenumber].filter(Boolean).join(' ') || '-'}</div>
@@ -2130,7 +2197,18 @@ const VendorDashboard = () => {
             {/* Product Table */}
             <Card size="small" title="Order Items" style={{ borderRadius: 8 }}>
               <Table
-                dataSource={selectedVendorOrder.products || []}
+                dataSource={
+                  selectedVendorOrder.products && selectedVendorOrder.products.length > 0
+                    ? selectedVendorOrder.products
+                    : [
+                        {
+                          product_name: `Order Items (${selectedVendorOrder.total_quantity || 1} qty)`,
+                          product_quantity: selectedVendorOrder.total_quantity || 1,
+                          single_item_price: selectedVendorOrder.items_price || selectedVendorOrder.total_price || 0,
+                          total_item_price: selectedVendorOrder.items_price || selectedVendorOrder.total_price || 0,
+                        }
+                      ]
+                }
                 rowKey={(p, idx) => idx}
                 pagination={false}
                 size="small"
@@ -2173,7 +2251,7 @@ const VendorDashboard = () => {
             {(() => {
               const totalAmt = Number(selectedVendorOrder.overall_amount || selectedVendorOrder.total_price || 0);
               const vendorShare = Number(selectedVendorOrder.vendor_share !== undefined && selectedVendorOrder.vendor_share !== null ? selectedVendorOrder.vendor_share : totalAmt);
-              const adminCommission = Math.max(0, totalAmt - vendorShare);
+              const adminCommission = Number(selectedVendorOrder.admin_share !== undefined && selectedVendorOrder.admin_share !== null ? selectedVendorOrder.admin_share : Math.max(0, totalAmt - vendorShare));
               const fastDelCharge = Number(selectedVendorOrder.fast_delivery_charges || 0);
               let tipAmt = Number(selectedVendorOrder.tip_amount || 0);
               const tipPct = Number(selectedVendorOrder.tip_percentage || 0);
