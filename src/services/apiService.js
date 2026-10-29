@@ -631,6 +631,41 @@ export const unblockVendor = async (vendorId, remark = '') => {
   return updateVendorDeactivateStatus(vendorId, 0, remark);
 };
 
+// Update vendor payment transaction status (payment_transaction_status: 1 = blocked, 0 = active/working)
+export const updateVendorPaymentTransactionStatus = async (vendorId, paymentTransactionStatus, remark = '') => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+    const response = await axios.post(
+      `/vendors/payment-transaction-status`,
+      {
+        user_id: Number(vendorId),
+        payment_transaction_status: Number(paymentTransactionStatus),
+        remark: remark || ''
+      },
+      reqConfig
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// Convenience helper to block vendor payment transactions (payment_transaction_status = 1)
+export const blockVendorPaymentTransactions = async (vendorId, remark = '') => {
+  return updateVendorPaymentTransactionStatus(vendorId, 1, remark);
+};
+
+// Convenience helper to unblock vendor payment transactions (payment_transaction_status = 0)
+export const unblockVendorPaymentTransactions = async (vendorId, remark = '') => {
+  return updateVendorPaymentTransactionStatus(vendorId, 0, remark);
+};
+
 // Update rider deactivate status (deactivate_status: 1 = blocked, 0 = active, with remark)
 export const updateRiderDeactivateStatus = async (riderId, deactivateStatus, remark = '') => {
   try {

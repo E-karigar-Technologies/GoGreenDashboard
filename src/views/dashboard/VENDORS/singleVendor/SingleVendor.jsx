@@ -213,6 +213,7 @@ import {
   getVendorById, 
   updateVendorStatus, 
   updateVendorDeactivateStatus,
+  updateVendorPaymentTransactionStatus,
   getVendorShares,
   getVendorWithdrawalsById,
   getVendorWithdrawals
@@ -313,6 +314,44 @@ const VendorDashboard = () => {
 
   const [unblockModalVisible, setUnblockModalVisible] = useState(false);
   const [unblockLoading, setUnblockLoading] = useState(false);
+
+  // Vendor Payment Transaction Block / Unblock state (users.payment_transaction_status: 0 = working, 1 = blocked)
+  const [txBlockModalVisible, setTxBlockModalVisible] = useState(false);
+  const [txUnblockModalVisible, setTxUnblockModalVisible] = useState(false);
+  const [txBlockLoading, setTxBlockLoading] = useState(false);
+  const [txUnblockLoading, setTxUnblockLoading] = useState(false);
+  const [txBlockReason, setTxBlockReason] = useState('Suspicious Financial Activity');
+  const [txBlockRemarks, setTxBlockRemarks] = useState('');
+
+  const handleConfirmTxBlock = async () => {
+    setTxBlockLoading(true);
+    const finalRemark = txBlockReason === 'Other' && txBlockRemarks.trim()
+      ? txBlockRemarks.trim()
+      : [txBlockReason, txBlockRemarks.trim()].filter(Boolean).join(' - ');
+
+    const res = await updateVendorPaymentTransactionStatus(vendorIdNumber, 1, finalRemark);
+    setTxBlockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Vendor payment transactions have been blocked. Bank withdrawals are stopped.');
+      setVendorData((prev) => (prev ? { ...prev, payment_transaction_status: 1, payment_block_remark: finalRemark } : prev));
+      setTxBlockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.message || res?.error || 'Failed to block payment transactions');
+    }
+  };
+
+  const handleConfirmTxUnblock = async () => {
+    setTxUnblockLoading(true);
+    const res = await updateVendorPaymentTransactionStatus(vendorIdNumber, 0, 'Unblocked by Admin');
+    setTxUnblockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Vendor payment transactions have been unblocked. Bank withdrawals are allowed.');
+      setVendorData((prev) => (prev ? { ...prev, payment_transaction_status: 0, payment_block_remark: '' } : prev));
+      setTxUnblockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.message || res?.error || 'Failed to unblock payment transactions');
+    }
+  };
 
   const handleConfirmBlock = async () => {
     setBlockLoading(true);
@@ -1575,13 +1614,24 @@ const VendorDashboard = () => {
                 {vendorData?.deactivate_status === 1 && (
                   <Badge 
                     status="error"
-                    text={<span style={{ fontWeight: 700, color: '#dc2626' }}>Blocked</span>}
+                    text={<span style={{ fontWeight: 700, color: '#dc2626' }}>Store Blocked</span>}
+                  />
+                )}
+                {Number(vendorData?.payment_transaction_status) === 1 ? (
+                  <Badge 
+                    status="error"
+                    text={<span style={{ fontWeight: 700, color: '#b91c1c' }}>Tx Blocked</span>}
+                  />
+                ) : (
+                  <Badge 
+                    status="success"
+                    text={<span style={{ fontWeight: 600, color: '#15803d' }}>Tx Working</span>}
                   />
                 )}
               </div>
               {vendorData?.deactivate_status === 1 && vendorData?.remark && (
                 <div style={{ fontSize: 11.5, color: '#dc2626' }}>
-                  <strong>Remark:</strong> {vendorData.remark}
+                  <strong>Account Remark:</strong> {vendorData.remark}
                 </div>
               )}
               {vendorData?.business_reg_number && (
@@ -1589,22 +1639,38 @@ const VendorDashboard = () => {
                   Reg: <strong>{vendorData.business_reg_number}</strong>
                 </div>
               )}
-              <Button
-                size="small"
-                danger={vendorData?.deactivate_status !== 1}
-                icon={vendorData?.deactivate_status === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
-                style={{
-                  borderRadius: 6,
-                  fontWeight: 600,
-                  marginTop: 4,
-                  backgroundColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
-                  color: vendorData?.deactivate_status === 1 ? '#ffffff' : undefined,
-                  borderColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
-                }}
-                onClick={() => (vendorData?.deactivate_status === 1 ? setUnblockModalVisible(true) : setBlockModalVisible(true))}
-              >
-                {vendorData?.deactivate_status === 1 ? 'Unblock Vendor' : 'Block Vendor'}
-              </Button>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                <Button
+                  size="small"
+                  danger={vendorData?.deactivate_status !== 1}
+                  icon={vendorData?.deactivate_status === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                  style={{
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    backgroundColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
+                    color: vendorData?.deactivate_status === 1 ? '#ffffff' : undefined,
+                    borderColor: vendorData?.deactivate_status === 1 ? '#16a34a' : undefined,
+                  }}
+                  onClick={() => (vendorData?.deactivate_status === 1 ? setUnblockModalVisible(true) : setBlockModalVisible(true))}
+                >
+                  {vendorData?.deactivate_status === 1 ? 'Unblock Vendor' : 'Block Vendor'}
+                </Button>
+                <Button
+                  size="small"
+                  danger={Number(vendorData?.payment_transaction_status) !== 1}
+                  icon={Number(vendorData?.payment_transaction_status) === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                  style={{
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    backgroundColor: Number(vendorData?.payment_transaction_status) === 1 ? '#16a34a' : '#fff1f2',
+                    color: Number(vendorData?.payment_transaction_status) === 1 ? '#ffffff' : '#e11d48',
+                    borderColor: Number(vendorData?.payment_transaction_status) === 1 ? '#16a34a' : '#fecdd3',
+                  }}
+                  onClick={() => (Number(vendorData?.payment_transaction_status) === 1 ? setTxUnblockModalVisible(true) : setTxBlockModalVisible(true))}
+                >
+                  {Number(vendorData?.payment_transaction_status) === 1 ? 'Unblock Transactions' : 'Block Transactions'}
+                </Button>
+              </div>
             </Space>
           </Col>
         </Row>
@@ -1782,6 +1848,20 @@ const VendorDashboard = () => {
                 </div>
                 <div className="d-flex align-items-center" style={{ gap: 10 }}>
                   <Button
+                    danger={Number(vendorData?.payment_transaction_status) !== 1}
+                    icon={Number(vendorData?.payment_transaction_status) === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                    style={{
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      backgroundColor: Number(vendorData?.payment_transaction_status) === 1 ? '#16a34a' : '#fff1f2',
+                      color: Number(vendorData?.payment_transaction_status) === 1 ? '#ffffff' : '#e11d48',
+                      borderColor: Number(vendorData?.payment_transaction_status) === 1 ? '#16a34a' : '#fecdd3',
+                    }}
+                    onClick={() => (Number(vendorData?.payment_transaction_status) === 1 ? setTxUnblockModalVisible(true) : setTxBlockModalVisible(true))}
+                  >
+                    {Number(vendorData?.payment_transaction_status) === 1 ? 'Unblock Bank Transactions' : 'Block Bank Transactions'}
+                  </Button>
+                  <Button
                     icon={<ReloadOutlined spin={walletLoading} />}
                     onClick={fetchWalletData}
                     style={{ borderRadius: 6 }}
@@ -1791,6 +1871,34 @@ const VendorDashboard = () => {
                 </div>
               </div>
             </Card>
+
+            {Number(vendorData?.payment_transaction_status) === 1 && (
+              <Alert
+                type="error"
+                showIcon
+                icon={<StopOutlined />}
+                style={{ marginBottom: 16, borderRadius: 8, border: '1px solid #fecaca', backgroundColor: '#fef2f2' }}
+                message={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <strong style={{ color: '#991b1b' }}>Bank Transactions Blocked:</strong>{' ' }
+                      <span style={{ color: '#7f1d1d' }}>
+                        This vendor is blocked from requesting withdrawals or initiating bank payout transactions (payment_transaction_status = 1).
+                      </span>
+                    </div>
+                    <Button
+                      size="small"
+                      type="primary"
+                      ghost
+                      onClick={() => setTxUnblockModalVisible(true)}
+                      style={{ borderRadius: 4, fontWeight: 600 }}
+                    >
+                      Unblock Now
+                    </Button>
+                  </div>
+                }
+              />
+            )}
 
             {/* Financial Summary Metric Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -2553,6 +2661,127 @@ const VendorDashboard = () => {
         <p style={{ margin: 0, fontSize: 13.5 }}>
           Are you sure you want to unblock and reactivate <strong>{vendorData?.store_name}</strong>?
           Their store will be marked active and their products will be visible to customers again.
+        </p>
+      </Modal>
+
+      {/* Block Bank Transactions Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#dc2626' }}>
+            <StopOutlined style={{ fontSize: 18 }} />
+            <span>Block Payment & Bank Transactions</span>
+          </div>
+        }
+        open={txBlockModalVisible}
+        onCancel={() => {
+          if (!txBlockLoading) {
+            setTxBlockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setTxBlockModalVisible(false)} disabled={txBlockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={txBlockLoading}
+            onClick={handleConfirmTxBlock}
+            icon={<StopOutlined />}
+            style={{ fontWeight: 600 }}
+          >
+            Confirm & Block Transactions
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 14 }}>
+              {vendorData?.store_name || 'Unnamed Store'}
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              Owner: <strong>{[vendorData?.firstname, vendorData?.lastname].filter(Boolean).join(' ') || 'N/A'}</strong>
+              {' • '}ID: <strong>{vendorData?.custom_id || `VEN#${vendorIdNumber}`}</strong>
+            </div>
+          </div>
+
+          <Alert
+            type="error"
+            showIcon
+            message="Bank Withdrawals & Transfers Will Be Stopped"
+            description="Setting payment_transaction_status to 1 blocks this vendor from requesting payouts or withdrawing wallet funds into their bank account."
+            style={{ fontSize: 12.5 }}
+          />
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Reason for Transaction Block: <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <Select
+              value={txBlockReason}
+              onChange={setTxBlockReason}
+              style={{ width: '100%' }}
+              options={[
+                { label: 'Suspicious Financial Activity / Fraud Risk', value: 'Suspicious Financial Activity' },
+                { label: 'Bank Account Details Under Review / KYC Incomplete', value: 'Bank Details Review' },
+                { label: 'Unsettled Chargebacks / Customer Refund Disputes', value: 'Chargeback Disputes' },
+                { label: 'Compliance & Legal Verification Hold', value: 'Compliance Hold' },
+                { label: 'Pending Order Fulfillment / Disputed Deliveries', value: 'Pending Order Fulfillment' },
+                { label: 'Vendor Requested Financial Pause', value: 'Vendor Requested Pause' },
+                { label: 'Other', value: 'Other' },
+              ]}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Additional Remarks / Notes:
+            </label>
+            <Input.TextArea
+              rows={3}
+              placeholder="Enter internal notes or reason for stopping bank transactions..."
+              value={txBlockRemarks}
+              onChange={(e) => setTxBlockRemarks(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unblock Bank Transactions Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a' }}>
+            <CheckCircleOutlined style={{ fontSize: 18 }} />
+            <span>Unblock Bank Transactions</span>
+          </div>
+        }
+        open={txUnblockModalVisible}
+        onCancel={() => {
+          if (!txUnblockLoading) {
+            setTxUnblockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setTxUnblockModalVisible(false)} disabled={txUnblockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={txUnblockLoading}
+            onClick={handleConfirmTxUnblock}
+            icon={<CheckCircleOutlined />}
+            style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontWeight: 600 }}
+          >
+            Allow & Restore Transactions
+          </Button>,
+        ]}
+      >
+        <p style={{ margin: 0, fontSize: 13.5 }}>
+          Are you sure you want to unblock bank transactions for <strong>{vendorData?.store_name}</strong>?
+          This will set <code>payment_transaction_status</code> back to <strong>0 (Working)</strong> and permit the vendor to submit withdrawal requests again.
         </p>
       </Modal>
     </div>
