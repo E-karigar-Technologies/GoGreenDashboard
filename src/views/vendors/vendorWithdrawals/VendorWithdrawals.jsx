@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Card,
+  Row,
+  Col,
   Input,
   Select,
   DatePicker,
@@ -11,6 +14,7 @@ import {
   Form,
   Space,
   Tooltip,
+  Popover,
   Segmented,
   Alert,
   Typography,
@@ -33,6 +37,10 @@ import {
   FileTextOutlined,
   ShopOutlined,
   EnvironmentOutlined,
+  PlusOutlined,
+  MinusOutlined,
+  EyeOutlined,
+  ArrowRightOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getVendorWithdrawals, updateVendorWithdrawal } from '../../../services/apiService';
@@ -41,28 +49,120 @@ import styles from './vendorWithdrawals.module.scss';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-// Helper to format status badges
+// Helper to format status badges with complete descriptions
 const getStatusInfo = (statusStr) => {
   const status = String(statusStr || 'Pending').toLowerCase().trim();
   switch (status) {
     case 'approved':
-      return { label: 'Approved', color: 'processing', icon: <SyncOutlined spin /> };
+      return {
+        label: 'Approved',
+        color: 'processing',
+        icon: <SyncOutlined spin />,
+        title: 'Approved (In Progress)',
+        meaning: 'Request verified and authorized. Payout is in transit / queued for bank transfer.',
+      };
     case 'completed':
     case 'success':
     case 'paid':
-      return { label: 'Completed', color: 'success', icon: <CheckCircleOutlined /> };
+      return {
+        label: 'Completed',
+        color: 'success',
+        icon: <CheckCircleOutlined />,
+        title: 'Completed (Paid)',
+        meaning: 'Funds successfully transferred to vendor bank account. Transaction complete with reference.',
+      };
     case 'failed':
-      return { label: 'Failed', color: 'error', icon: <CloseCircleOutlined /> };
+      return {
+        label: 'Failed',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Bank Transfer Failed',
+        meaning: 'Transfer failed due to incorrect account number, invalid transit/IFSC, or bank gateway error.',
+      };
     case 'rejected':
-      return { label: 'Rejected', color: 'error', icon: <CloseCircleOutlined /> };
+      return {
+        label: 'Rejected',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Declined by Admin',
+        meaning: 'Withdrawal declined by admin due to policy violation or disputed orders. Funds remain in wallet.',
+      };
     case 'cancelled':
     case 'canceled':
-      return { label: 'Cancelled', color: 'error', icon: <CloseCircleOutlined /> };
+      return {
+        label: 'Cancelled',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Cancelled',
+        meaning: 'Withdrawal was cancelled before payment processing.',
+      };
     case 'pending':
     default:
-      return { label: 'Pending', color: 'warning', icon: <ClockCircleOutlined /> };
+      return {
+        label: 'Pending',
+        color: 'warning',
+        icon: <ClockCircleOutlined />,
+        title: 'Pending Review',
+        meaning: 'New withdrawal request submitted. Awaiting admin review and bank account verification.',
+      };
   }
 };
+
+// Reusable Status Guide Popover Content
+const StatusGuidePopoverContent = () => (
+  <div style={{ maxWidth: 440, padding: '4px 0' }}>
+    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+      <InfoCircleOutlined style={{ color: '#2563eb' }} />
+      Withdrawal Status Meanings & Lifecycle Guide
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="warning" icon={<ClockCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Pending
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#b45309' }}>Awaiting Review:</strong> Request submitted by vendor. Awaiting admin review and bank account verification before money is sent.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="processing" icon={<SyncOutlined spin />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Approved
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#0284c7' }}>Authorized / In Transit:</strong> Admin verified the request. Payment has been approved and is queued/processing with the bank.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="success" icon={<CheckCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Completed
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#16a34a' }}>Paid & Closed:</strong> Funds successfully deposited into vendor bank account. Transaction Reference is attached.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="error" icon={<CloseCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Failed
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#dc2626' }}>Transfer Failed:</strong> Bank or payment gateway rejected the transfer (e.g. incorrect account/transit/IFSC number, account closed, or timeout).
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="error" icon={<CloseCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Rejected
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#dc2626' }}>Declined by Admin:</strong> Request rejected by admin due to policy discrepancies, dispute, or invalid bank details. Funds stay in wallet balance.
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // Data extractor functions for vendor withdrawal record
 const getVendorStoreName = (item) =>
@@ -115,7 +215,12 @@ const getBankDetails = (item) => {
   return { accNo, accHolder, bankName, transitNo, instNo, ifsc, upiId };
 };
 
+const getTargetVendorId = (record) => {
+  return record?.vendor_id || record?.user_id || record?.vendor?.id || record?.vendor?.user_id;
+};
+
 const VendorWithdrawals = () => {
+  const navigate = useNavigate();
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -271,12 +376,187 @@ const VendorWithdrawals = () => {
     setUpdating(false);
   };
 
-  // Columns definition
+  // Render expanded row with all columns/details when clicked on + button
+  const renderExpandedRow = (record) => {
+    const storeName = getVendorStoreName(record);
+    const ownerName = getVendorOwnerName(record);
+    const phone = getVendorPhone(record);
+    const email = getVendorEmail(record);
+    const { accNo, accHolder, bankName, transitNo, instNo, ifsc, upiId } = getBankDetails(record);
+    const amt = record?.amount || record?.requested_amount || 0;
+    const pendingAmt = record?.pending_amount;
+    const statusVal = record?.status || record?.withdrawal_status || record?.payout_status;
+    const statusInfo = getStatusInfo(statusVal);
+    const targetVendorId = getTargetVendorId(record);
+    const dateStr = record?.date_time || record?.created_at || record?.createdAt;
+    const formattedDate = dateStr
+      ? dayjs(dateStr).format('DD MMM YYYY • hh:mm A')
+      : record?.date
+      ? `${record.date} ${record.time || ''}`
+      : 'N/A';
+
+    return (
+      <div
+        style={{
+          padding: '16px 20px',
+          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          borderRadius: 10,
+          border: '1px solid #e2e8f0',
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)',
+        }}
+      >
+        <Row gutter={[16, 16]}>
+          {/* Request Info & Amount */}
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <WalletOutlined style={{ color: '#2563eb' }} /> Request & Financials
+            </div>
+            <div style={{ fontSize: 12, color: '#475569' }}>
+              <div>Req ID: <strong style={{ color: '#0f172a' }}>#{record.id}</strong> {record.withdrawal_uid && <Tag color="blue" style={{ fontSize: 10.5, borderRadius: 4, marginLeft: 4 }}>{record.withdrawal_uid}</Tag>}</div>
+              <div style={{ marginTop: 4 }}>Date: <strong>{formattedDate}</strong></div>
+              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#64748b' }}>Amount:</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#059669' }}>₹{parseFloat(amt).toFixed(2)}</span>
+              </div>
+              {pendingAmt && (
+                <div style={{ fontSize: 11, color: '#2563eb', marginTop: 3 }}>
+                  Wallet Bal: <strong>₹{parseFloat(pendingAmt).toFixed(2)}</strong>
+                </div>
+              )}
+            </div>
+          </Col>
+
+          {/* Store & Contact Info */}
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <ShopOutlined style={{ color: '#088b46' }} /> Vendor Store & Contact
+            </div>
+            <div style={{ fontSize: 12, color: '#334155' }}>
+              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 13 }}>
+                {storeName}
+              </div>
+              <div style={{ marginTop: 2, color: '#475569' }}>
+                Owner: <strong>{ownerName}</strong>
+              </div>
+              <div style={{ marginTop: 2 }}>
+                Phone:{' '}
+                {phone && phone !== 'N/A' ? (
+                  <a href={`tel:${phone}`} style={{ color: '#088b46', fontWeight: 600, textDecoration: 'none' }}>
+                    {phone}
+                  </a>
+                ) : <span style={{ color: '#94a3b8' }}>N/A</span>}
+              </div>
+              {email && (
+                <div style={{ marginTop: 2 }}>
+                  Email:{' '}
+                  <a href={`mailto:${email}`} style={{ color: '#0284c7', textDecoration: 'none' }}>
+                    {email}
+                  </a>
+                </div>
+              )}
+              {record.store_address && (
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }} title={record.store_address}>
+                  <EnvironmentOutlined style={{ marginRight: 4 }} />
+                  {record.store_address}
+                </div>
+              )}
+            </div>
+          </Col>
+
+          {/* Bank Account Info */}
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <BankOutlined style={{ color: '#7c3aed' }} /> Bank Payout Details
+            </div>
+            <div style={{ fontSize: 12, color: '#334155' }}>
+              {accHolder && <div><strong>Holder:</strong> {accHolder}</div>}
+              {bankName && <div><strong>Bank:</strong> {bankName}</div>}
+              {accNo && <div><strong>A/C No:</strong> <span style={{ fontFamily: 'monospace' }}>{accNo}</span></div>}
+              {(transitNo || instNo) && (
+                <div>
+                  {transitNo && <span><strong>Transit:</strong> {transitNo} </span>}
+                  {instNo && <span><strong>Inst:</strong> {instNo}</span>}
+                </div>
+              )}
+              {ifsc && <div><strong>IFSC:</strong> {ifsc}</div>}
+              {upiId && <div><strong>UPI ID:</strong> <Tag color="purple" style={{ fontSize: 10 }}>{upiId}</Tag></div>}
+              {!accNo && !upiId && !bankName && !accHolder && (
+                <span style={{ color: '#94a3b8' }}>Details not provided</span>
+              )}
+            </div>
+          </Col>
+
+          {/* Status & Processing Remarks */}
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <FileTextOutlined style={{ color: '#d97706' }} /> Processing & Notes
+            </div>
+            <div>
+              <div style={{ marginBottom: 4 }}>
+                <Tooltip title={<span><strong>{statusInfo.title}:</strong> {statusInfo.meaning}</span>}>
+                  <Tag color={statusInfo.color} icon={statusInfo.icon} style={{ borderRadius: 10, fontWeight: 600, cursor: 'pointer' }}>
+                    {statusInfo.label}
+                  </Tag>
+                </Tooltip>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{statusInfo.meaning}</div>
+              </div>
+              {record.transaction_reference && (
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  <strong>Txn Ref:</strong> <Tag color="geekblue" style={{ fontSize: 10 }}>{record.transaction_reference}</Tag>
+                </div>
+              )}
+              {record.notes && (
+                <div style={{ fontSize: 11.5, color: '#475569', background: '#f1f5f9', padding: '5px 8px', borderRadius: 4, marginTop: 4 }}>
+                  <em>Note: {record.notes}</em>
+                </div>
+              )}
+              {record.admin_remarks && (
+                <div style={{ fontSize: 11.5, color: '#64748b', background: '#fef3c7', border: '1px solid #fde68a', padding: '5px 8px', borderRadius: 4, marginTop: 4 }}>
+                  <em>Admin: {record.admin_remarks}</em>
+                </div>
+              )}
+            </div>
+          </Col>
+        </Row>
+
+        {/* Footer Actions */}
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<EditOutlined />}
+            style={{ fontWeight: 600, borderRadius: 6 }}
+            onClick={() => handleOpenUpdateModal(record)}
+          >
+            Update Withdrawal Status
+          </Button>
+          {targetVendorId && (
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              style={{
+                borderRadius: 6,
+                fontWeight: 600,
+                backgroundColor: '#088b46',
+                borderColor: '#088b46',
+                color: '#ffffff',
+              }}
+              onClick={() => navigate(`/vendors/${targetVendorId}`)}
+            >
+              Open Vendor Page (#{targetVendorId})
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Limited primary columns definition (fits on any screen without horizontal scroll)
   const columns = [
     {
       title: 'Req ID & Date',
       key: 'req_id',
-      width: 180,
+      width: 150,
       render: (_, record) => {
         const dateStr = record?.date_time || record?.created_at || record?.createdAt;
         const formattedDate = dateStr
@@ -287,7 +567,7 @@ const VendorWithdrawals = () => {
 
         return (
           <div>
-            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '14px' }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13.5px' }}>
               #{record.id}
             </div>
             {record.withdrawal_uid && (
@@ -296,7 +576,7 @@ const VendorWithdrawals = () => {
               </div>
             )}
             {formattedDate && (
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: 2 }}>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: 2 }}>
                 {formattedDate}
               </div>
             )}
@@ -307,166 +587,110 @@ const VendorWithdrawals = () => {
     {
       title: 'Vendor Store & Owner',
       key: 'vendor_info',
-      width: 270,
       render: (_, record) => {
         const storeName = getVendorStoreName(record);
         const ownerName = getVendorOwnerName(record);
         const phone = getVendorPhone(record);
-        const email = getVendorEmail(record);
-        const customId = getVendorCustomId(record);
+        const targetVendorId = getTargetVendorId(record);
 
         return (
           <div>
-            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '13.5px' }}>
-              <ShopOutlined style={{ marginRight: 6, color: '#2563eb' }} />
-              {storeName}
+            <div
+              style={{
+                fontWeight: 600,
+                color: '#0f172a',
+                fontSize: '13.5px',
+                cursor: targetVendorId ? 'pointer' : 'default',
+              }}
+              onClick={() => {
+                if (targetVendorId) navigate(`/vendors/${targetVendorId}`);
+              }}
+            >
+              <ShopOutlined style={{ marginRight: 6, color: '#088b46' }} />
+              <span style={{ textDecoration: targetVendorId ? 'underline' : 'none' }}>{storeName}</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#475569', marginTop: 2 }}>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
               <UserOutlined style={{ marginRight: 4 }} />
-              {ownerName} • <PhoneOutlined style={{ marginRight: 4 }} />
-              {phone}
+              {ownerName}
+              {phone && phone !== 'N/A' && ` • ${phone}`}
             </div>
-            {email && (
-              <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: 1 }}>
-                <MailOutlined style={{ marginRight: 4 }} />
-                {email}
-              </div>
-            )}
-            {record.store_address && (
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: 2 }} title={record.store_address}>
-                <EnvironmentOutlined style={{ marginRight: 4 }} />
-                {record.store_address.length > 35 ? `${record.store_address.substring(0, 35)}...` : record.store_address}
-              </div>
-            )}
           </div>
         );
       },
     },
     {
-      title: 'Payout Account Info',
-      key: 'account_info',
-      width: 270,
-      render: (_, record) => {
-        const { accNo, accHolder, bankName, transitNo, instNo, ifsc, upiId } = getBankDetails(record);
-        if (!accNo && !upiId && !bankName && !accHolder) {
-          return <Text type="secondary" style={{ fontSize: 12 }}>Details not provided</Text>;
-        }
-        return (
-          <div style={{ fontSize: '12px', color: '#334155' }}>
-            {accHolder && (
-              <div>
-                <strong>A/C Holder:</strong> {accHolder}
-              </div>
-            )}
-            {bankName && (
-              <div>
-                <strong>Bank:</strong> {bankName}
-              </div>
-            )}
-            {accNo && (
-              <div>
-                <strong>A/C No:</strong> {accNo}
-              </div>
-            )}
-            {(transitNo || instNo) && (
-              <div>
-                {transitNo && <span><strong>Transit:</strong> {transitNo} </span>}
-                {instNo && <span><strong>Inst:</strong> {instNo}</span>}
-              </div>
-            )}
-            {ifsc && (
-              <div>
-                <strong>IFSC:</strong> {ifsc}
-              </div>
-            )}
-            {upiId && (
-              <div>
-                <strong>UPI ID:</strong> <Tag color="purple" style={{ fontSize: 10 }}>{upiId}</Tag>
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      title: 'Amount Requested',
+      title: 'Amount',
       key: 'amount',
-      width: 170,
+      width: 130,
       render: (_, record) => {
         const amt = record?.amount || record?.requested_amount || 0;
-        const pendingAmt = record?.pending_amount;
-
         return (
-          <div>
-            <div style={{ fontWeight: 700, color: '#059669', fontSize: '16px' }}>
-              ₹{parseFloat(amt).toFixed(2)}
-            </div>
-            {pendingAmt && (
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: 1 }}>
-                Wallet Bal: ₹{parseFloat(pendingAmt).toFixed(2)}
-              </div>
-            )}
+          <div style={{ fontWeight: 700, color: '#059669', fontSize: '15px' }}>
+            ₹{parseFloat(amt).toFixed(2)}
           </div>
         );
       },
     },
     {
-      title: 'Status',
+      title: (
+        <span>
+          Status{' '}
+          <Tooltip title="Hover on any status badge or click Status Meanings above for details">
+            <InfoCircleOutlined style={{ color: '#94a3b8', fontSize: 12, marginLeft: 2 }} />
+          </Tooltip>
+        </span>
+      ),
       key: 'status',
-      width: 140,
+      width: 135,
       render: (_, record) => {
         const statusVal = record?.status || record?.withdrawal_status || record?.payout_status;
         const info = getStatusInfo(statusVal);
         return (
-          <Tag color={info.color} icon={info.icon} style={{ borderRadius: 12, padding: '3px 10px', fontWeight: 600 }}>
-            {info.label}
-          </Tag>
+          <Tooltip title={<span><strong>{info.title}:</strong> {info.meaning}</span>} placement="top">
+            <Tag color={info.color} icon={info.icon} style={{ borderRadius: 12, padding: '3px 10px', fontWeight: 600, cursor: 'pointer' }}>
+              {info.label}
+            </Tag>
+          </Tooltip>
         );
       },
     },
     {
-      title: 'Txn Ref & Remarks',
-      key: 'remarks',
-      width: 230,
-      render: (_, record) => (
-        <div style={{ fontSize: '12px', color: '#475569' }}>
-          {record.transaction_reference && (
-            <div>
-              <strong>Txn Ref:</strong> <Tag color="geekblue" style={{ fontSize: 10 }}>{record.transaction_reference}</Tag>
-            </div>
-          )}
-          {record.notes && (
-            <div style={{ marginTop: 2, color: '#475569' }}>
-              <FileTextOutlined style={{ marginRight: 4, color: '#94a3b8' }} />
-              <span>Note: {record.notes}</span>
-            </div>
-          )}
-          {record.admin_remarks && (
-            <div style={{ marginTop: 2, fontStyle: 'italic', color: '#64748b' }}>
-              "Admin: {record.admin_remarks}"
-            </div>
-          )}
-          {!record.transaction_reference && !record.notes && !record.admin_remarks && (
-            <span style={{ color: '#cbd5e1' }}>-</span>
-          )}
-        </div>
-      ),
-    },
-    {
       title: 'Action',
       key: 'action',
-      width: 120,
-      fixed: 'right',
-      render: (_, record) => (
-        <Button
-          type="primary"
-          icon={<EditOutlined />}
-          size="small"
-          onClick={() => handleOpenUpdateModal(record)}
-        >
-          Update
-        </Button>
-      ),
+      width: 185,
+      align: 'right',
+      render: (_, record) => {
+        const targetVendorId = getTargetVendorId(record);
+        return (
+          <Space size={6}>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              size="small"
+              onClick={() => handleOpenUpdateModal(record)}
+              style={{ fontWeight: 600, borderRadius: 5 }}
+            >
+              Update
+            </Button>
+            {targetVendorId && (
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                style={{
+                  borderRadius: 5,
+                  background: '#088b46',
+                  color: '#ffffff',
+                  borderColor: '#088b46',
+                  fontWeight: 600,
+                }}
+                onClick={() => navigate(`/vendors/${targetVendorId}`)}
+              >
+                View Page
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -621,7 +845,43 @@ const VendorWithdrawals = () => {
           rowKey={(record) => record.id || Math.random()}
           loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Total ${t} requests` }}
-          scroll={{ x: 1350 }}
+          expandable={{
+            expandedRowRender: renderExpandedRow,
+            rowExpandable: () => true,
+            expandIcon: ({ expanded, onExpand, record }) => (
+              <Button
+                size="small"
+                type="default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExpand(record, e);
+                }}
+                style={{
+                  width: 24,
+                  height: 24,
+                  minWidth: 24,
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  backgroundColor: expanded ? "#088b46" : "#f0fdf4",
+                  borderColor: expanded ? "#088b46" : "#86efac",
+                  color: expanded ? "#ffffff" : "#088b46",
+                  fontWeight: "bold",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  transition: "all 0.2s",
+                  cursor: "pointer",
+                }}
+              >
+                {expanded ? (
+                  <MinusOutlined style={{ fontSize: 10 }} />
+                ) : (
+                  <PlusOutlined style={{ fontSize: 10 }} />
+                )}
+              </Button>
+            ),
+          }}
         />
       </div>
 
@@ -637,8 +897,21 @@ const VendorWithdrawals = () => {
           <div>
             {/* Vendor Summary Card */}
             <div className={styles.modalSectionCard}>
-              <div className={styles.sectionHeader}>
-                <ShopOutlined /> Vendor Details
+              <div className={styles.sectionHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ShopOutlined /> Vendor Details
+                </div>
+                {getTargetVendorId(selectedRecord) && (
+                  <Button
+                    size="small"
+                    type="link"
+                    icon={<EyeOutlined />}
+                    onClick={() => navigate(`/vendors/${getTargetVendorId(selectedRecord)}`)}
+                    style={{ padding: 0, height: "auto", fontWeight: 600, color: "#088b46" }}
+                  >
+                    Open Vendor Page #{getTargetVendorId(selectedRecord)}
+                  </Button>
+                )}
               </div>
               <div className={styles.infoGrid}>
                 <div className={styles.infoItem}>

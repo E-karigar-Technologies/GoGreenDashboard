@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal, DatePicker } from 'antd';
+import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal, DatePicker, Form, Tooltip as AntTooltip, Popover } from 'antd';
 import DateRangeSelector from '../../../components/DateRangeSelector';
 import { useParams } from 'react-router-dom';
 import {
@@ -24,13 +24,129 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
-import { EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import { EyeOutlined, SearchOutlined, ReloadOutlined, EditOutlined, SyncOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UserOutlined, BankOutlined, FileTextOutlined, InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContainer, Tooltip, AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend, PieChart, Pie, Cell } from 'recharts';
 import dayjs from 'dayjs';
-import { getRiderById, getRiderShares, getRiderWithdrawalsById, getRiderWithdrawals } from '../../../services/apiService';
+import { getRiderById, getRiderShares, getRiderWithdrawalsById, getRiderWithdrawals, updateRiderWithdrawal } from '../../../services/apiService';
 import { formatPhone } from '../../../services/utils/gen_utility';
 
 const { TabPane } = Tabs;
+
+// Helper to format rider withdrawal status badges (matching rider-withdrawals page)
+const getWithdrawalStatusInfo = (statusStr) => {
+  const status = String(statusStr || 'Pending').toLowerCase().trim();
+  switch (status) {
+    case 'approved':
+      return {
+        label: 'Approved',
+        color: 'processing',
+        icon: <SyncOutlined spin />,
+        title: 'Approved (In Progress)',
+        meaning: 'Request verified and authorized. Payout is in transit / queued for bank transfer.',
+      };
+    case 'completed':
+    case 'success':
+    case 'paid':
+      return {
+        label: 'Completed',
+        color: 'success',
+        icon: <CheckCircleOutlined />,
+        title: 'Completed (Paid)',
+        meaning: 'Funds successfully transferred to rider bank account. Transaction complete with UTR reference.',
+      };
+    case 'failed':
+      return {
+        label: 'Failed',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Bank Transfer Failed',
+        meaning: 'Transfer failed due to incorrect account number, invalid transit/IFSC, or bank gateway error.',
+      };
+    case 'rejected':
+      return {
+        label: 'Rejected',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Declined by Admin',
+        meaning: 'Withdrawal declined by admin due to policy violation or disputed orders. Funds remain in wallet.',
+      };
+    case 'cancelled':
+    case 'canceled':
+      return {
+        label: 'Cancelled',
+        color: 'error',
+        icon: <CloseCircleOutlined />,
+        title: 'Cancelled',
+        meaning: 'Withdrawal was cancelled before payment processing.',
+      };
+    case 'pending':
+    default:
+      return {
+        label: 'Pending',
+        color: 'warning',
+        icon: <ClockCircleOutlined />,
+        title: 'Pending Review',
+        meaning: 'New withdrawal request submitted. Awaiting admin review and bank account verification.',
+      };
+  }
+};
+
+// Reusable Status Guide Popover Content for Wallet & Transactions
+const StatusGuidePopoverContent = () => (
+  <div style={{ maxWidth: 440, padding: '4px 0' }}>
+    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+      <InfoCircleOutlined style={{ color: '#2563eb' }} />
+      Withdrawal Status Meanings & Guide
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="warning" icon={<ClockCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Pending
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#b45309' }}>Awaiting Review:</strong> Request submitted by rider. Awaiting admin review and bank account verification before money is sent.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="processing" icon={<SyncOutlined spin />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Approved
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#0284c7' }}>Authorized / In Transit:</strong> Admin verified the request. Payment has been approved and is queued/processing with the bank.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="success" icon={<CheckCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Completed
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#16a34a' }}>Paid & Closed:</strong> Funds successfully deposited into rider bank account. UTR / Transaction Reference is attached.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="error" icon={<CloseCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Failed
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#dc2626' }}>Transfer Failed:</strong> Bank or payment gateway rejected the transfer (e.g. incorrect account/transit/IFSC number, account closed, or timeout).
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <Tag color="error" icon={<CloseCircleOutlined />} style={{ minWidth: 95, textAlign: 'center', margin: 0, fontWeight: 600 }}>
+          Rejected
+        </Tag>
+        <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.4 }}>
+          <strong style={{ color: '#dc2626' }}>Declined by Admin:</strong> Request rejected by admin due to policy discrepancies, dispute, or invalid bank details. Funds stay in wallet balance.
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 
 // Theme palette
 const THEME = {
@@ -135,6 +251,58 @@ const RiderDashboard = () => {
   const [walletWithdrawals, setWalletWithdrawals] = useState([]);
   const [riderSharesData, setRiderSharesData] = useState(null);
   const [selectedWithdrawalDetail, setSelectedWithdrawalDetail] = useState(null);
+
+  // Rider Withdrawal Status Update State & Form (same as rider-withdrawals page)
+  const [withdrawalUpdateForm] = Form.useForm();
+  const [withdrawalUpdateModalOpen, setWithdrawalUpdateModalOpen] = useState(false);
+  const [selectedWithdrawalRecord, setSelectedWithdrawalRecord] = useState(null);
+  const [withdrawalUpdating, setWithdrawalUpdating] = useState(false);
+
+  const handleOpenWithdrawalUpdateModal = (record) => {
+    const raw = record?.rawRecord || record;
+    setSelectedWithdrawalRecord(raw);
+    const txnRefVal = raw?.transaction_ref || raw?.transaction_reference || '';
+    withdrawalUpdateForm.setFieldsValue({
+      status: raw?.status || raw?.withdrawal_status || 'Approved',
+      admin_remarks: raw?.admin_remarks || '',
+      transaction_ref: txnRefVal,
+    });
+    setWithdrawalUpdateModalOpen(true);
+  };
+
+  const handleWithdrawalUpdateSubmit = async (values) => {
+    if (!selectedWithdrawalRecord) return;
+    setWithdrawalUpdating(true);
+
+    const payload = {
+      id: selectedWithdrawalRecord.id,
+      status: values.status,
+      admin_remarks: values.admin_remarks || '',
+      transaction_ref: values.transaction_ref || '',
+      transaction_reference: values.transaction_ref || '',
+    };
+
+    const res = await updateRiderWithdrawal(payload);
+    setWithdrawalUpdating(false);
+    if (res && res.success !== false) {
+      message.success(res.message || 'Rider withdrawal status updated successfully!');
+      setWithdrawalUpdateModalOpen(false);
+      fetchWalletData();
+      if (selectedWithdrawalDetail?.id === selectedWithdrawalRecord.id) {
+        setSelectedWithdrawalDetail((prev) => prev ? {
+          ...prev,
+          status: values.status,
+          withdrawal_status: values.status,
+          admin_remarks: values.admin_remarks || '',
+          transaction_ref: values.transaction_ref || '',
+          transaction_reference: values.transaction_ref || ''
+        } : null);
+      }
+    } else {
+      message.error(res?.error?.message || res?.message || res?.error || 'Failed to update rider withdrawal status');
+    }
+  };
+
   const [walletStatusFilter, setWalletStatusFilter] = useState('all');
   const [walletSearch, setWalletSearch] = useState('');
   const [walletDateRange, setWalletDateRange] = useState(null);
@@ -423,36 +591,59 @@ const RiderDashboard = () => {
       ),
     },
     {
-      title: 'Status',
-      key: 'status',
-      width: 130,
-      render: (_, record) => (
-        <Tag color={record.statusColor} style={{ borderRadius: 12, padding: '2px 10px', fontWeight: 600 }}>
-          {record.statusLabel}
-        </Tag>
+      title: (
+        <span>
+          Status{' '}
+          <AntTooltip title="Hover on any status badge or click Status Meanings above for details">
+            <InfoCircleOutlined style={{ color: '#94a3b8', fontSize: 12, marginLeft: 2 }} />
+          </AntTooltip>
+        </span>
       ),
+      key: 'status',
+      width: 140,
+      render: (_, record) => {
+        const info = getWithdrawalStatusInfo(record.status || record.statusLabel);
+        return (
+          <AntTooltip title={<span><strong>{info.title}:</strong> {info.meaning}</span>} placement="top">
+            <Tag color={info.color} icon={info.icon} style={{ borderRadius: 12, padding: '2px 10px', fontWeight: 600, cursor: 'pointer' }}>
+              {info.label}
+            </Tag>
+          </AntTooltip>
+        );
+      },
     },
     {
       title: 'Action',
       key: 'action',
-      width: 90,
+      width: 155,
       align: 'center',
       render: (_, record) => (
-        <Button
-          type="primary"
-          size="small"
-          icon={<EyeOutlined />}
-          style={{
-            borderRadius: '6px',
-            background: '#2563eb',
-            border: 'none',
-          }}
-          onClick={() => {
-            setSelectedWithdrawalDetail(record.rawRecord);
-          }}
-        >
-          View
-        </Button>
+        <Space size={6}>
+          <Button
+            type="primary"
+            size="small"
+            icon={<EditOutlined />}
+            style={{
+              borderRadius: '6px',
+              fontWeight: 600,
+            }}
+            onClick={() => handleOpenWithdrawalUpdateModal(record.rawRecord || record)}
+          >
+            Update
+          </Button>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            style={{
+              borderRadius: '6px',
+            }}
+            onClick={() => {
+              setSelectedWithdrawalDetail(record.rawRecord || record);
+            }}
+          >
+            View
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -1238,7 +1429,17 @@ const RiderDashboard = () => {
                     Real-time rider balance, delivery order earnings credited, and withdrawal payout transaction history.
                   </p>
                 </div>
-                <div className="d-flex align-items-center" style={{ gap: 10 }}>
+                <div className="d-flex align-items-center" style={{ gap: 10, flexWrap: 'wrap' }}>
+                  <Popover
+                    content={<StatusGuidePopoverContent />}
+                    title={<span style={{ fontWeight: 700 }}><QuestionCircleOutlined /> Withdrawal Status Meanings & Guide</span>}
+                    trigger="click"
+                    placement="bottomRight"
+                  >
+                    <Button icon={<QuestionCircleOutlined />} style={{ borderRadius: 6, fontWeight: 500 }}>
+                      Status Meanings
+                    </Button>
+                  </Popover>
                   <Button
                     icon={<ReloadOutlined spin={walletLoading} />}
                     onClick={fetchWalletData}
@@ -1572,6 +1773,212 @@ const RiderDashboard = () => {
         )}
       </Modal>
 
+      {/* Update Rider Withdrawal Status Modal (matching rider-withdrawals page) */}
+      <Modal
+        title={`Update Rider Withdrawal Status - Request #${selectedWithdrawalRecord?.id || ''} (${selectedWithdrawalRecord?.payout_id || selectedWithdrawalRecord?.withdrawal_uid || ''})`}
+        open={withdrawalUpdateModalOpen}
+        onCancel={() => setWithdrawalUpdateModalOpen(false)}
+        footer={null}
+        destroyOnClose
+        width={620}
+      >
+        {selectedWithdrawalRecord && (
+          <div>
+            {/* Rider & Account Summary Card */}
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 8,
+              padding: '14px 16px',
+              marginBottom: 16
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 600,
+                color: '#0f172a',
+                fontSize: 14,
+                marginBottom: 10,
+                paddingBottom: 8,
+                borderBottom: '1px solid #e2e8f0'
+              }}>
+                <UserOutlined style={{ color: '#088b46' }} />
+                <span>Rider & Account Details</span>
+              </div>
+              <Row gutter={[12, 10]}>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Rider Name</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalRecord?.rider_name || riderName || 'Rider'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Custom ID / Phone</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {riderData?.custom_id || `RID#${riderIdNumber}`} {riderData?.phonenumber ? `• ${formatPhone(riderData.phonenumber, riderData.prefix)}` : ''}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Requested Amount</div>
+                  <div style={{ fontWeight: 700, color: '#059669', fontSize: 15 }}>
+                    ${Number(selectedWithdrawalRecord?.amount || selectedWithdrawalRecord?.requested_amount || 0).toFixed(2)}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Current Status</div>
+                  <div>
+                    {(() => {
+                      const sVal = selectedWithdrawalRecord?.status || selectedWithdrawalRecord?.withdrawal_status;
+                      const info = getWithdrawalStatusInfo(sVal);
+                      return <Tag color={info.color} icon={info.icon} style={{ borderRadius: 10, fontWeight: 600 }}>{info.label}</Tag>;
+                    })()}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Bank & Account</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
+                    {selectedWithdrawalRecord?.bank_name || riderData?.bank_name || 'Bank'} (A/C: {selectedWithdrawalRecord?.account_number || riderData?.account_number || 'N/A'})
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Transit & Inst. No</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 12 }}>
+                    Transit: {selectedWithdrawalRecord?.transit_number || riderData?.transit_number || 'N/A'} | Inst: {selectedWithdrawalRecord?.institution_number || riderData?.institution_number || 'N/A'}
+                  </div>
+                </Col>
+                {selectedWithdrawalRecord?.notes && (
+                  <Col span={24}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Rider Note</div>
+                    <div style={{ fontStyle: 'italic', color: '#475569', fontSize: 12, background: '#f1f5f9', padding: '6px 10px', borderRadius: 6, marginTop: 2 }}>
+                      "{selectedWithdrawalRecord.notes}"
+                    </div>
+                  </Col>
+                )}
+              </Row>
+            </div>
+
+            {/* Status Update Form */}
+            <Form form={withdrawalUpdateForm} layout="vertical" onFinish={handleWithdrawalUpdateSubmit}>
+              <Form.Item
+                name="status"
+                label={<span style={{ fontWeight: 600 }}>Withdrawal Status</span>}
+                rules={[{ required: true, message: 'Please select a status' }]}
+              >
+                <Select
+                  options={[
+                    {
+                      value: 'Approved',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <span style={{ fontWeight: 600, color: '#0284c7' }}>Approved (In Progress)</span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>
+                            Authorized & queued for bank transfer
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      value: 'Completed',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <span style={{ fontWeight: 600, color: '#16a34a' }}>Completed (Paid)</span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>
+                            Funds sent to bank account (enter UTR/Ref below)
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      value: 'Pending',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <span style={{ fontWeight: 600, color: '#d97706' }}>Pending</span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>
+                            Awaiting admin review & verification
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      value: 'Failed',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <span style={{ fontWeight: 600, color: '#dc2626' }}>Failed</span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>
+                            Bank transfer or gateway failed
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      value: 'Rejected',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <span style={{ fontWeight: 600, color: '#dc2626' }}>Rejected</span>
+                          <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>
+                            Request declined by admin (funds stay in wallet)
+                          </span>
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
+              </Form.Item>
+
+              {/* Status Explanation Callout */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  marginBottom: 16,
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <InfoCircleOutlined style={{ color: '#2563eb' }} />
+                  What each status means:
+                </div>
+                <div style={{ color: '#475569', lineHeight: 1.5 }}>
+                  <div><strong style={{ color: '#0284c7' }}>Approved:</strong> Admin verified the request. Payout is in transit / scheduled for bank transfer.</div>
+                  <div><strong style={{ color: '#16a34a' }}>Completed:</strong> Money has been paid to the rider bank account. Transaction UTR / Ref is required.</div>
+                  <div><strong style={{ color: '#d97706' }}>Pending:</strong> Initial state awaiting admin verification.</div>
+                  <div><strong style={{ color: '#dc2626' }}>Failed:</strong> Bank transfer failed (invalid account, IFSC, transit no, or server error).</div>
+                  <div><strong style={{ color: '#dc2626' }}>Rejected:</strong> Request declined by admin. Funds remain in rider's wallet.</div>
+                </div>
+              </div>
+
+              <Form.Item
+                name="transaction_ref"
+                label={<span style={{ fontWeight: 600 }}>Transaction Reference / UTR Number</span>}
+                extra="Enter UPI / Bank Reference / UTR Number for payout tracking"
+              >
+                <Input placeholder="e.g. TXN99887766 or UTR12345678" />
+              </Form.Item>
+
+              <Form.Item
+                name="admin_remarks"
+                label={<span style={{ fontWeight: 600 }}>Admin Remarks / Notes</span>}
+              >
+                <Input.TextArea
+                  rows={3}
+                  placeholder="e.g. Withdrawal processed successfully to rider bank account via IMPS"
+                />
+              </Form.Item>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+                <Button onClick={() => setWithdrawalUpdateModalOpen(false)}>Cancel</Button>
+                <Button type="primary" htmlType="submit" loading={withdrawalUpdating} style={{ fontWeight: 600 }}>
+                  Update Status
+                </Button>
+              </div>
+            </Form>
+          </div>
+        )}
+      </Modal>
+
       {/* Withdrawal Details Modal */}
       <Modal
         title={
@@ -1599,7 +2006,20 @@ const RiderDashboard = () => {
         open={!!selectedWithdrawalDetail}
         onCancel={() => setSelectedWithdrawalDetail(null)}
         footer={[
-          <Button key="close" type="primary" onClick={() => setSelectedWithdrawalDetail(null)} style={{ background: '#088b46', borderColor: '#088b46' }}>
+          <Button
+            key="update"
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => {
+              const rec = selectedWithdrawalDetail;
+              setSelectedWithdrawalDetail(null);
+              handleOpenWithdrawalUpdateModal(rec);
+            }}
+            style={{ fontWeight: 600 }}
+          >
+            Update Status
+          </Button>,
+          <Button key="close" onClick={() => setSelectedWithdrawalDetail(null)}>
             Close
           </Button>,
         ]}
