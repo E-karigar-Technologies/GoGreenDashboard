@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal } from 'antd';
+import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal, DatePicker } from 'antd';
 import DateRangeSelector from '../../../components/DateRangeSelector';
 import { useParams } from 'react-router-dom';
 import {
@@ -19,12 +19,15 @@ import {
   Car,
   ShieldCheck,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Wallet,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
-import { EyeOutlined, SearchOutlined } from '@ant-design/icons';
+import { EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { ResponsiveContainer, Tooltip, AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend, PieChart, Pie, Cell } from 'recharts';
 import dayjs from 'dayjs';
-import { getRiderById } from '../../../services/apiService';
+import { getRiderById, getRiderShares, getRiderWithdrawalsById, getRiderWithdrawals } from '../../../services/apiService';
 import { formatPhone } from '../../../services/utils/gen_utility';
 
 const { TabPane } = Tabs;
@@ -55,6 +58,16 @@ const InfoRow = ({ icon, label, value }) => (
     </div>
   </div>
 );
+
+const iconWrapperStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 36,
+  height: 36,
+  borderRadius: 8,
+  margin: 0,
+};
 
 export const computeOrderFinancials = (order) => {
   if (!order) return { itemsPrice: 0, delCharge: 0, fastDelCharge: 0, tipAmt: 0, tipPct: 0, overallAmt: 0, baseRiderShare: 0, totalRiderShare: 0, vendorShare: 0 };
@@ -116,6 +129,333 @@ const RiderDashboard = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [orderTypeFilter, setOrderTypeFilter] = useState('all');
   const [selectedRiderOrder, setSelectedRiderOrder] = useState(null);
+
+  // Rider Wallet & Transactions state
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletWithdrawals, setWalletWithdrawals] = useState([]);
+  const [riderSharesData, setRiderSharesData] = useState(null);
+  const [selectedWithdrawalDetail, setSelectedWithdrawalDetail] = useState(null);
+  const [walletStatusFilter, setWalletStatusFilter] = useState('all');
+  const [walletSearch, setWalletSearch] = useState('');
+  const [walletDateRange, setWalletDateRange] = useState(null);
+
+  // Fetch Rider Wallet data (Shares & Withdrawals)
+  const fetchWalletData = React.useCallback(async () => {
+    if (!riderIdNumber) return;
+    setWalletLoading(true);
+    try {
+      const [sharesRes, withdrawalsRes] = await Promise.allSettled([
+        getRiderShares(riderIdNumber),
+        getRiderWithdrawalsById(riderIdNumber),
+      ]);
+
+      if (sharesRes.status === 'fulfilled' && sharesRes.value?.success) {
+        const rawShares = sharesRes.value.data;
+        const sharesPayload =
+          rawShares?.data && typeof rawShares.data === 'object' && !Array.isArray(rawShares.data)
+            ? rawShares.data
+            : rawShares;
+        setRiderSharesData(sharesPayload);
+      }
+
+      let wList = [];
+      if (
+        withdrawalsRes.status === 'fulfilled' &&
+        withdrawalsRes.value?.success &&
+        Array.isArray(withdrawalsRes.value.data)
+      ) {
+        wList = withdrawalsRes.value.data;
+      }
+
+      // If specific rider withdrawals endpoint returns empty, check all-rider-withdrawals as fallback
+      if (!wList || wList.length === 0) {
+        try {
+          const allWdrRes = await getRiderWithdrawals('all');
+          if (allWdrRes?.success && Array.isArray(allWdrRes.data)) {
+            wList = allWdrRes.data.filter(
+              (w) =>
+                Number(w.rider_id) === riderIdNumber ||
+                Number(w.rider?.id) === riderIdNumber
+            );
+          }
+        } catch (e) {
+          console.warn('Fallback fetch of all rider withdrawals failed:', e);
+        }
+      }
+
+      setWalletWithdrawals(wList || []);
+    } catch (err) {
+      console.error('Error fetching rider wallet data:', err);
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [riderIdNumber]);
+
+  useEffect(() => {
+    fetchWalletData();
+  }, [fetchWalletData]);
+
+  // Wallet summary metrics & withdrawal transaction ledger
+  const walletSummary = React.useMemo(() => {
+    const sharesOrders = Array.isArray(riderSharesData?.orders) ? riderSharesData.orders : null;
+    const riderOrders = Array.isArray(riderData?.orders) ? riderData.orders : [];
+    const isFromSharesApi = !!sharesOrders && sharesOrders.length > 0;
+    const ordersList = isFromSharesApi ? sharesOrders : riderOrders;
+
+    let computedTotalEarnings = 0;
+    let computedDeliveredCount = 0;
+
+    ordersList.forEach((order) => {
+      const isDelivered = isFromSharesApi ? true : Number(order.order_status) === 4;
+      if (isDelivered) {
+        let orderEarnings = 0;
+        if (order.rider_share !== undefined && order.rider_share !== null) {
+          const base = Number(order.rider_share || 0);
+          let tip = Number(order.tip_amount || 0);
+          const tipPct = Number(order.tip_percentage || 0);
+          if (tip === 0 && tipPct > 0) {
+            const items = Number(order.items_price || order.total_price || 0);
+            tip = (items * tipPct) / 100;
+          }
+          orderEarnings = base + tip;
+        } else {
+          const { totalRiderShare } = computeOrderFinancials(order);
+          orderEarnings = totalRiderShare;
+        }
+
+        computedTotalEarnings += orderEarnings;
+        computedDeliveredCount += 1;
+      }
+    });
+
+    // Use total_rider_share & total_orders_count from /order/getvendorshares API as source of truth
+    const totalDeliveredEarnings =
+      riderSharesData &&
+      riderSharesData.total_rider_share !== undefined &&
+      riderSharesData.total_rider_share !== null
+        ? Number(riderSharesData.total_rider_share)
+        : computedTotalEarnings;
+
+    const deliveredOrdersCount =
+      riderSharesData &&
+      riderSharesData.total_orders_count !== undefined &&
+      riderSharesData.total_orders_count !== null
+        ? Number(riderSharesData.total_orders_count)
+        : computedDeliveredCount;
+
+    let totalCompletedWithdrawals = 0;
+    let totalPendingWithdrawals = 0;
+    let completedWithdrawalsCount = 0;
+    let pendingWithdrawalsCount = 0;
+    const withdrawalTransactions = [];
+
+    (walletWithdrawals || []).forEach((w) => {
+      const amt = Number(w.amount || w.requested_amount || 0);
+      const rawStatus = String(w.status || w.withdrawal_status || 'pending').toLowerCase().trim();
+      const isCompleted = ['completed', 'approved', 'success', 'paid'].includes(rawStatus);
+      const isPending = rawStatus === 'pending';
+
+      if (isCompleted) {
+        totalCompletedWithdrawals += amt;
+        completedWithdrawalsCount += 1;
+      } else if (isPending) {
+        totalPendingWithdrawals += amt;
+        pendingWithdrawalsCount += 1;
+      }
+
+      let statusColor = 'orange';
+      let statusLabel = 'Pending';
+      if (isCompleted) {
+        statusColor = 'green';
+        statusLabel = 'Completed';
+      } else if (['rejected', 'failed', 'cancelled', 'canceled'].includes(rawStatus)) {
+        statusColor = 'red';
+        statusLabel = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+      }
+
+      const bankName = w.bank_name || w.bank_details?.bank_name || riderData?.bank_name || 'Bank Account';
+      const accNo = w.account_number || w.bank_details?.account_number || riderData?.account_number;
+      const maskedAcc = accNo ? `••••${String(accNo).slice(-4)}` : '';
+      const dateVal = w.created_at || w.date || w.requested_at;
+      const ref = w.transaction_ref || w.transaction_reference;
+
+      withdrawalTransactions.push({
+        key: `wdr-${w.id || w.payout_id || Math.random()}`,
+        id: w.id,
+        uid: w.payout_id || (w.id ? `WDR#${w.id}` : 'WDR'),
+        type: 'withdrawal',
+        typeLabel: 'Withdrawal',
+        title: `Payout Request ${w.payout_id || (w.id ? `#${w.id}` : '')}`,
+        subtitle: `To: ${bankName} ${maskedAcc} ${ref ? `• Ref: ${ref}` : ''}`.trim(),
+        date: dateVal,
+        amount: amt,
+        status: rawStatus,
+        statusLabel,
+        statusColor,
+        rawRecord: w,
+        category: 'withdrawal',
+      });
+    });
+
+    const availableBalance = Math.max(0, totalDeliveredEarnings - totalCompletedWithdrawals);
+
+    const allTransactions = [...withdrawalTransactions];
+    allTransactions.sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : 0;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    return {
+      totalDeliveredEarnings,
+      deliveredOrdersCount,
+      totalCompletedWithdrawals,
+      completedWithdrawalsCount,
+      totalPendingWithdrawals,
+      pendingWithdrawalsCount,
+      availableBalance,
+      allTransactions,
+    };
+  }, [riderSharesData, riderData, walletWithdrawals]);
+
+  // Filtered wallet withdrawal transactions
+  const filteredWalletTransactions = React.useMemo(() => {
+    return walletSummary.allTransactions.filter((item) => {
+      if (walletStatusFilter !== 'all') {
+        if (walletStatusFilter === 'completed' && !['completed', 'approved', 'success', 'paid'].includes(item.status)) return false;
+        if (walletStatusFilter === 'pending' && item.status !== 'pending') return false;
+        if (walletStatusFilter === 'rejected' && !['rejected', 'failed', 'cancelled', 'canceled'].includes(item.status)) return false;
+      }
+
+      if (walletDateRange && walletDateRange[0] && walletDateRange[1]) {
+        if (!item.date) return false;
+        const itemTime = dayjs(item.date);
+        if (!itemTime.isValid()) return false;
+        const start = dayjs(walletDateRange[0]).startOf('day');
+        const end = dayjs(walletDateRange[1]).endOf('day');
+        if (itemTime.isBefore(start) || itemTime.isAfter(end)) return false;
+      }
+
+      if (walletSearch.trim()) {
+        const query = walletSearch.toLowerCase().trim();
+        const matchesUid = String(item.uid || '').toLowerCase().includes(query);
+        const matchesTitle = String(item.title || '').toLowerCase().includes(query);
+        const matchesSubtitle = String(item.subtitle || '').toLowerCase().includes(query);
+        const matchesAmount = String(item.amount || '').includes(query);
+        if (!matchesUid && !matchesTitle && !matchesSubtitle && !matchesAmount) return false;
+      }
+
+      return true;
+    });
+  }, [walletSummary.allTransactions, walletStatusFilter, walletDateRange, walletSearch]);
+
+  const walletTableColumns = [
+    {
+      title: 'Reference / ID',
+      key: 'uid',
+      width: 175,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13.5px' }}>
+            {record.uid}
+          </div>
+          <div style={{ marginTop: 3 }}>
+            <Tag color="red" style={{ borderRadius: 10, fontSize: 11, padding: '1px 8px', fontWeight: 600 }}>
+              <TrendingDown size={11} style={{ marginRight: 4, display: 'inline', verticalAlign: '-1px' }} /> Withdrawal
+            </Tag>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Details & Description',
+      key: 'description',
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '13px' }}>
+            {record.title}
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
+            {record.subtitle}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Date & Time',
+      key: 'date',
+      width: 160,
+      sorter: (a, b) => (new Date(a.date).getTime() || 0) - (new Date(b.date).getTime() || 0),
+      render: (_, record) => {
+        const d = record.date ? dayjs(record.date) : null;
+        return d && d.isValid() ? (
+          <div>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12.5px' }}>
+              {d.format('DD MMM YYYY')}
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>
+              {d.format('hh:mm A')}
+            </div>
+          </div>
+        ) : <span style={{ color: '#94a3b8' }}>-</span>;
+      },
+    },
+    {
+      title: 'Amount',
+      key: 'amount',
+      width: 160,
+      sorter: (a, b) => a.amount - b.amount,
+      render: (_, record) => (
+        <div>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: '15px',
+              color: '#dc2626',
+            }}
+          >
+            -${Number(record.amount).toFixed(2)}
+          </div>
+          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Debit / Payout
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 130,
+      render: (_, record) => (
+        <Tag color={record.statusColor} style={{ borderRadius: 12, padding: '2px 10px', fontWeight: 600 }}>
+          {record.statusLabel}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 90,
+      align: 'center',
+      render: (_, record) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<EyeOutlined />}
+          style={{
+            borderRadius: '6px',
+            background: '#2563eb',
+            border: 'none',
+          }}
+          onClick={() => {
+            setSelectedWithdrawalDetail(record.rawRecord);
+          }}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
 
   useEffect(() => {
     const loadRider = async () => {
@@ -885,6 +1225,175 @@ const RiderDashboard = () => {
             </Row>
           </TabPane>
 
+          {/* Wallet & Transactions Tab (Next to Bank Details) */}
+          <TabPane tab={<span><Wallet size={16} /> Wallet & Transactions</span>} key="wallet">
+            {/* Header & Quick Refresh */}
+            <Card bodyStyle={{ padding: '16px 20px' }} style={{ borderRadius: 8, marginBottom: 16 }}>
+              <div className="d-flex align-items-center justify-content-between flex-md-row flex-column gap-3">
+                <div>
+                  <h4 className="mb-0" style={{ fontWeight: 700, color: '#0f172a' }}>
+                    Rider Wallet & Withdrawals
+                  </h4>
+                  <p className="text-muted mb-0" style={{ fontSize: 12 }}>
+                    Real-time rider balance, delivery order earnings credited, and withdrawal payout transaction history.
+                  </p>
+                </div>
+                <div className="d-flex align-items-center" style={{ gap: 10 }}>
+                  <Button
+                    icon={<ReloadOutlined spin={walletLoading} />}
+                    onClick={fetchWalletData}
+                    style={{ borderRadius: 6 }}
+                  >
+                    Refresh Ledger
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Financial Summary Metric Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: `4px solid ${THEME.primary}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Available Wallet Balance</span>
+                    <div style={{ ...iconWrapperStyle, background: '#088b4618' }}>
+                      <Wallet size={18} color="#088b46" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#088b46' }}>
+                    ${walletSummary.availableBalance.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Total Delivered Payout - Total Withdrawn
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #2563eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Total Earnings (Delivered)</span>
+                    <div style={{ ...iconWrapperStyle, background: '#2563eb18' }}>
+                      <TrendingUp size={18} color="#2563eb" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#2563eb' }}>
+                    ${walletSummary.totalDeliveredEarnings.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    From {walletSummary.deliveredOrdersCount} delivered orders credited
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #dc2626' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Total Withdrawn (Paid)</span>
+                    <div style={{ ...iconWrapperStyle, background: '#dc262618' }}>
+                      <TrendingDown size={18} color="#dc2626" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#dc2626' }}>
+                    ${walletSummary.totalCompletedWithdrawals.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {walletSummary.completedWithdrawalsCount} payout transfers completed
+                  </div>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} xl={6}>
+                <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, height: '100%', borderLeft: '4px solid #d97706' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>Pending Withdrawals</span>
+                    <div style={{ ...iconWrapperStyle, background: '#d9770618' }}>
+                      <Clock size={18} color="#d97706" />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#d97706' }}>
+                    ${walletSummary.totalPendingWithdrawals.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {walletSummary.pendingWithdrawalsCount} request(s) awaiting processing
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Filter & Search Bar */}
+            <Card bodyStyle={{ padding: 16 }} style={{ borderRadius: 8, marginBottom: 16 }}>
+              <Row gutter={[12, 12]} align="middle">
+                <Col xs={24} md={10}>
+                  <Input
+                    placeholder="Search by ID, Txn Ref, bank, notes..."
+                    prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                    value={walletSearch}
+                    onChange={(e) => setWalletSearch(e.target.value)}
+                    allowClear
+                    style={{ borderRadius: 6 }}
+                  />
+                </Col>
+
+                <Col xs={12} md={5}>
+                  <Select
+                    value={walletStatusFilter}
+                    onChange={setWalletStatusFilter}
+                    style={{ width: '100%' }}
+                    options={[
+                      { label: 'All Statuses', value: 'all' },
+                      { label: 'Completed / Paid', value: 'completed' },
+                      { label: 'Pending', value: 'pending' },
+                      { label: 'Rejected / Cancelled', value: 'rejected' },
+                    ]}
+                  />
+                </Col>
+
+                <Col xs={24} md={6}>
+                  <DatePicker.RangePicker
+                    value={walletDateRange}
+                    onChange={setWalletDateRange}
+                    style={{ width: '100%', borderRadius: 6 }}
+                    placeholder={['Start Date', 'End Date']}
+                  />
+                </Col>
+
+                <Col xs={12} md={3} style={{ textAlign: 'right' }}>
+                  <Button
+                    onClick={() => {
+                      setWalletSearch('');
+                      setWalletStatusFilter('all');
+                      setWalletDateRange(null);
+                    }}
+                    style={{ borderRadius: 6, width: '100%' }}
+                  >
+                    Reset Filters
+                  </Button>
+                </Col>
+              </Row>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#64748b', textAlign: 'right' }}>
+                Showing <strong>{filteredWalletTransactions.length}</strong> of <strong>{walletSummary.allTransactions.length}</strong> total withdrawal transactions
+              </div>
+            </Card>
+
+            {/* Transactions Ledger Table */}
+            <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: 8, overflow: 'hidden' }}>
+              <Table
+                columns={walletTableColumns}
+                dataSource={filteredWalletTransactions}
+                rowKey="key"
+                loading={walletLoading}
+                scroll={{ x: 800 }}
+                pagination={{
+                  pageSize: 15,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '15', '30', '50'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} withdrawals`,
+                }}
+              />
+            </Card>
+          </TabPane>
+
           {/* Bank Details Tab */}
           <TabPane tab={<span><Banknote size={16} /> Bank Details</span>} key="4">
             <Row gutter={[16, 16]}>
@@ -1059,6 +1568,115 @@ const RiderDashboard = () => {
                 </Card>
               );
             })()}
+          </div>
+        )}
+      </Modal>
+
+      {/* Withdrawal Details Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Wallet size={18} color="#088b46" />
+            <span style={{ fontWeight: 700 }}>
+              Withdrawal Details #{selectedWithdrawalDetail?.payout_id || selectedWithdrawalDetail?.withdrawal_uid || selectedWithdrawalDetail?.id}
+            </span>
+            {selectedWithdrawalDetail && (
+              <Tag
+                color={
+                  ['completed', 'approved', 'success', 'paid'].includes(String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || '').toLowerCase())
+                    ? 'green'
+                    : String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || '').toLowerCase() === 'pending'
+                    ? 'orange'
+                    : 'red'
+                }
+                style={{ borderRadius: 12, fontWeight: 600, marginLeft: 8 }}
+              >
+                {String(selectedWithdrawalDetail.status || selectedWithdrawalDetail.withdrawal_status || 'Pending').toUpperCase()}
+              </Tag>
+            )}
+          </div>
+        }
+        open={!!selectedWithdrawalDetail}
+        onCancel={() => setSelectedWithdrawalDetail(null)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setSelectedWithdrawalDetail(null)} style={{ background: '#088b46', borderColor: '#088b46' }}>
+            Close
+          </Button>,
+        ]}
+        width={620}
+      >
+        {selectedWithdrawalDetail && (
+          <div>
+            <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: 8, marginBottom: 16, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 13, color: '#64748b' }}>Requested Amount</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#059669', marginTop: 2 }}>
+                ${Number(selectedWithdrawalDetail.amount || selectedWithdrawalDetail.requested_amount || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                Requested on:{' '}
+                {selectedWithdrawalDetail.created_at || selectedWithdrawalDetail.date
+                  ? dayjs(selectedWithdrawalDetail.created_at || selectedWithdrawalDetail.date).format('DD MMMM YYYY, hh:mm A')
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <Card size="small" title="Rider Bank Account Details" style={{ marginBottom: 16, borderRadius: 8 }}>
+              <Row gutter={[12, 12]}>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Bank Name</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.bank_name || selectedWithdrawalDetail.bank_details?.bank_name || riderData?.bank_name || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Account Holder</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.account_holder_name || selectedWithdrawalDetail.bank_details?.account_holder_name || riderData?.account_holder_name || riderName || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Account Number</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.account_number || selectedWithdrawalDetail.bank_details?.account_number || riderData?.account_number || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Transit / Branch No</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.transit_number || riderData?.transit_number || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Institution Number</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.institution_number || riderData?.institution_number || 'Not Provided'}
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Transaction Ref</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    {selectedWithdrawalDetail.transaction_ref || selectedWithdrawalDetail.transaction_reference || 'N/A'}
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+
+            {(selectedWithdrawalDetail.notes || selectedWithdrawalDetail.admin_remarks) && (
+              <Card size="small" title="Notes & Remarks" style={{ borderRadius: 8 }}>
+                {selectedWithdrawalDetail.notes && (
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Rider Notes:</div>
+                    <div style={{ fontSize: 13, color: '#1e293b' }}>{selectedWithdrawalDetail.notes}</div>
+                  </div>
+                )}
+                {selectedWithdrawalDetail.admin_remarks && (
+                  <div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Admin Remarks:</div>
+                    <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500 }}>{selectedWithdrawalDetail.admin_remarks}</div>
+                  </div>
+                )}
+              </Card>
+            )}
           </div>
         )}
       </Modal>

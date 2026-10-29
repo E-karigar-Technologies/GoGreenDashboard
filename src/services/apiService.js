@@ -1275,6 +1275,76 @@ export const updateRiderWithdrawal = async (payload) => {
   }
 };
 
+// POST /order/getvendorshares (with rider_id)
+export const getRiderShares = async (riderId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    const response = await axios.post(
+      "/order/getvendorshares",
+      { rider_id: Number(riderId) },
+      reqConfig
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch rider shares:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: null,
+    };
+  }
+};
 
+// POST /riders/withdrawal-history or GET /riders/all-rider-withdrawals
+export const getRiderWithdrawalsById = async (riderId) => {
+  try {
+    const token = localStorage.getItem("token");
+    const reqConfig = {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "Content-Type": "application/json",
+      },
+    };
+    let withdrawals = [];
+    try {
+      const response = await axios.post(
+        "/riders/withdrawal-history",
+        { rider_id: Number(riderId) },
+        reqConfig
+      );
+      if (response.data?.withdrawals && Array.isArray(response.data.withdrawals)) {
+        withdrawals = response.data.withdrawals;
+      }
+    } catch (e1) {
+      console.warn("Direct rider withdrawal history failed, trying fallback:", e1);
+    }
 
+    if (!withdrawals || withdrawals.length === 0) {
+      try {
+        const allRes = await axios.get("/riders/all-rider-withdrawals/all", reqConfig);
+        const allList = allRes.data?.withdrawals || allRes.data?.data || (Array.isArray(allRes.data) ? allRes.data : []);
+        withdrawals = allList.filter(
+          (w) => Number(w.rider_id) === Number(riderId) || Number(w.rider?.id) === Number(riderId)
+        );
+      } catch (e2) {
+        console.warn("Fallback rider withdrawals failed:", e2);
+      }
+    }
+
+    return { success: true, data: withdrawals };
+  } catch (error) {
+    console.error("Failed to fetch rider withdrawals by id:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message,
+      data: [],
+    };
+  }
+};
 
