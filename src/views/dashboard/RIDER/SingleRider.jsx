@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal, DatePicker, Form, Tooltip as AntTooltip, Popover } from 'antd';
+import { Row, Col, Card, Tabs, Badge, Button, Table, Image, Select, Typography, Avatar, Divider, Space, Tag, Input, Spin, message, Modal, DatePicker, Form, Tooltip as AntTooltip, Popover, Alert } from 'antd';
 import DateRangeSelector from '../../../components/DateRangeSelector';
 import { useParams } from 'react-router-dom';
 import {
@@ -24,10 +24,10 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
-import { EyeOutlined, SearchOutlined, ReloadOutlined, EditOutlined, SyncOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UserOutlined, BankOutlined, FileTextOutlined, InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { EyeOutlined, SearchOutlined, ReloadOutlined, EditOutlined, SyncOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, UserOutlined, BankOutlined, FileTextOutlined, InfoCircleOutlined, QuestionCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { ResponsiveContainer, Tooltip, AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend, PieChart, Pie, Cell } from 'recharts';
 import dayjs from 'dayjs';
-import { getRiderById, getRiderShares, getRiderWithdrawalsById, getRiderWithdrawals, updateRiderWithdrawal } from '../../../services/apiService';
+import { getRiderById, getRiderShares, getRiderWithdrawalsById, getRiderWithdrawals, updateRiderWithdrawal, updateRiderPaymentTransactionStatus } from '../../../services/apiService';
 import { formatPhone } from '../../../services/utils/gen_utility';
 
 const { TabPane } = Tabs;
@@ -257,6 +257,44 @@ const RiderDashboard = () => {
   const [withdrawalUpdateModalOpen, setWithdrawalUpdateModalOpen] = useState(false);
   const [selectedWithdrawalRecord, setSelectedWithdrawalRecord] = useState(null);
   const [withdrawalUpdating, setWithdrawalUpdating] = useState(false);
+
+  // Rider Payment Transaction Block / Unblock state (users.payment_transaction_status: 0 = working, 1 = blocked)
+  const [txBlockModalVisible, setTxBlockModalVisible] = useState(false);
+  const [txUnblockModalVisible, setTxUnblockModalVisible] = useState(false);
+  const [txBlockLoading, setTxBlockLoading] = useState(false);
+  const [txUnblockLoading, setTxUnblockLoading] = useState(false);
+  const [txBlockReason, setTxBlockReason] = useState('Suspicious Financial Activity');
+  const [txBlockRemarks, setTxBlockRemarks] = useState('');
+
+  const handleConfirmTxBlock = async () => {
+    setTxBlockLoading(true);
+    const finalRemark = txBlockReason === 'Other' && txBlockRemarks.trim()
+      ? txBlockRemarks.trim()
+      : [txBlockReason, txBlockRemarks.trim()].filter(Boolean).join(' - ');
+
+    const res = await updateRiderPaymentTransactionStatus(riderIdNumber, 1, finalRemark);
+    setTxBlockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Rider payment transactions have been blocked. Bank withdrawals are stopped.');
+      setRiderData((prev) => (prev ? { ...prev, payment_transaction_status: 1, payment_block_remark: finalRemark, payment_transaction_remark: finalRemark } : prev));
+      setTxBlockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.message || res?.error || 'Failed to block payment transactions');
+    }
+  };
+
+  const handleConfirmTxUnblock = async () => {
+    setTxUnblockLoading(true);
+    const res = await updateRiderPaymentTransactionStatus(riderIdNumber, 0, '');
+    setTxUnblockLoading(false);
+    if (res && res.success !== false) {
+      message.success('Rider payment transactions have been unblocked. Bank withdrawals are now allowed.');
+      setRiderData((prev) => (prev ? { ...prev, payment_transaction_status: 0, payment_block_remark: null, payment_transaction_remark: null } : prev));
+      setTxUnblockModalVisible(false);
+    } else {
+      message.error(res?.error?.message || res?.message || res?.error || 'Failed to unblock payment transactions');
+    }
+  };
 
   const handleOpenWithdrawalUpdateModal = (record) => {
     const raw = record?.rawRecord || record;
@@ -1098,7 +1136,7 @@ const RiderDashboard = () => {
           </Col>
           <Col xs={24} md={8} style={{ textAlign: 'right' }}>
             <Space direction="vertical" align="end" size={6}>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <Badge
                   status={riderData?.is_verified === 1 ? 'success' : 'warning'}
                   text={<span style={{ fontWeight: 600 }}>{riderData?.is_verified === 1 ? 'Verified Rider' : 'Pending Verification'}</span>}
@@ -1107,6 +1145,36 @@ const RiderDashboard = () => {
                   status={riderData?.status === 1 ? 'processing' : 'default'}
                   text={<span style={{ fontWeight: 600 }}>{riderData?.status === 1 ? 'Active' : 'Inactive'}</span>}
                 />
+                <Badge
+                  status={Number(riderData?.payment_transaction_status) === 1 ? 'error' : 'success'}
+                  text={
+                    <span style={{ fontWeight: 600, color: Number(riderData?.payment_transaction_status) === 1 ? '#dc2626' : '#16a34a' }}>
+                      {Number(riderData?.payment_transaction_status) === 1 ? 'Tx Blocked' : 'Tx Working'}
+                    </span>
+                  }
+                />
+              </div>
+              {Number(riderData?.payment_transaction_status) === 1 && (riderData?.payment_block_remark || riderData?.payment_transaction_remark) && (
+                <div style={{ fontSize: 11.5, color: '#dc2626', maxWidth: 320, textAlign: 'right' }}>
+                  <strong>Tx Blocked:</strong> {riderData.payment_block_remark || riderData.payment_transaction_remark}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                <Button
+                  size="small"
+                  danger={Number(riderData?.payment_transaction_status) !== 1}
+                  icon={Number(riderData?.payment_transaction_status) === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                  style={{
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    backgroundColor: Number(riderData?.payment_transaction_status) === 1 ? '#16a34a' : '#fff1f2',
+                    color: Number(riderData?.payment_transaction_status) === 1 ? '#ffffff' : '#e11d48',
+                    borderColor: Number(riderData?.payment_transaction_status) === 1 ? '#16a34a' : '#fecdd3',
+                  }}
+                  onClick={() => (Number(riderData?.payment_transaction_status) === 1 ? setTxUnblockModalVisible(true) : setTxBlockModalVisible(true))}
+                >
+                  {Number(riderData?.payment_transaction_status) === 1 ? 'Unblock Transactions' : 'Block Transactions'}
+                </Button>
               </div>
             </Space>
           </Col>
@@ -1441,6 +1509,20 @@ const RiderDashboard = () => {
                     </Button>
                   </Popover>
                   <Button
+                    danger={Number(riderData?.payment_transaction_status) !== 1}
+                    icon={Number(riderData?.payment_transaction_status) === 1 ? <CheckCircleOutlined /> : <StopOutlined />}
+                    style={{
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      backgroundColor: Number(riderData?.payment_transaction_status) === 1 ? '#16a34a' : '#fff1f2',
+                      color: Number(riderData?.payment_transaction_status) === 1 ? '#ffffff' : '#e11d48',
+                      borderColor: Number(riderData?.payment_transaction_status) === 1 ? '#16a34a' : '#fecdd3',
+                    }}
+                    onClick={() => (Number(riderData?.payment_transaction_status) === 1 ? setTxUnblockModalVisible(true) : setTxBlockModalVisible(true))}
+                  >
+                    {Number(riderData?.payment_transaction_status) === 1 ? 'Unblock Bank Transactions' : 'Block Bank Transactions'}
+                  </Button>
+                  <Button
                     icon={<ReloadOutlined spin={walletLoading} />}
                     onClick={fetchWalletData}
                     style={{ borderRadius: 6 }}
@@ -1450,6 +1532,30 @@ const RiderDashboard = () => {
                 </div>
               </div>
             </Card>
+
+            {Number(riderData?.payment_transaction_status) === 1 && (
+              <Alert
+                type="error"
+                showIcon
+                icon={<StopOutlined />}
+                style={{ marginBottom: 16, borderRadius: 8, border: '1px solid #fecaca', backgroundColor: '#fef2f2' }}
+                message={
+                  <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 13.5 }}>
+                    Bank Transactions Blocked
+                  </div>
+                }
+                description={
+                  <div style={{ color: '#7f1d1d', fontSize: 12 }}>
+                    This rider's withdrawal & payout transactions are currently blocked by admin. The rider cannot request new payouts or withdraw wallet earnings into their bank account.
+                    {(riderData?.payment_block_remark || riderData?.payment_transaction_remark) && (
+                      <div style={{ marginTop: 4, fontWeight: 500 }}>
+                        <strong>Reason:</strong> {riderData?.payment_block_remark || riderData?.payment_transaction_remark}
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            )}
 
             {/* Financial Summary Metric Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -2099,6 +2205,125 @@ const RiderDashboard = () => {
             )}
           </div>
         )}
+      </Modal>
+      {/* Block Rider Payment & Bank Transactions Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#dc2626' }}>
+            <StopOutlined style={{ fontSize: 18 }} />
+            <span>Block Rider Payment & Bank Transactions</span>
+          </div>
+        }
+        open={txBlockModalVisible}
+        onCancel={() => {
+          if (!txBlockLoading) {
+            setTxBlockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setTxBlockModalVisible(false)} disabled={txBlockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={txBlockLoading}
+            onClick={handleConfirmTxBlock}
+            icon={<StopOutlined />}
+            style={{ fontWeight: 600 }}
+          >
+            Confirm & Block Transactions
+          </Button>,
+        ]}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 14 }}>
+              {riderName}
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              ID: <strong>{riderData?.custom_id || riderData?.rider_id || `RID#${riderIdNumber}`}</strong>
+              {riderData?.phonenumber && ` • 📞 ${riderData.phonenumber}`}
+            </div>
+          </div>
+
+          <Alert
+            type="error"
+            showIcon
+            message="Bank Withdrawals & Payout Requests Will Be Stopped"
+            description="Setting payment_transaction_status to 1 prevents this rider from submitting withdrawal requests and stops all payouts into their bank account."
+            style={{ fontSize: 12.5 }}
+          />
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Reason for Transaction Block: <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <Select
+              value={txBlockReason}
+              onChange={setTxBlockReason}
+              style={{ width: '100%' }}
+              options={[
+                { label: 'Suspicious Financial Activity / Fraud Risk', value: 'Suspicious Financial Activity' },
+                { label: 'Bank Account Details Under Review / Invalid Bank Info', value: 'Bank Details Review' },
+                { label: 'Disputed Order Deliveries / High Cancellation Rate', value: 'Disputed Deliveries' },
+                { label: 'Pending Documentation / Verification Hold', value: 'Verification Hold' },
+                { label: 'Rider Requested Financial Pause', value: 'Rider Requested Pause' },
+                { label: 'Other', value: 'Other' },
+              ]}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+              Additional Remarks / Notes:
+            </label>
+            <Input.TextArea
+              rows={3}
+              placeholder="Enter internal notes or reason for stopping bank transactions..."
+              value={txBlockRemarks}
+              onChange={(e) => setTxBlockRemarks(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unblock Rider Bank Transactions Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a' }}>
+            <CheckCircleOutlined style={{ fontSize: 18 }} />
+            <span>Unblock Rider Bank Transactions</span>
+          </div>
+        }
+        open={txUnblockModalVisible}
+        onCancel={() => {
+          if (!txUnblockLoading) {
+            setTxUnblockModalVisible(false);
+          }
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setTxUnblockModalVisible(false)} disabled={txUnblockLoading}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={txUnblockLoading}
+            onClick={handleConfirmTxUnblock}
+            icon={<CheckCircleOutlined />}
+            style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontWeight: 600 }}
+          >
+            Allow & Restore Transactions
+          </Button>,
+        ]}
+      >
+        <p style={{ margin: 0, fontSize: 13.5 }}>
+          Are you sure you want to unblock bank transactions for rider <strong>{riderName}</strong>?
+          This will set <code>payment_transaction_status</code> back to <strong>0 (Working)</strong> and allow the rider to request bank withdrawals again.
+        </p>
       </Modal>
     </div>
   );

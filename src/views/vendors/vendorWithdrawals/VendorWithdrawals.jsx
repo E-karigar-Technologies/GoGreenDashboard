@@ -41,6 +41,8 @@ import {
   MinusOutlined,
   EyeOutlined,
   ArrowRightOutlined,
+  InfoCircleOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getVendorWithdrawals, updateVendorWithdrawal } from '../../../services/apiService';
@@ -551,6 +553,8 @@ const VendorWithdrawals = () => {
     );
   };
 
+  const expandedRowRender = renderExpandedRow;
+
   // Limited primary columns definition (fits on any screen without horizontal scroll)
   const columns = [
     {
@@ -585,7 +589,7 @@ const VendorWithdrawals = () => {
       },
     },
     {
-      title: 'Vendor Store & Owner',
+      title: 'Vendor Details',
       key: 'vendor_info',
       render: (_, record) => {
         const storeName = getVendorStoreName(record);
@@ -829,14 +833,26 @@ const VendorWithdrawals = () => {
             onChange={(val) => setStatusTab(val)}
           />
 
-          <Input
-            placeholder="Search by Store, Owner, Email, Phone, UID, Bank, Acc No..."
-            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-            style={{ width: 360 }}
-          />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <Input
+              placeholder="Search by Store, Owner, Email, Phone, UID, Bank, Acc No..."
+              prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              style={{ width: 340 }}
+            />
+            <Popover
+              content={<StatusGuidePopoverContent />}
+              title={<span style={{ fontWeight: 700 }}><QuestionCircleOutlined /> Withdrawal Status Meanings & Guide</span>}
+              trigger="click"
+              placement="bottomRight"
+            >
+              <Button icon={<QuestionCircleOutlined />} style={{ borderRadius: 6, fontWeight: 500 }}>
+                Status Meanings
+              </Button>
+            </Popover>
+          </div>
         </div>
 
         <Table
@@ -846,7 +862,7 @@ const VendorWithdrawals = () => {
           loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Total ${t} requests` }}
           expandable={{
-            expandedRowRender: renderExpandedRow,
+            expandedRowRender,
             rowExpandable: () => true,
             expandIcon: ({ expanded, onExpand, record }) => (
               <Button

@@ -700,6 +700,55 @@ export const blockRider = async (riderId, remark = '') => {
 export const unblockRider = async (riderId, remark = '') => {
   return updateRiderDeactivateStatus(riderId, 0, remark);
 };
+// Update rider payment transaction status (payment_transaction_status: 1 = blocked, 0 = active/working)
+export const updateRiderPaymentTransactionStatus = async (riderId, paymentTransactionStatus, remark = '') => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+    let response;
+    try {
+      response = await axios.post(
+        `/riders/payment-transaction-status`,
+        {
+          user_id: Number(riderId),
+          payment_transaction_status: Number(paymentTransactionStatus),
+          remark: remark || ''
+        },
+        reqConfig
+      );
+    } catch (err) {
+      // Fallback to shared /vendors/payment-transaction-status (updates users table)
+      response = await axios.post(
+        `/vendors/payment-transaction-status`,
+        {
+          user_id: Number(riderId),
+          payment_transaction_status: Number(paymentTransactionStatus),
+          remark: remark || ''
+        },
+        reqConfig
+      );
+    }
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+// Convenience helper to block rider payment transactions (payment_transaction_status = 1)
+export const blockRiderPaymentTransactions = async (riderId, remark = '') => {
+  return updateRiderPaymentTransactionStatus(riderId, 1, remark);
+};
+
+// Convenience helper to unblock rider payment transactions (payment_transaction_status = 0)
+export const unblockRiderPaymentTransactions = async (riderId, remark = '') => {
+  return updateRiderPaymentTransactionStatus(riderId, 0, remark);
+};
+
 export const getRiderById = async (id) => {
   try {
     const response = await axios.get(`/riders/getallridersforadminbyID/${id}`, config);
