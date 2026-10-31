@@ -1432,3 +1432,345 @@ export const getRiderWithdrawalsById = async (riderId) => {
   }
 };
 
+
+// ==========================================
+// Rider Delivery Charges Settings (Canada - CAD)
+// ==========================================
+
+/**
+ * Fetch rider delivery charges configuration (GET /api/admin/rider-delivery-settings)
+ */
+export const getRiderDeliverySettings = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/rider-delivery-settings', reqConfig);
+    } catch (err) {
+      response = await axios.get('/admin/rider-delivery-settings', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Settings retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to get rider delivery settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch settings',
+    };
+  }
+};
+
+/**
+ * Update rider delivery charges configuration (PUT /api/admin/rider-delivery-settings)
+ */
+export const updateRiderDeliverySettings = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/admin/rider-delivery-settings', payload, reqConfig);
+    } catch (err) {
+      response = await axios.put('/admin/rider-delivery-settings', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update rider delivery settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update settings',
+    };
+  }
+};
+
+/**
+ * Calculate rider delivery payout for given distance (POST /api/admin/rider-delivery-settings/calculate)
+ */
+export const calculateRiderDeliveryPayout = async (distanceKm) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.post('/api/admin/rider-delivery-settings/calculate', { distance_km: distanceKm }, reqConfig);
+    } catch (err) {
+      response = await axios.post('/admin/rider-delivery-settings/calculate', { distance_km: distanceKm }, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data
+    };
+  } catch (error) {
+    console.error('Failed to calculate rider delivery payout:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Calculation error',
+    };
+  }
+};
+
+/**
+ * Fetch vendor commission configuration (GET /api/admin/vendor-commission-settings)
+ */
+export const getVendorCommissionSettings = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/vendor-commission-settings', reqConfig);
+    } catch (err) {
+      response = await axios.get('/admin/vendor-commission-settings', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Vendor commission settings retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to get vendor commission settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch vendor commission settings',
+    };
+  }
+};
+
+/**
+ * Update vendor commission configuration (PUT /api/admin/vendor-commission-settings)
+ */
+export const updateVendorCommissionSettings = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/admin/vendor-commission-settings', payload, reqConfig);
+    } catch (err) {
+      response = await axios.put('/admin/vendor-commission-settings', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Vendor commission settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update vendor commission settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update vendor commission settings',
+    };
+  }
+};
+
+/**
+ * Calculate vendor commission for given subtotal (POST /api/admin/vendor-commission-settings/calculate)
+ */
+export const calculateVendorCommission = async (subtotalCad) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.post('/api/admin/vendor-commission-settings/calculate', { subtotal_cad: subtotalCad }, reqConfig);
+    } catch (err) {
+      response = await axios.post('/admin/vendor-commission-settings/calculate', { subtotal_cad: subtotalCad }, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data
+    };
+  } catch (error) {
+    console.error('Failed to calculate vendor commission:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Calculation error',
+    };
+  }
+};
+
+/**
+ * Fetch global withdrawal settings (GET /api/admin/withdrawal-settings)
+ */
+export const getWithdrawalSettings = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/withdrawal-settings', reqConfig);
+    } catch (err) {
+      response = await axios.get('/admin/withdrawal-settings', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Withdrawal settings retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to get withdrawal settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch withdrawal settings',
+    };
+  }
+};
+
+/**
+ * Update global withdrawal settings (PUT /api/admin/withdrawal-settings)
+ */
+export const updateWithdrawalSettings = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/admin/withdrawal-settings', payload, reqConfig);
+    } catch (err) {
+      response = await axios.put('/admin/withdrawal-settings', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Withdrawal settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update withdrawal settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update withdrawal settings',
+    };
+  }
+};
+
+/**
+ * Fetch user withdrawal preference (GET /api/withdrawal/preferences)
+ */
+export const getUserWithdrawalPreferences = async (params = {}) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+      params
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/withdrawal/preferences', reqConfig);
+    } catch (err) {
+      response = await axios.get('/withdrawal/preferences', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data
+    };
+  } catch (error) {
+    console.error('Failed to get user withdrawal preference:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch preference',
+    };
+  }
+};
+
+/**
+ * Update user withdrawal preference (PUT /api/withdrawal/preferences)
+ */
+export const updateUserWithdrawalPreferences = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/withdrawal/preferences', payload, reqConfig);
+    } catch (err) {
+      response = await axios.put('/withdrawal/preferences', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Preference saved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update user withdrawal preference:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to save preference',
+    };
+  }
+};

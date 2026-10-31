@@ -1,4 +1,5 @@
 import { lazy } from 'react';
+import { Navigate } from 'react-router-dom';
 
 import AdminLayout from 'layouts/AdminLayout';
 import GuestLayout from 'layouts/GuestLayout';
@@ -24,6 +25,9 @@ const SingleRider = lazy(() => import('../views/dashboard/RIDER/SingleRider'));
 const PickAndDrop = lazy(() => import('../views/pickAndDrop/PickAndDrop'));
 const VendorWithdrawals = lazy(() => import('../views/vendors/vendorWithdrawals/VendorWithdrawals'));
 const RiderWithdrawals = lazy(() => import('../views/dashboard/RIDER/riderWithdrawals/RiderWithdrawals'));
+const RiderDeliveryCharges = lazy(() => import('../views/settings/RiderDeliveryCharges'));
+const VendorCommission = lazy(() => import('../views/settings/VendorCommission'));
+const WithdrawalSettings = lazy(() => import('../views/settings/WithdrawalSettings'));
 
 const DashboardSales = lazy(() => import('../views/dashboard/DashSales/index'));
 
@@ -238,6 +242,38 @@ const MainRoutes = {
         {
           path: '/rider-withdrawals',
           element: <RiderWithdrawals />
+        },
+        {
+          path: '/settings/rider-delivery-charges',
+          element: <RiderDeliveryCharges />
+        },
+        {
+          path: '/settings/vendor-commission',
+          element: <VendorCommission />
+        },
+        {
+          path: '/vendor-commission',
+          element: <VendorCommission />
+        },
+        {
+          path: '/settings/withdrawal-settings',
+          element: <WithdrawalSettings />
+        },
+        {
+          path: '/withdrawal-settings',
+          element: <WithdrawalSettings />
+        },
+        {
+          path: '/rider-delivery-charges',
+          element: <RiderDeliveryCharges />
+        },
+        {
+          path: '/settings',
+          element: <Navigate to="/settings/withdrawal-settings" replace />
+        },
+        {
+          path: '*',
+          element: <Navigate to="/dashboard" replace />
         }
 
 

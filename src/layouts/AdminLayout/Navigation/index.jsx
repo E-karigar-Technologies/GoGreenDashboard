@@ -73,7 +73,9 @@ import {
   BranchesOutlined,
   PlusSquareOutlined,
   UnorderedListOutlined,
-  PlaySquareOutlined
+  PlaySquareOutlined,
+  PercentageOutlined,
+  WalletOutlined
 } from '@ant-design/icons';
 // project imports
 import { ConfigContext } from 'contexts/ConfigContext';
@@ -107,6 +109,9 @@ const iconMap = {
 // Specific icon mapping by menu item id for enhanced visual distinction
 const itemSpecificIcons = {
   'customer-settings': <SettingOutlined />,
+  'rider-delivery-charges': <CarOutlined />,
+  'vendor-commission': <PercentageOutlined />,
+  'withdrawal-settings': <WalletOutlined />,
   'manage-appbanners': <PlaySquareOutlined />,
   'add-banner': <PlusSquareOutlined />,
   'all-banner': <UnorderedListOutlined />,

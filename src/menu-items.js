@@ -328,11 +328,38 @@ const menuItems = {
       children: [
         {
           id: 'customer-settings',
-          title: 'Customer App Settings',
+          title: 'Settings',
           type: 'collapse',
           icon: 'material-icons-two-tone',
           iconname: 'settings',
           children: [
+            {
+              id: 'rider-delivery-charges',
+              title: 'Rider Delivery Charges',
+              type: 'item',
+              url: '/settings/rider-delivery-charges',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'attach_money'
+            },
+            {
+              id: 'vendor-commission',
+              title: 'Vendor Commission',
+              type: 'item',
+              url: '/settings/vendor-commission',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'percent'
+            },
+            {
+              id: 'withdrawal-settings',
+              title: 'Withdrawal Settings',
+              type: 'item',
+              url: '/settings/withdrawal-settings',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'account_balance_wallet'
+            },
             {
               id: 'manage-appbanners',
               title: 'App Banners',
