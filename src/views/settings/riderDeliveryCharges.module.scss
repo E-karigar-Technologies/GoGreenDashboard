@@ -49,14 +49,16 @@
 
 .inputsRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
 }
 
 .inputGroup {
   label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 600;
     font-size: 13px;
     color: #334155;
@@ -74,6 +76,13 @@
   border-top: 1px solid #f1f5f9;
 }
 
+.togglesGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
 .toggleContainer {
   display: flex;
   align-items: center;
@@ -89,11 +98,12 @@
 .statusMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 12px;
   color: #64748b;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px dashed #e2e8f0;
 }
 
@@ -111,7 +121,7 @@
 .howItWorksText {
   font-size: 12.5px;
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.6;
   margin-bottom: 16px;
 }
 
@@ -130,6 +140,12 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .inputsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 16px 12px;
@@ -143,5 +159,11 @@
   .bottomControlRow {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .togglesGroup {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 }
