@@ -8,8 +8,7 @@ import {
   Alert,
   Spin,
   message,
-  Space,
-  Tooltip
+  Space
 } from 'antd';
 import {
   CarOutlined,
@@ -17,8 +16,7 @@ import {
   ReloadOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ThunderboltOutlined,
-  InfoCircleOutlined
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
@@ -27,7 +25,7 @@ import {
 } from '../../services/apiService';
 import styles from './riderDeliveryCharges.module.scss';
 
-// Standard distance examples from specification (including 10 km and 10.1 km tier transition)
+// Standard sample distances for breakdown
 const SAMPLE_DISTANCES = [3, 5, 5.1, 5.5, 6, 6.1, 7, 10, 10.1];
 
 /**
@@ -147,7 +145,7 @@ const RiderDeliveryCharges = () => {
   const handleSave = async () => {
     // Validation
     if (baseDistance === null || isNaN(baseDistance) || !isFinite(baseDistance) || baseDistance <= 0) {
-      const msg = 'Base distance must be greater than 0.';
+      const msg = 'Base distance must be greater than 0 KM.';
       setErrorMsg(msg);
       message.error(msg);
       return;
@@ -165,7 +163,7 @@ const RiderDeliveryCharges = () => {
       return;
     }
     if (fastDeliveryAmount === null || isNaN(fastDeliveryAmount) || !isFinite(fastDeliveryAmount) || fastDeliveryAmount < 0) {
-      const msg = 'Fast delivery pricing cannot be negative.';
+      const msg = 'Fast delivery fee cannot be negative.';
       setErrorMsg(msg);
       message.error(msg);
       return;
@@ -186,7 +184,7 @@ const RiderDeliveryCharges = () => {
     try {
       const res = await updateRiderDeliverySettings(payload);
       if (res.success && res.data) {
-        message.success(res.message || 'Settings saved successfully!');
+        message.success(res.message || 'Delivery charges updated successfully.');
         const d = res.data;
         setSavedConfig({
           id: d.id || 1,
@@ -211,7 +209,7 @@ const RiderDeliveryCharges = () => {
     }
   };
 
-  // Instant refresh of example breakdown table with both standard and fast delivery
+  // Instant refresh of example breakdown table
   const breakdownRows = useMemo(() => {
     return SAMPLE_DISTANCES.map((d) => {
       const calc = calculatePayout(
@@ -234,269 +232,271 @@ const RiderDeliveryCharges = () => {
         isFastEnabled: isFastDeliveryEnabled
       };
     });
-  }, [baseDistance, baseAmount, additionalAmount, fastDeliveryAmount, isFastDeliveryEnabled]);
+}, [baseDistance, baseAmount, additionalAmount, fastDeliveryAmount, isFastDeliveryEnabled]);
 
-  const breakdownColumns = [
-    {
-      title: 'Distance',
-      dataIndex: 'distance',
-      key: 'distance',
-      width: 100,
-      render: (text) => <strong style={{ color: '#0f172a' }}>{text}</strong>
-    },
-    {
-      title: 'Calculation Rule',
-      dataIndex: 'rule',
-      key: 'rule',
-      render: (text) => <span style={{ color: '#475569', fontSize: 13 }}>{text}</span>
-    },
-    {
-      title: 'Standard Payout (CAD)',
-      dataIndex: 'standardPayout',
-      key: 'standardPayout',
-      align: 'right',
-      width: 170,
-      render: (text) => <strong style={{ color: '#088b46', fontSize: 13.5 }}>{text}</strong>
-    },
-    {
-      title: (
-        <span>
-          <ThunderboltOutlined style={{ color: '#f59e0b', marginRight: 5 }} />
-          Fast Delivery Payout (CAD)
-        </span>
-      ),
-      dataIndex: 'fastPayout',
-      key: 'fastPayout',
-      align: 'right',
-      width: 210,
-      render: (text, record) => (
-        <div>
-          <strong style={{ color: '#d97706', fontSize: 13.5 }}>{text}</strong>
-          {record.isFastEnabled && record.fastSurcharge > 0 ? (
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>
-              (+${record.fastSurcharge.toFixed(2)} Fast Fee)
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>
-              (Fast Fee Disabled)
-            </div>
-          )}
-        </div>
+    const breakdownColumns = [
+      {
+        title: 'Distance',
+        dataIndex: 'distance',
+        key: 'distance',
+        width: 110,
+        render: (text) => <strong style={{ color: '#0f172a' }}>{text}</strong>
+      },
+      {
+        title: 'Calculation Rule',
+        dataIndex: 'rule',
+        key: 'rule',
+        render: (text) => <span style={{ color: '#475569', fontSize: 13 }}>{text}</span>
+      },
+      {
+        title: 'Standard Payout (CAD)',
+        dataIndex: 'standardPayout',
+        key: 'standardPayout',
+        align: 'right',
+        width: 170,
+        render: (text) => <strong style={{ color: '#088b46', fontSize: 13.5 }}>{text}</strong>
+      },
+      {
+        title: (
+          <span>
+            <ThunderboltOutlined style={{ color: '#f59e0b', marginRight: 5 }} />
+            Fast Delivery Payout (CAD)
+          </span>
+        ),
+        dataIndex: 'fastPayout',
+        key: 'fastPayout',
+        align: 'right',
+        width: 210,
+        render: (text, record) => (
+        < div >
+  <strong style={{ color: '#d97706', fontSize: 13.5 }}>{text}</strong>
+          {
+    record.isFastEnabled && record.fastSurcharge > 0 ? (
+      <div style={{ fontSize: 11, color: '#94a3b8' }}>
+        (+${record.fastSurcharge.toFixed(2)} Fast Fee)
+      </div>
+    ) : (
+      <div style={{ fontSize: 11, color: '#94a3b8' }}>
+        (Fast Fee Disabled)
+      </div>
+    )
+  }
+        </div >
       )
     }
   ];
 
-  const lastUpdated = savedConfig.updated_at
-    ? dayjs(savedConfig.updated_at).format('MMM D, YYYY • hh:mm A')
-    : 'Not yet updated';
+const lastUpdated = savedConfig.updated_at
+  ? dayjs(savedConfig.updated_at).format('MMM D, YYYY • hh:mm A')
+  : 'Not yet updated';
 
-  return (
-    <div className={styles.container}>
-      {/* Header */}
-      <div className={styles.headerSection}>
-        <div className={styles.titleBox}>
-          <h2>
-            <CarOutlined style={{ color: '#088b46', marginRight: 8 }} />
-            Rider Delivery Charges & Fast Delivery
-          </h2>
-          <p>Configure dynamic distance-based rider earnings and fast delivery premium pricing.</p>
-        </div>
-
-        <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchSettings} size="middle">
-          Refresh
-        </Button>
-      </div>
-
-      {errorMsg && (
-        <Alert
-          message={errorMsg}
-          type="error"
-          showIcon
-          closable
-          onClose={() => setErrorMsg('')}
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
-      <Spin spinning={loading}>
-        {/* Section 1: Configuration Card */}
-        <div className={styles.card}>
-          <div className={styles.cardTitle}>
-            <span>Delivery Charge & Fast Delivery Configuration</span>
-            <Space>
-              {savedConfig.is_fast_delivery_enabled === 1 ? (
-                <Tag color="warning" icon={<ThunderboltOutlined />}>Fast Delivery Active</Tag>
-              ) : (
-                <Tag color="default">Fast Delivery Off</Tag>
-              )}
-              {savedConfig.is_enabled === 1 ? (
-                <Tag color="success" icon={<CheckCircleOutlined />}>Overall Active</Tag>
-              ) : (
-                <Tag color="default" icon={<CloseCircleOutlined />}>Disabled</Tag>
-              )}
-            </Space>
-          </div>
-
-          <div className={styles.inputsRow}>
-            {/* Input 1: Base Distance */}
-            <div className={styles.inputGroup}>
-              <label>1. Base Distance (KM)</label>
-              <InputNumber
-                value={baseDistance}
-                onChange={(val) => setBaseDistance(val !== null ? val : 0)}
-                min={0.1}
-                step={0.5}
-                precision={2}
-                addonAfter="KM"
-                style={{ width: '100%' }}
-              />
+        return (
+        <div className={styles.container}>
+          {/* Header */}
+          <div className={styles.headerSection}>
+            <div className={styles.titleBox}>
+              <h2>
+                <CarOutlined style={{ color: '#088b46', marginRight: 8 }} />
+                Rider Delivery Charges
+              </h2>
+              <p>Configure how much riders earn for each delivery based on distance and fast delivery pricing.</p>
             </div>
 
-            {/* Input 2: Base Amount */}
-            <div className={styles.inputGroup}>
-              <label>2. Base Amount (CAD)</label>
-              <InputNumber
-                value={baseAmount}
-                onChange={(val) => setBaseAmount(val !== null ? val : 0)}
-                min={0}
-                step={0.5}
-                precision={2}
-                prefix="$"
-                addonAfter="CAD"
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {/* Input 3: Additional Amount Per KM */}
-            <div className={styles.inputGroup}>
-              <label>3. Additional Amount Per KM (CAD)</label>
-              <InputNumber
-                value={additionalAmount}
-                onChange={(val) => setAdditionalAmount(val !== null ? val : 0)}
-                min={0}
-                step={0.25}
-                precision={2}
-                prefix="$"
-                addonAfter="CAD"
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            {/* Input 4: Fast Delivery Pricing */}
-            <div className={styles.inputGroup}>
-              <label>
-                <ThunderboltOutlined style={{ color: '#d97706' }} />
-                4. Fast Delivery Fee (CAD)
-              </label>
-              <InputNumber
-                value={fastDeliveryAmount}
-                onChange={(val) => setFastDeliveryAmount(val !== null ? val : 0)}
-                min={0}
-                step={0.5}
-                precision={2}
-                prefix="$"
-                addonAfter="CAD"
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-
-          <div className={styles.bottomControlRow}>
-            <div className={styles.togglesGroup}>
-              {/* Toggle 1: Global Enable */}
-              <div className={styles.toggleContainer}>
-                <Switch
-                  checked={isEnabled}
-                  onChange={setIsEnabled}
-                  style={{ backgroundColor: isEnabled ? '#088b46' : undefined }}
-                />
-                <span>Delivery Charges: {isEnabled ? 'Enabled' : 'Disabled'}</span>
-              </div>
-
-              {/* Toggle 2: Fast Delivery Pricing Enable */}
-              <div className={styles.toggleContainer}>
-                <Switch
-                  checked={isFastDeliveryEnabled}
-                  onChange={setIsFastDeliveryEnabled}
-                  style={{ backgroundColor: isFastDeliveryEnabled ? '#f59e0b' : undefined }}
-                />
-                <span>Fast Delivery Premium: {isFastDeliveryEnabled ? 'Active' : 'Disabled'}</span>
-              </div>
-            </div>
-
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={saving}
-              onClick={handleSave}
-              style={{
-                backgroundColor: '#088b46',
-                borderColor: '#088b46',
-                fontWeight: 600,
-                minWidth: 150
-              }}
-            >
-              Save Changes
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchSettings} size="middle">
+              Refresh
             </Button>
           </div>
 
-          {/* Section 4: Current Configuration Summary */}
-          <div className={styles.statusMeta}>
-            <span>
-              <strong>Base Tier:</strong> {savedConfig.base_distance_km} KM (${savedConfig.base_amount_cad.toFixed(2)} CAD)
-            </span>
-            <span>•</span>
-            <span>
-              <strong>Extra KM:</strong> +${savedConfig.additional_amount_per_km_cad.toFixed(2)} CAD/KM
-            </span>
-            <span>•</span>
-            <span>
-              <strong>Fast Delivery:</strong> ${savedConfig.fast_delivery_amount_cad.toFixed(2)} CAD ({savedConfig.is_fast_delivery_enabled === 1 ? 'Active' : 'Off'})
-            </span>
-            <span>•</span>
-            <span>
-              <strong>Overall Status:</strong> {savedConfig.is_enabled === 1 ? 'Active' : 'Disabled'}
-            </span>
-            <span>•</span>
-            <span>
-              <strong>Last Updated:</strong> {lastUpdated}
-            </span>
-          </div>
-        </div>
-
-        {/* Section 2: How It Works & Section 3: Charge Breakdown */}
-        <div className={styles.card}>
-          <div className={styles.cardTitle}>
-            <span>How It Works & Live Dynamic Pricing Breakdown</span>
-          </div>
-
-          <div className={styles.formulaBox}>
-            Standard Payout = distance &lt;= baseDistance ? baseAmount : baseAmount + Math.ceil(distance - baseDistance) * additionalAmount
-            <br />
-            Fast Delivery Payout = Standard Payout + (isFastDeliveryEnabled ? fastDeliveryAmount : 0)
-          </div>
-
-          <div className={styles.howItWorksText}>
-            • <strong>Standard Delivery:</strong> For deliveries from 0 to {baseDistance} km, the rider earns <strong>${baseAmount.toFixed(2)} CAD</strong>. Beyond {baseDistance} km, each additional kilometre or fraction of a kilometre adds <strong>${additionalAmount.toFixed(2)} CAD</strong> using <code>Math.ceil()</code> on the excess distance.
-            <br />
-            • <strong>Fast Delivery (Express):</strong> When Fast Delivery is enabled, an extra premium of <strong>${fastDeliveryAmount.toFixed(2)} CAD</strong> is dynamically added to the delivery payout for fast-tracked orders.
-          </div>
-
-          <Table
-            dataSource={breakdownRows}
-            columns={breakdownColumns}
-            pagination={false}
-            size="small"
-            bordered
+        {errorMsg && (
+          <Alert
+            message={errorMsg}
+            type="error"
+            showIcon
+            closable
+            onClose={() => setErrorMsg('')}
+            style={{ marginBottom: 16 }}
           />
+        )}
 
-          <div className={styles.tierNote}>
-            💡 <strong>Dynamic Preview Note:</strong> Changes to <em>Base Distance</em>, <em>Base Amount</em>, <em>Additional Amount/KM</em>, or <em>Fast Delivery Fee</em> update the calculation in the table above immediately in real time before saving.
-          </div>
-        </div>
-      </Spin>
-    </div>
-  );
+        <Spin spinning={loading}>
+          {/* Section 1: Configuration Card */}
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>
+              <span>Delivery Charge & Fast Delivery Configuration</span>
+              <Space>
+                {savedConfig.is_fast_delivery_enabled === 1 ? (
+                  <Tag color="warning" icon={<ThunderboltOutlined />}>Fast Delivery Active</Tag>
+                ) : (
+                  <Tag color="default">Fast Delivery Off</Tag>
+                )}
+                {savedConfig.is_enabled === 1 ? (
+                  <Tag color="success" icon={<CheckCircleOutlined />}>Charges Active</Tag>
+                ) : (
+                  <Tag color="default" icon={<CloseCircleOutlined />}>Charges Disabled</Tag>
+                )}
+              </Space>
+            </div>
+
+                <div className={styles.inputsRow}>
+                  {/* Input 1 */}
+                  <div className={styles.inputGroup}>
+                    <label>1. Base Distance (KM)</label>
+                    <InputNumber
+                      value={baseDistance}
+                      onChange={(val) => setBaseDistance(val !== null ? val : 0)}
+                      min={0.1}
+                      step={0.5}
+                      precision={2}
+                      addonAfter="KM"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                        {/* Input 2 */}
+                        <div className={styles.inputGroup}>
+                          <label>2. Base Amount (CAD)</label>
+                          <InputNumber
+                            value={baseAmount}
+                            onChange={(val) => setBaseAmount(val !== null ? val : 0)}
+                            min={0}
+                            step={0.5}
+                            precision={2}
+                            prefix="$"
+                            addonAfter="CAD"
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+
+                          {/* Input 3 */}
+                          <div className={styles.inputGroup}>
+                            <label>3. Additional Amount Per KM (CAD)</label>
+                            <InputNumber
+                              value={additionalAmount}
+                              onChange={(val) => setAdditionalAmount(val !== null ? val : 0)}
+                              min={0}
+                              step={0.25}
+                              precision={2}
+                              prefix="$"
+                              addonAfter="CAD"
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+
+                            {/* Input 4: Fast Delivery Pricing */}
+                            <div className={styles.inputGroup}>
+                              <label>
+                                <ThunderboltOutlined style={{ color: '#d97706' }} />
+                                4. Fast Delivery Fee (CAD)
+                              </label>
+                              <InputNumber
+                                value={fastDeliveryAmount}
+                                onChange={(val) => setFastDeliveryAmount(val !== null ? val : 0)}
+                                min={0}
+                                step={0.5}
+                                precision={2}
+                                prefix="$"
+                                addonAfter="CAD"
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                          </div>
+
+                              <div className={styles.bottomControlRow}>
+                                <div className={styles.togglesGroup}>
+                                  {/* Toggle 1: Global Enable */}
+                                  <div className={styles.toggleContainer}>
+                                    <Switch
+                                      checked={isEnabled}
+                                      onChange={setIsEnabled}
+                                      style={{ backgroundColor: isEnabled ? '#088b46' : undefined }}
+                                    />
+                                    <span>Delivery Charges: {isEnabled ? 'Enabled' : 'Disabled'}</span>
+                                  </div>
+
+                                  {/* Toggle 2: Fast Delivery Pricing Enable */}
+                                  <div className={styles.toggleContainer}>
+                                    <Switch
+                                      checked={isFastDeliveryEnabled}
+                                      onChange={setIsFastDeliveryEnabled}
+                                      style={{ backgroundColor: isFastDeliveryEnabled ? '#f59e0b' : undefined }}
+                                    />
+                                    <span>Fast Delivery Premium: {isFastDeliveryEnabled ? 'Active' : 'Disabled'}</span>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  type="primary"
+                                  icon={<SaveOutlined />}
+                                  loading={saving}
+                                  onClick={handleSave}
+                                  style={{
+                                    backgroundColor: '#088b46',
+                                    borderColor: '#088b46',
+                                    fontWeight: 600,
+                                    minWidth: 150
+                                  }}
+                                >
+                                  Save Changes
+                                </Button>
+                              </div>
+
+                                {/* Section 4: Current Configuration Summary */}
+                                <div className={styles.statusMeta}>
+                                  <span>
+                                    <strong>Base Tier:</strong> {savedConfig.base_distance_km} KM (${savedConfig.base_amount_cad.toFixed(2)} CAD)
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    <strong>Extra KM:</strong> +${savedConfig.additional_amount_per_km_cad.toFixed(2)} CAD/KM
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    <strong>Fast Delivery:</strong> ${savedConfig.fast_delivery_amount_cad.toFixed(2)} CAD ({savedConfig.is_fast_delivery_enabled === 1 ? 'Active' : 'Off'})
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    <strong>Status:</strong> {savedConfig.is_enabled === 1 ? 'Active' : 'Disabled'}
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    <strong>Last Updated:</strong> {lastUpdated}
+                                  </span>
+                                </div>
+                              </div>
+
+                                  {/* Section 2: How It Works & Section 3: Charge Breakdown */}
+                                  <div className={styles.card}>
+                                    <div className={styles.cardTitle}>
+                                      <span>How It Works & Live Dynamic Pricing Breakdown</span>
+                                    </div>
+
+                                      <div className={styles.formulaBox}>
+                                        Standard Payout = distance &lt;= baseDistance ? baseAmount : baseAmount + Math.ceil(distance - baseDistance) * additionalAmount
+                                        <br />
+                                        Fast Delivery Payout = Standard Payout + (isFastDeliveryEnabled ? fastDeliveryAmount : 0)
+                                      </div>
+
+                                        <div className={styles.howItWorksText}>
+                                          • <strong>Standard Delivery:</strong> For deliveries from 0 to {baseDistance} km, the rider earns <strong>${baseAmount.toFixed(2)} CAD</strong>. Beyond {baseDistance} km, each additional kilometre or fraction of a kilometre adds <strong>${additionalAmount.toFixed(2)} CAD</strong> using <code>Math.ceil()</code> on the excess distance.
+                                          <br />
+                                          • <strong>Fast Delivery (Express):</strong> When Fast Delivery is enabled, an extra premium of <strong>${fastDeliveryAmount.toFixed(2)} CAD</strong> is dynamically added to the delivery payout for fast-tracked orders.
+                                        </div>
+
+                                      <Table
+                                        dataSource={breakdownRows}
+                                        columns={breakdownColumns}
+                                        pagination={false}
+                                        size="small"
+                                        bordered
+                                      />
+
+                                          <div className={styles.tierNote}>
+                                            💡 <strong>Dynamic Preview Note:</strong> Changes to <em>Base Distance</em>, <em>Base Amount</em>, <em>Additional Amount/KM</em>, or <em>Fast Delivery Fee</em> update the calculation in the table above immediately in real time before saving.
+                                          </div>
+                                        </div>
+                                </Spin>
+                              </div>
+                              );
 };
 
-export default RiderDeliveryCharges;
+                              export default RiderDeliveryCharges;

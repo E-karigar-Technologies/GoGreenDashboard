@@ -73,7 +73,7 @@ const menuItems = {
           icon: 'material-icons-two-tone',
           iconname: 'add_shopping_cart',
           children: [
-         
+
             {
               id: 'all-orders',
               title: 'All Orders',
@@ -83,7 +83,7 @@ const menuItems = {
               icon: 'material-icons-two-tone',
               iconname: 'people_alt'
             },
-           
+
           ]
         }
       ]
@@ -94,7 +94,7 @@ const menuItems = {
       type: 'collapse',
       icon: 'material-icons-two-tone',
       iconname: 'people',
-      children: [ 
+      children: [
         {
           id: 'all-users-item',
           title: 'All Customers',
@@ -359,6 +359,15 @@ const menuItems = {
               classes: 'nav-item',
               icon: 'material-icons-two-tone',
               iconname: 'account_balance_wallet'
+            },
+            {
+              id: 'distance-manager',
+              title: 'Distance Manager',
+              type: 'item',
+              url: '/settings/distance-manager',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'explore'
             },
             {
               id: 'manage-appbanners',

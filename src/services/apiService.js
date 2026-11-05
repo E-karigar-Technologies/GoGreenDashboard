@@ -1774,3 +1774,81 @@ export const updateUserWithdrawalPreferences = async (payload) => {
     };
   }
 };
+
+/**
+ * Distance Manager: Fetch dynamic distance limits, rider search radiuses, and test bypass mode
+ */
+export const getDistanceSettings = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/distance-settings', reqConfig);
+    } catch (err) {
+      try {
+        response = await axios.get('/admin/distance-settings', reqConfig);
+      } catch (err2) {
+        // Fallback for backwards compatibility
+        response = await axios.get('/api/admin/rider-delivery-settings', reqConfig);
+      }
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Distance settings retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to get distance settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch distance settings',
+    };
+  }
+};
+
+/**
+ * Distance Manager: Update dynamic distance limits, rider search radiuses, and test bypass mode
+ */
+export const updateDistanceSettings = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/admin/distance-settings', payload, reqConfig);
+    } catch (err) {
+      try {
+        response = await axios.put('/admin/distance-settings', payload, reqConfig);
+      } catch (err2) {
+        // Fallback for backwards compatibility
+        response = await axios.put('/api/admin/rider-delivery-settings', payload, reqConfig);
+      }
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Distance settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update distance settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update distance settings',
+    };
+  }
+};

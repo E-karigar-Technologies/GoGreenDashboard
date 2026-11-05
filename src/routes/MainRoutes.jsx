@@ -28,6 +28,7 @@ const RiderWithdrawals = lazy(() => import('../views/dashboard/RIDER/riderWithdr
 const RiderDeliveryCharges = lazy(() => import('../views/settings/RiderDeliveryCharges'));
 const VendorCommission = lazy(() => import('../views/settings/VendorCommission'));
 const WithdrawalSettings = lazy(() => import('../views/settings/WithdrawalSettings'));
+const DistanceManager = lazy(() => import('../views/settings/DistanceManager'));
 
 const DashboardSales = lazy(() => import('../views/dashboard/DashSales/index'));
 
@@ -64,6 +65,7 @@ const AllCustomers = lazy(() => import('../views/users/customers/allCustomers'))
 
 const MainRoutes = {
   path: '/',
+  errorElement: <Navigate to="/dashboard" replace />,
   children: [
     {
       path: '/',
@@ -254,6 +256,14 @@ const MainRoutes = {
         {
           path: '/vendor-commission',
           element: <VendorCommission />
+        },
+        {
+          path: '/settings/distance-manager',
+          element: <DistanceManager />
+        },
+        {
+          path: '/distance-manager',
+          element: <DistanceManager />
         },
         {
           path: '/settings/withdrawal-settings',

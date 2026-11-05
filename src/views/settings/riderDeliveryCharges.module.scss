@@ -41,17 +41,23 @@
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.cardSubtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 16px;
 }
 
 .inputsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .inputGroup {
@@ -63,6 +69,38 @@
     font-size: 13px;
     color: #334155;
     margin-bottom: 6px;
+  }
+}
+
+.inputHelperText {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.radiusFlowBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.radiusFlowItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #334155;
+
+  strong {
+    color: #0f172a;
   }
 }
 
@@ -165,5 +203,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .radiusFlowBox {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

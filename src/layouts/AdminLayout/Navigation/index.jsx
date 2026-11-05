@@ -75,7 +75,8 @@ import {
   UnorderedListOutlined,
   PlaySquareOutlined,
   PercentageOutlined,
-  WalletOutlined
+  WalletOutlined,
+  CompassOutlined
 } from '@ant-design/icons';
 // project imports
 import { ConfigContext } from 'contexts/ConfigContext';
@@ -112,6 +113,7 @@ const itemSpecificIcons = {
   'rider-delivery-charges': <CarOutlined />,
   'vendor-commission': <PercentageOutlined />,
   'withdrawal-settings': <WalletOutlined />,
+  'distance-manager': <CompassOutlined />,
   'manage-appbanners': <PlaySquareOutlined />,
   'add-banner': <PlusSquareOutlined />,
   'all-banner': <UnorderedListOutlined />,
