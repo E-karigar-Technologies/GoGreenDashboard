@@ -15,6 +15,7 @@ import {
   RightOutlined,
   DownOutlined,
   CloseCircleOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import useOrder, { getOrderStatus, parseOrderTime, parseOrderIdNum, calculateOrderFinancials } from './hooks/useOrder';
 import useOrderFilterOptions from './hooks/useOrderFilterOptions';
@@ -90,11 +91,96 @@ const Orders = () => {
     const products = record.products || [];
     const pm = record.payment_method || 'COD';
     const isPaid = record.order_payment_status === 1;
-    const isRejected = Number(record.order_status) === 3 || Number(record.order_status) === 5 || Boolean(record.reject_reason);
+    const statusNum = Number(record.order_status);
+    const isRejected = (statusNum === 3 || statusNum === 5 || Boolean(record.reject_reason)) && statusNum !== 7;
     const rejectReason = record.reject_reason || (isRejected ? 'No specific reason provided by vendor/store' : null);
 
     return (
       <div className={styles.expandedOrderContainer}>
+        {/* Status 7: Customer Did Not Receive Order Alert */}
+        {Number(record.order_status) === 7 && (
+          <div style={{ marginBottom: 12 }}>
+            <Alert
+              type="warning"
+              showIcon
+              icon={<ExclamationCircleOutlined style={{ fontSize: 18, color: '#c026d3' }} />}
+              message={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#86198f' }}>
+                    Customer Did Not Receive Order
+                  </span>
+                  <Tag color="magenta" style={{ margin: 0, fontWeight: 700 }}>
+                    Status #7 (Undelivered)
+                  </Tag>
+                </div>
+              }
+              description={
+                <div style={{ marginTop: 4, fontSize: '13px', color: '#701a75' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, color: '#86198f' }}>Reason: </span>
+                    <span style={{ background: '#ffffff', padding: '2px 8px', borderRadius: 4, border: '1px solid #f5d0fe', fontWeight: 600 }}>
+                      {record.undelivered_reason || record.reject_reason || 'Customer did not receive order'}
+                    </span>
+                  </div>
+                  {record.undelivered_notes && (
+                    <div style={{ marginTop: 4 }}>
+                      <span style={{ fontWeight: 700, color: '#86198f' }}>Rider Notes: </span>
+                      <span>{record.undelivered_notes}</span>
+                    </div>
+                  )}
+                  {record.undelivered_at && (
+                    <div style={{ marginTop: 2, fontSize: '11.5px', color: '#a21caf' }}>
+                      Reported At: {new Date(record.undelivered_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              }
+              style={{
+                border: '1.5px solid #f0abfc',
+                backgroundColor: '#fdf4ff',
+                borderRadius: 8
+              }}
+            />
+          </div>
+        )}
+
+        {/* Status 6: Reached Customer Location Alert */}
+        {Number(record.order_status) === 6 && (
+          <div style={{ marginBottom: 12 }}>
+            <Alert
+              type="info"
+              showIcon
+              icon={<EnvironmentOutlined style={{ fontSize: 18, color: '#0891b2' }} />}
+              message={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#155e75' }}>
+                    Reached Customer Location
+                  </span>
+                  <Tag color="cyan" style={{ margin: 0, fontWeight: 700 }}>
+                    Status #6 (At Doorstep)
+                  </Tag>
+                </div>
+              }
+              description={
+                <div style={{ marginTop: 4, fontSize: '13px', color: '#164e63' }}>
+                  <span>Rider has arrived at the customer delivery address and is awaiting order handover.</span>
+                  {record.reached_customer_at && (
+                    <div style={{ marginTop: 2, fontSize: '11.5px', color: '#0e7490' }}>
+                      Arrived At: {new Date(record.reached_customer_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              }
+              style={{
+                border: '1.5px solid #a5f3fc',
+                backgroundColor: '#ecfeff',
+                borderRadius: 8
+              }}
+            />
+          </div>
+        )}
+
+        {/* Status 3 / 5: Order Rejected Alert */}
         {isRejected && (
           <div style={{ marginBottom: 12 }}>
             <Alert
@@ -413,17 +499,85 @@ const Orders = () => {
       key: 'order_status',
       render: (statusVal, record) => {
         const s = getOrderStatus(statusVal);
-        const isRejected = Number(statusVal) === 3 || Number(statusVal) === 5 || Boolean(record?.reject_reason);
-        const reason = record?.reject_reason || (isRejected ? 'Reason not specified' : null);
+        const statusNum = Number(statusVal);
+        const isRejected = (statusNum === 3 || statusNum === 5 || Boolean(record?.reject_reason)) && statusNum !== 7;
+        const isUndelivered = statusNum === 7;
+        const isReached = statusNum === 6;
+
+        const rejectReason = record?.reject_reason || (isRejected ? 'Reason not specified' : null);
+        const undeliveredReason = record?.undelivered_reason || record?.reject_reason || (isUndelivered ? 'Customer did not receive order' : null);
 
         return (
-          <div style={{ minWidth: 130 }}>
+          <div style={{ minWidth: 135 }}>
             <Tag color={s.color} style={{ borderRadius: '12px', padding: '2px 8px', fontWeight: 700, fontSize: '11px', margin: 0 }}>
               {s.text}
             </Tag>
+
+            {/* Status 7: Customer Did Not Receive Order Details */}
+            {isUndelivered && (
+              <div style={{ marginTop: 4 }}>
+                <Tooltip title={
+                  <div>
+                    <div><strong>Reason:</strong> {undeliveredReason}</div>
+                    {record?.undelivered_notes && <div><strong>Notes:</strong> {record.undelivered_notes}</div>}
+                    {record?.undelivered_at && <div><strong>Reported:</strong> {new Date(record.undelivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+                  </div>
+                }>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: '#86198f',
+                      background: '#fdf4ff',
+                      border: '1px solid #f5d0fe',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      maxWidth: 180,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      lineHeight: 1.3
+                    }}
+                  >
+                    <ExclamationCircleOutlined style={{ fontSize: 10, flexShrink: 0, color: '#c026d3' }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
+                      {undeliveredReason}
+                    </span>
+                  </div>
+                </Tooltip>
+              </div>
+            )}
+
+            {/* Status 6: Reached Customer Location Arrival Info */}
+            {isReached && record?.reached_customer_at && (
+              <div style={{ marginTop: 4 }}>
+                <div
+                  style={{
+                    fontSize: '10.5px',
+                    color: '#0e7490',
+                    background: '#ecfeff',
+                    border: '1px solid #a5f3fc',
+                    borderRadius: 4,
+                    padding: '2px 6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    lineHeight: 1.3,
+                    fontWeight: 600
+                  }}
+                >
+                  <EnvironmentOutlined style={{ fontSize: 10, color: '#0891b2' }} />
+                  <span>Arrived: {new Date(record.reached_customer_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Status 3 / 5: Rejection Reason Details */}
             {isRejected && (
               <div style={{ marginTop: 4 }}>
-                <Tooltip title={reason ? `Rejection Reason: ${reason}` : 'No reason provided'}>
+                <Tooltip title={rejectReason ? `Rejection Reason: ${rejectReason}` : 'No reason provided'}>
                   <div
                     style={{
                       fontSize: '11px',
@@ -444,7 +598,7 @@ const Orders = () => {
                   >
                     <CloseCircleOutlined style={{ fontSize: 10, flexShrink: 0, color: '#dc2626' }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
-                      {reason}
+                      {rejectReason}
                     </span>
                   </div>
                 </Tooltip>

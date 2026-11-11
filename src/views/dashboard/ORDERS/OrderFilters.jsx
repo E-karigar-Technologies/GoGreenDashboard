@@ -208,7 +208,7 @@ const OrderFilters = ({
                 className={styles.statusSelect}
                 style={{ width: '100%' }}
               >
-                {[0, 1, 2, 3, 4, 5].map(statusCode => {
+                {[0, 1, 2, 6, 4, 3, 7].map(statusCode => {
                   const s = getOrderStatus(statusCode);
                   return (
                     <Select.Option key={statusCode} value={statusCode}>
@@ -227,6 +227,10 @@ const OrderFilters = ({
                                 ? '#3b82f6'
                                 : statusCode === 2
                                 ? '#a855f7'
+                                : statusCode === 6
+                                ? '#06b6d4'
+                                : statusCode === 7
+                                ? '#d946ef'
                                 : '#ef4444',
                           }}
                         />
@@ -508,7 +512,7 @@ const OrderFilters = ({
             onChange={val => setDrawerFilters({ ...drawerFilters, status: val ?? null })}
             style={{ width: '100%' }}
           >
-            {[0, 1, 2, 3, 4, 5].map(statusCode => {
+            {[0, 1, 2, 6, 4, 3, 7].map(statusCode => {
               const s = getOrderStatus(statusCode);
               return (
                 <Select.Option key={statusCode} value={statusCode}>

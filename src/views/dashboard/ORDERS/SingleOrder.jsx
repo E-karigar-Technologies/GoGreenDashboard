@@ -148,13 +148,18 @@ const SingleOrder = ({ order, onBack }) => {
   // Determine current step index for the tracker
   let currentStep = 0;
   const statusNum = Number(order.order_status);
+  const isUndelivered = statusNum === 7;
+  const isReached = statusNum === 6;
+  const isRejected = (statusNum === 3 || statusNum === 5 || Boolean(order.reject_reason)) && !isUndelivered;
+
   if (statusNum === 1) currentStep = 1;
   else if (statusNum === 2) currentStep = 2;
-  else if (statusNum === 4) currentStep = 4;
-  else if (statusNum === 3 || statusNum === 5) currentStep = 4; // Rejected step
+  else if (statusNum === 6) currentStep = 3; // Reached Customer Location
+  else if (statusNum === 4) currentStep = 4; // Delivered
+  else if (statusNum === 3 || statusNum === 5 || statusNum === 7) currentStep = 4; // Terminal step
 
-  const isRejected = statusNum === 3 || statusNum === 5 || Boolean(order.reject_reason);
   const rejectReason = order.reject_reason || (isRejected ? 'No specific reason provided by the store/vendor.' : null);
+  const undeliveredReason = order.undelivered_reason || order.reject_reason || (isUndelivered ? 'Customer did not receive order' : null);
 
   return (
     <div style={{ margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -205,21 +210,152 @@ const SingleOrder = ({ order, onBack }) => {
       <div className={`${styles.orderStepsCard} ${styles.noPrint}`}>
         <Steps
           current={currentStep}
-          status={isRejected ? 'error' : 'process'}
+          status={isRejected || isUndelivered ? 'error' : 'process'}
           items={[
             { title: 'Pending', description: 'Order Placed' },
             { title: 'Confirmed', description: 'Store Accepted' },
             { title: 'Assigned', description: 'Rider Allocated' },
-            { title: 'Picked Up', description: 'On The Way' },
             {
-              title: isRejected ? 'Rejected' : 'Delivered',
+              title: 'Reached',
+              description: statusNum === 6 ? 'At Customer Location' : 'Rider Arrived',
+            },
+            {
+              title: isRejected ? 'Rejected' : isUndelivered ? 'Undelivered' : 'Delivered',
               description: isRejected
-                ? (order.reject_reason ? `Reason: ${order.reject_reason}` : 'Order Cancelled')
+                ? (rejectReason ? `Reason: ${rejectReason}` : 'Order Cancelled')
+                : isUndelivered
+                ? (undeliveredReason ? `Reason: ${undeliveredReason}` : 'Not Received')
                 : 'Completed',
             },
           ]}
         />
       </div>
+
+      {/* Status 7: Customer Did Not Receive Order Banner */}
+      {isUndelivered && (
+        <div
+          className={styles.noPrint}
+          style={{
+            background: '#fdf4ff',
+            border: '1.5px solid #d946ef',
+            borderRadius: 12,
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+            boxShadow: '0 2px 6px rgba(217, 70, 239, 0.08)',
+          }}
+        >
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              background: '#fae8ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: '#c026d3',
+            }}
+          >
+            <AlertCircle size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#86198f', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Customer Did Not Receive Order</span>
+                <Tag color="magenta" style={{ fontWeight: 700, borderRadius: 6, margin: 0 }}>
+                  Status #7 (Undelivered)
+                </Tag>
+              </div>
+              {order.undelivered_at && (
+                <span style={{ fontSize: '12px', color: '#a21caf', fontWeight: 500 }}>
+                  Reported: {new Date(order.undelivered_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+            </div>
+
+            <div style={{ marginTop: 8, fontSize: '14px', color: '#701a75', lineHeight: 1.5 }}>
+              <strong style={{ color: '#86198f' }}>Undelivered Reason: </strong>
+              <div
+                style={{
+                  marginTop: 6,
+                  background: '#ffffff',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: '1px solid #f5d0fe',
+                  fontWeight: 600,
+                  fontSize: '13.5px',
+                  color: '#86198f',
+                  display: 'inline-block',
+                }}
+              >
+                {undeliveredReason}
+              </div>
+            </div>
+
+            {order.undelivered_notes && (
+              <div style={{ marginTop: 8, fontSize: '13px', color: '#701a75' }}>
+                <strong style={{ color: '#86198f' }}>Rider Notes: </strong>
+                <span>{order.undelivered_notes}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status 6: Reached Customer Location Banner */}
+      {isReached && (
+        <div
+          className={styles.noPrint}
+          style={{
+            background: '#ecfeff',
+            border: '1.5px solid #06b6d4',
+            borderRadius: 12,
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+            boxShadow: '0 2px 6px rgba(6, 182, 212, 0.08)',
+          }}
+        >
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              background: '#cffafe',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: '#0891b2',
+            }}
+          >
+            <MapPin size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#155e75', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Reached Customer Location</span>
+                <Tag color="cyan" style={{ fontWeight: 700, borderRadius: 6, margin: 0 }}>
+                  Status #6 (At Doorstep)
+                </Tag>
+              </div>
+              {order.reached_customer_at && (
+                <span style={{ fontSize: '12px', color: '#0e7490', fontWeight: 500 }}>
+                  Arrived: {new Date(order.reached_customer_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+            </div>
+
+            <div style={{ marginTop: 8, fontSize: '14px', color: '#164e63', lineHeight: 1.5 }}>
+              Delivery partner has arrived at the customer's delivery location and is awaiting handoff / verification.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rejection Notice Banner (if order was rejected) */}
       {isRejected && (

@@ -67,7 +67,9 @@ export const getOrderStatus = (status) => {
     case 3: return { text: 'Order Rejected', color: 'red' };
     case 4: return { text: 'Order Delivered', color: 'green' };
     case 5: return { text: 'Order Rejected', color: 'red' };
-    default: return { text: 'Unknown', color: 'gray' };
+    case 6: return { text: 'Reached Customer Location', color: 'cyan' };
+    case 7: return { text: 'Customer Did Not Receive Order', color: 'magenta' };
+    default: return { text: `Status #${num}`, color: 'default' };
   }
 };
 
