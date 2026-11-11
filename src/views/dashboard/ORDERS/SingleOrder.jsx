@@ -18,7 +18,8 @@ import {
   CreditCard,
   Building,
   Home,
-  Compass
+  Compass,
+  AlertCircle
 } from 'lucide-react';
 import { getOrderStatus, calculateOrderFinancials } from './hooks/useOrder';
 import styles from './orders.module.scss';
@@ -152,7 +153,8 @@ const SingleOrder = ({ order, onBack }) => {
   else if (statusNum === 4) currentStep = 4;
   else if (statusNum === 3 || statusNum === 5) currentStep = 4; // Rejected step
 
-  const isRejected = statusNum === 3 || statusNum === 5;
+  const isRejected = statusNum === 3 || statusNum === 5 || Boolean(order.reject_reason);
+  const rejectReason = order.reject_reason || (isRejected ? 'No specific reason provided by the store/vendor.' : null);
 
   return (
     <div style={{ margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -209,13 +211,111 @@ const SingleOrder = ({ order, onBack }) => {
             { title: 'Confirmed', description: 'Store Accepted' },
             { title: 'Assigned', description: 'Rider Allocated' },
             { title: 'Picked Up', description: 'On The Way' },
-            { title: isRejected ? 'Rejected' : 'Delivered', description: isRejected ? 'Order Cancelled' : 'Completed' },
+            {
+              title: isRejected ? 'Rejected' : 'Delivered',
+              description: isRejected
+                ? (order.reject_reason ? `Reason: ${order.reject_reason}` : 'Order Cancelled')
+                : 'Completed',
+            },
           ]}
         />
       </div>
 
+      {/* Rejection Notice Banner (if order was rejected) */}
+      {isRejected && (
+        <div
+          className={styles.noPrint}
+          style={{
+            background: '#fef2f2',
+            border: '1.5px solid #ef4444',
+            borderRadius: 12,
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+            boxShadow: '0 2px 6px rgba(239, 68, 68, 0.08)',
+          }}
+        >
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              background: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: '#dc2626',
+            }}
+          >
+            <AlertCircle size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Order Rejected</span>
+                <Tag color="error" style={{ fontWeight: 700, borderRadius: 6, margin: 0 }}>
+                  {status.text}
+                </Tag>
+              </div>
+              {order.created_at && (
+                <span style={{ fontSize: '12px', color: '#991b1b', fontWeight: 500 }}>
+                  Placed: {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              )}
+            </div>
+
+            <div style={{ marginTop: 8, fontSize: '14px', color: '#7f1d1d', lineHeight: 1.5 }}>
+              <strong style={{ color: '#991b1b' }}>Why Rejected / Rejection Reason: </strong>
+              <div
+                style={{
+                  marginTop: 6,
+                  background: '#ffffff',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: '1px solid #fca5a5',
+                  fontWeight: 600,
+                  fontSize: '13.5px',
+                  color: '#b91c1c',
+                  display: 'inline-block',
+                }}
+              >
+                {rejectReason}
+              </div>
+            </div>
+
+            {order.vendor?.store_name && (
+              <div style={{ marginTop: 8, fontSize: '12px', color: '#b91c1c' }}>
+                Store / Vendor: <strong>{order.vendor.store_name}</strong>
+                {order.vendor?.store_address && ` • ${order.vendor.store_address}`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Printable / Detail Section */}
       <div className={styles.printableReceipt}>
+        {/* Printable Rejection Notice */}
+        {isRejected && (
+          <div
+            style={{
+              background: '#fef2f2',
+              border: '1px solid #f87171',
+              borderRadius: 8,
+              padding: '12px 16px',
+              marginBottom: 16,
+              color: '#991b1b',
+            }}
+          >
+            <strong style={{ fontSize: '14px' }}>STATUS: ORDER REJECTED</strong>
+            <div style={{ marginTop: 4, fontSize: '13px' }}>
+              <strong>Rejection Reason:</strong> {rejectReason}
+            </div>
+          </div>
+        )}
+
         {/* Customer & Vendor Summary Cards */}
         <Row gutter={[20, 20]} style={{ marginBottom: 20 }}>
           {/* Customer Card */}

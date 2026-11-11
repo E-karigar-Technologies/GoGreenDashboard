@@ -14,6 +14,7 @@ import {
   UnorderedListOutlined,
   RightOutlined,
   DownOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
 import useOrder, { getOrderStatus, parseOrderTime, parseOrderIdNum, calculateOrderFinancials } from './hooks/useOrder';
 import useOrderFilterOptions from './hooks/useOrderFilterOptions';
@@ -89,9 +90,43 @@ const Orders = () => {
     const products = record.products || [];
     const pm = record.payment_method || 'COD';
     const isPaid = record.order_payment_status === 1;
+    const isRejected = Number(record.order_status) === 3 || Number(record.order_status) === 5 || Boolean(record.reject_reason);
+    const rejectReason = record.reject_reason || (isRejected ? 'No specific reason provided by vendor/store' : null);
 
     return (
       <div className={styles.expandedOrderContainer}>
+        {isRejected && (
+          <div style={{ marginBottom: 12 }}>
+            <Alert
+              type="error"
+              showIcon
+              icon={<CloseCircleOutlined style={{ fontSize: 18, color: '#dc2626' }} />}
+              message={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#991b1b' }}>
+                    Order Rejected / Cancelled
+                  </span>
+                  <Tag color="red" style={{ margin: 0, fontWeight: 700 }}>
+                    Status #{record.order_status}
+                  </Tag>
+                </div>
+              }
+              description={
+                <div style={{ marginTop: 4, fontSize: '13px', color: '#7f1d1d' }}>
+                  <span style={{ fontWeight: 700, color: '#991b1b' }}>Why Rejected / Rejection Reason: </span>
+                  <span style={{ background: '#ffffff', padding: '2px 8px', borderRadius: 4, border: '1px solid #fecaca', fontWeight: 600 }}>
+                    {rejectReason}
+                  </span>
+                </div>
+              }
+              style={{
+                border: '1.5px solid #f87171',
+                backgroundColor: '#fef2f2',
+                borderRadius: 8
+              }}
+            />
+          </div>
+        )}
         <Row gutter={[12, 12]}>
           {/* Col 1: Customer & Delivery Address */}
           <Col xs={24} sm={12} xl={6}>
@@ -376,12 +411,46 @@ const Orders = () => {
       title: 'STATUS',
       dataIndex: 'order_status',
       key: 'order_status',
-      render: (statusVal) => {
+      render: (statusVal, record) => {
         const s = getOrderStatus(statusVal);
+        const isRejected = Number(statusVal) === 3 || Number(statusVal) === 5 || Boolean(record?.reject_reason);
+        const reason = record?.reject_reason || (isRejected ? 'Reason not specified' : null);
+
         return (
-          <Tag color={s.color} style={{ borderRadius: '12px', padding: '2px 8px', fontWeight: 700, fontSize: '11px', margin: 0 }}>
-            {s.text}
-          </Tag>
+          <div style={{ minWidth: 130 }}>
+            <Tag color={s.color} style={{ borderRadius: '12px', padding: '2px 8px', fontWeight: 700, fontSize: '11px', margin: 0 }}>
+              {s.text}
+            </Tag>
+            {isRejected && (
+              <div style={{ marginTop: 4 }}>
+                <Tooltip title={reason ? `Rejection Reason: ${reason}` : 'No reason provided'}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: '#dc2626',
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      maxWidth: 170,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      lineHeight: 1.3
+                    }}
+                  >
+                    <CloseCircleOutlined style={{ fontSize: 10, flexShrink: 0, color: '#dc2626' }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
+                      {reason}
+                    </span>
+                  </div>
+                </Tooltip>
+              </div>
+            )}
+          </div>
         );
       },
     },
