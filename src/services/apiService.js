@@ -1852,3 +1852,73 @@ export const updateDistanceSettings = async (payload) => {
     };
   }
 };
+
+
+/**
+ * Vendor Order Accept Dynamic Timing Settings:
+ * Fetch timeout in minutes, auto-cancellation toggle, and cancellation reason
+ */
+export const getVendorOrderTimingSettings = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/vendor-order-timing-settings', reqConfig);
+    } catch (err) {
+      response = await axios.get('/admin/vendor-order-timing-settings', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Vendor timing settings fetched successfully'
+    };
+  } catch (error) {
+    console.error('Failed to fetch vendor order timing settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch vendor order timing settings',
+    };
+  }
+};
+
+/**
+ * Update Vendor Order Accept Dynamic Timing Settings
+ */
+export const updateVendorOrderTimingSettings = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put('/api/admin/vendor-order-timing-settings', payload, reqConfig);
+    } catch (err) {
+      response = await axios.put('/admin/vendor-order-timing-settings', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Vendor timing settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Failed to update vendor order timing settings:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update vendor order timing settings',
+    };
+  }
+};

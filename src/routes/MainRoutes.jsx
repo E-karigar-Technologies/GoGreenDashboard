@@ -29,6 +29,7 @@ const RiderDeliveryCharges = lazy(() => import('../views/settings/RiderDeliveryC
 const VendorCommission = lazy(() => import('../views/settings/VendorCommission'));
 const WithdrawalSettings = lazy(() => import('../views/settings/WithdrawalSettings'));
 const DistanceManager = lazy(() => import('../views/settings/DistanceManager'));
+const VendorOrderTiming = lazy(() => import('../views/settings/VendorOrderTiming'));
 
 const DashboardSales = lazy(() => import('../views/dashboard/DashSales/index'));
 
@@ -264,6 +265,14 @@ const MainRoutes = {
         {
           path: '/distance-manager',
           element: <DistanceManager />
+        },
+        {
+          path: '/settings/vendor-order-timing',
+          element: <VendorOrderTiming />
+        },
+        {
+          path: '/vendor-order-timing',
+          element: <VendorOrderTiming />
         },
         {
           path: '/settings/withdrawal-settings',

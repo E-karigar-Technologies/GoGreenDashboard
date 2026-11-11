@@ -370,6 +370,15 @@ const menuItems = {
               iconname: 'explore'
             },
             {
+              id: 'vendor-order-timing',
+              title: 'Vendor Order Accept Timing',
+              type: 'item',
+              url: '/settings/vendor-order-timing',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'timer'
+            },
+            {
               id: 'manage-appbanners',
               title: 'App Banners',
               type: 'collapse',

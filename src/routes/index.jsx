@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 // project import
 import MainRoutes from './MainRoutes';
@@ -14,10 +14,17 @@ const SignIn1 = lazy(() => import('../views/auth/login'));
 const router = createBrowserRouter(
   [
     {
-          index: true,
-          element: <SignIn1 />
+      index: true,
+      element: <SignIn1 />
     },
-    MainRoutes
+    {
+      ...MainRoutes,
+      errorElement: <Navigate to="/dashboard" replace />
+    },
+    {
+      path: '*',
+      element: <Navigate to="/dashboard" replace />
+    }
   ],
   { basename: import.meta.env.VITE_APP_BASE_NAME }
 );
