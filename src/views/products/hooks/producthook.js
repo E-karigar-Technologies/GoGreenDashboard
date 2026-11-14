@@ -1,18 +1,28 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getAllProducts, getAllCategories, getAllSubCategories, productfetchBrands, deleteProduct, getAllVendors } from '../../../services/apiService';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  getAllProducts,
+  getAllCategories,
+  getAllSubCategories,
+  productfetchBrands,
+  deleteProduct,
+  getAllVendors
+} from '../../../services/apiService';
 import axios from 'axios';
-import orderBy from 'lodash/orderBy';
+import useDebounce from '../../../hooks/useDebounce';
 
 export default function useProductTable() {
-  // Filters
-  const [nameFilter, setNameFilter] = useState("");
+  // Filter States
+  const [nameFilter, setNameFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [subCategoryFilter, setSubCategoryFilter] = useState([]);
   const [vendorFilter, setVendorFilter] = useState([]);
-  const [isFeaturedFilter, setIsFeaturedFilter] = useState();
-  const [isTodayDealFilter, setIsTodayDealFilter] = useState();
+  const [isFeaturedFilter, setIsFeaturedFilter] = useState(undefined);
+  const [isTodayDealFilter, setIsTodayDealFilter] = useState(undefined);
 
-  // Data
+  // Debounced search to prevent spamming API on every keystroke
+  const debouncedSearch = useDebounce(nameFilter, 350);
+
+  // Table Data & Pagination
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,14 +33,14 @@ export default function useProductTable() {
   });
   const [sorter, setSorter] = useState({});
 
-  // Modal and form state
+  // Modals & form state
   const [show, setShow] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [formState, setFormState] = useState({});
 
-  // Category/brand/subcategory/vendors
+  // Dropdown reference data
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
@@ -38,23 +48,23 @@ export default function useProductTable() {
   const [vendorMap, setVendorMap] = useState({});
 
   // Image preview state
-  const [previewImage, setPreviewImage] = useState("");
+  const [previewImage, setPreviewImage] = useState('');
   const [previewImages, setPreviewImages] = useState([]);
 
   const BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL;
   const API_URL = import.meta.env.VITE_API_URL;
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
 
-  // Fetch categories, brands, subcategories, vendors on mount
+  // Load Categories, Subcategories, Brands & Vendors on mount
   useEffect(() => {
     getAllCategories().then((res) => {
-      if (res.success) setCategories(res.data);
+      if (res.success && Array.isArray(res.data)) setCategories(res.data);
     });
     getAllSubCategories().then((res) => {
-      if (res.success) setSubCategories(res.data);
+      if (res.success && Array.isArray(res.data)) setSubCategories(res.data);
     });
     productfetchBrands().then((res) => {
-      if (res.success) setBrands(res.data);
+      if (res.success && Array.isArray(res.data)) setBrands(res.data);
     });
     getAllVendors().then((res) => {
       if (res.success && Array.isArray(res.data)) {
@@ -70,81 +80,90 @@ export default function useProductTable() {
     });
   }, []);
 
-  // Memoize filters
-  const filters = useMemo(() => ({
-    name: nameFilter,
-    categories: categoryFilter,
-    subCategories: subCategoryFilter,
-    vendors: vendorFilter,
-    is_featured: isFeaturedFilter,
-    is_today_deal: isTodayDealFilter,
-  }), [nameFilter, categoryFilter, subCategoryFilter, vendorFilter, isFeaturedFilter, isTodayDealFilter]);
+  // Fetch data using the proper Query API
+  const fetchData = useCallback(
+    async (params = {}) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const page = params.pagination?.current || pagination.current;
+        const limit = params.pagination?.pageSize || pagination.pageSize;
+        const currentSorter = params.sorter || sorter;
 
-  // Fetch and filter data
-  const fetchData = useCallback(async (params = {}) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await getAllProducts({
-        page: params.pagination?.current || pagination.current,
-        pageSize: params.pagination?.pageSize || pagination.pageSize,
-        sortField: params.sorter?.field,
-        sortOrder: params.sorter?.order,
-      });
-      let products = response.success ? (response.data.products || response.data) : [];
-      // --- FILTERING (frontend) ---
-      if (filters.name) {
-        products = products.filter(p => p.name?.toLowerCase().includes(filters.name.toLowerCase()));
-      }
-      if (filters.categories && filters.categories.length > 0) {
-        products = products.filter(p => filters.categories.includes(p.category_id));
-      }
-      if (filters.subCategories && filters.subCategories.length > 0) {
-        products = products.filter(p => filters.subCategories.includes(p.sub_category));
-      }
-      if (filters.vendors && filters.vendors.length > 0) {
-        products = products.filter(p => {
-          const vId = p.vendor_id || p.vendor?.vendor_id || p.vendor?.id || (typeof p.vendor === 'number' || typeof p.vendor === 'string' ? p.vendor : null);
-          return filters.vendors.some(val => String(val) === String(vId));
-        });
-      }
-      if (filters.is_featured !== undefined && filters.is_featured !== null && filters.is_featured !== "") {
-        products = products.filter(p => String(p.is_featured) === String(filters.is_featured));
-      }
-      if (filters.is_today_deal !== undefined && filters.is_today_deal !== null && filters.is_today_deal !== "") {
-        products = products.filter(p => String(p.is_today_deal) === String(filters.is_today_deal));
-      }
-      // --- SORTING (frontend) ---
-      if (params.sorter && params.sorter.field && params.sorter.order) {
-        const order = params.sorter.order === 'ascend' ? 'asc' : 'desc';
-        products = orderBy(products, [params.sorter.field], [order]);
-      }
-      setData(products);
-      setPagination({
-        ...pagination,
-        current: params.pagination?.current || pagination.current,
-        pageSize: params.pagination?.pageSize || pagination.pageSize,
-        total: products.length,
-      });
-    } catch (err) {
-      setError(err.message || 'Failed to fetch products');
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.current, pagination.pageSize, filters]);
+        const queryPayload = {
+          page,
+          limit,
+          productname: debouncedSearch && debouncedSearch.trim() !== '' ? debouncedSearch.trim() : undefined,
+          search_string: debouncedSearch && debouncedSearch.trim() !== '' ? debouncedSearch.trim() : undefined,
+          category: categoryFilter && categoryFilter.length > 0 ? categoryFilter : undefined,
+          category_id: categoryFilter && categoryFilter.length > 0 ? categoryFilter : undefined,
+          subcategory: subCategoryFilter && subCategoryFilter.length > 0 ? subCategoryFilter : undefined,
+          sub_category: subCategoryFilter && subCategoryFilter.length > 0 ? subCategoryFilter : undefined,
+          vendor: vendorFilter && vendorFilter.length > 0 ? vendorFilter : undefined,
+          vendor_id: vendorFilter && vendorFilter.length > 0 ? vendorFilter : undefined,
+          is_featured:
+            isFeaturedFilter !== undefined && isFeaturedFilter !== null && isFeaturedFilter !== ''
+              ? Number(isFeaturedFilter)
+              : undefined,
+          is_today_deal:
+            isTodayDealFilter !== undefined && isTodayDealFilter !== null && isTodayDealFilter !== ''
+              ? Number(isTodayDealFilter)
+              : undefined,
+          sortField: currentSorter?.field,
+          sortOrder: currentSorter?.order,
+        };
 
+        const response = await getAllProducts(queryPayload);
+
+        if (response.success) {
+          const productsList = response.data?.products || (Array.isArray(response.data) ? response.data : []);
+          const totalCount = response.data?.total ?? response.data?.meta?.total ?? productsList.length;
+
+          setData(productsList);
+          setPagination((prev) => ({
+            ...prev,
+            current: page,
+            pageSize: limit,
+            total: totalCount,
+          }));
+        } else {
+          setData([]);
+          setError(response.error || 'Failed to load products');
+        }
+      } catch (err) {
+        console.error('Error in fetchData products:', err);
+        setError(err.message || 'Error occurred while loading products');
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      debouncedSearch,
+      categoryFilter,
+      subCategoryFilter,
+      vendorFilter,
+      isFeaturedFilter,
+      isTodayDealFilter,
+      pagination.current,
+      pagination.pageSize,
+      sorter,
+    ]
+  );
+
+  // Trigger query API when filters or search change
   useEffect(() => {
-    fetchData({ pagination, sorter });
-  }, [fetchData]);
-  // }, [fetchData, pagination.current, pagination.pageSize, sorter, filters]);
+    fetchData({ pagination: { ...pagination, current: 1 } });
+  }, [debouncedSearch, categoryFilter, subCategoryFilter, vendorFilter, isFeaturedFilter, isTodayDealFilter]);
 
-  const onTableChange = (newPagination, filtersTable, newSorter) => {
-    setPagination({
-      ...pagination,
+  // Handle table pagination and sorting changes
+  const onTableChange = (newPagination, tableFilters, newSorter) => {
+    setPagination((prev) => ({
+      ...prev,
       current: newPagination.current,
       pageSize: newPagination.pageSize,
-    });
-    setSorter(newSorter);
+    }));
+    setSorter(newSorter || {});
     fetchData({
       pagination: newPagination,
       sorter: newSorter,
@@ -153,18 +172,15 @@ export default function useProductTable() {
 
   // Modal logic
   const handleUpdate = (user) => {
-    console.log(user);
     setSelectedUser(user);
     setFormState(user);
-    // Set preview for featured image
     if (user && user.featured_image) {
       setPreviewImage(BASE_URL + user.featured_image);
     } else {
-      setPreviewImage("");
+      setPreviewImage('');
     }
-    // Set previews for gallery images
     if (user && Array.isArray(user.gallery_images)) {
-      const galleryPreviews = user.gallery_images.map(img => {
+      const galleryPreviews = user.gallery_images.map((img) => {
         if (typeof img === 'string') return BASE_URL + img;
         if (img && img.image_path) return BASE_URL + img.image_path;
         return '';
@@ -175,17 +191,20 @@ export default function useProductTable() {
     }
     setShow(true);
   };
+
   const handleDelete = (user) => {
     setSelectedUserId(user.id);
     setShowDeleteModal(true);
   };
+
   const handleClose = () => {
     setShow(false);
     setSelectedUser(null);
     setFormState({});
-    setPreviewImage(""); // Reset preview image
-    setPreviewImages([]); // Reset gallery previews
+    setPreviewImage('');
+    setPreviewImages([]);
   };
+
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setSelectedUserId(null);
@@ -198,75 +217,41 @@ export default function useProductTable() {
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data"
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       };
 
       const formData = new FormData();
-      console.log(formState?.gallery_images);
-      // return
-      
       Object.entries(formState).forEach(([key, value]) => {
         if (
-          key !== "featured_image" &&
-          key !== "gallery_images" &&
-          key !== "attributes" &&
-          key !== "variants" &&
-          key !== "addons" &&
+          key !== 'featured_image' &&
+          key !== 'gallery_images' &&
+          key !== 'attributes' &&
+          key !== 'variants' &&
+          key !== 'addons' &&
           value !== undefined &&
-          value !== null 
+          value !== null
         ) {
           formData.append(key, value);
         }
       });
-      if (Array.isArray(formState?.attributes) && formState?.attributes.length > 0) {
-        formData.append("attributes", JSON.stringify(formState?.attributes));
-      }
 
-      // Append featured image if it's a File
-      if (formState.featured_image instanceof File) {
-        formData.append("featuredImage", formState.featured_image);
+      if (formState.featured_image && typeof formState.featured_image !== 'string') {
+        formData.append('featured_image', formState.featured_image);
       }
-
-      // Append gallery images (both new files and existing URLs)
-      if (formState.gallery_images && formState.gallery_images.length > 0) {
-        formState.gallery_images.forEach((file) => {
-          if (file instanceof File) {
-            formData.append("galleryImages", file); // New upload
-          } else if (typeof file === 'string') {
-            formData.append("existingGalleryImages", file); // Already a URL
-          } else if (file && typeof file === 'object') {
-            // Try to extract URL from known properties
-            if (file.image_path) {
-              formData.append("existingGalleryImages", file.image_path);
-            } else if (file.url) {
-              formData.append("existingGalleryImages", file.url);
-            } else {
-              // Fallback: toString (should not happen)
-              formData.append("existingGalleryImages", String(file));
-            }
+      if (Array.isArray(formState.gallery_images)) {
+        formState.gallery_images.forEach((img) => {
+          if (typeof img !== 'string') {
+            formData.append('gallery_images', img);
           }
         });
       }
-      // if (Array.isArray(formState?.variants) && formState?.variants.length > 0) {
-      //   formData.append("variants", JSON.stringify(formState?.variants));
-      // }
-      // if (Array.isArray(formState?.addons) && formState?.addons.length > 0) {
-      //   formData.append("addons", JSON.stringify(formState?.addons));
-      // }
-      const response = await axios.post(`${API_URL}/products/update-products`, formData, config);
-      if (response.data.success) {
-        // Update only the edited product in local data
-        setData(prevData => prevData.map(product =>
-          product.id === formState.id ? { ...product, ...response.data.product } : product
-        ));
-        handleClose();
-        // Do NOT refetch all products
-      } else {
-        alert("Failed to update product");
-      }
+
+      await axios.post(`${API_URL}/products/update-products`, formData, config);
+      handleClose();
+      fetchData({ pagination, sorter });
     } catch (err) {
-      alert("Error updating product");
+      console.error('Error saving product:', err);
     }
   };
 
@@ -274,19 +259,16 @@ export default function useProductTable() {
   const confirmDelete = async () => {
     try {
       if (!token) return;
-      const config = {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { id: selectedUserId },
-      };
-      const response = await  deleteProduct ([selectedUserId]);
-      if (response.data.success) {
+      const response = await deleteProduct([selectedUserId]);
+      if (response.data?.success || response.success) {
         handleCloseDeleteModal();
-        onTableChange(pagination, {}, {}); // refresh table
+        fetchData({ pagination, sorter });
       } else {
-        alert("Failed to delete product");
+        alert('Failed to delete product');
       }
     } catch (err) {
-      alert("Error deleting product");
+      console.error('Error deleting product:', err);
+      alert('Error deleting product');
     }
   };
 
@@ -305,114 +287,140 @@ export default function useProductTable() {
       setFormState((prev) => ({ ...prev, featured_image: file }));
     }
   };
+
   const handleGalleryImagesChange = (event) => {
     const files = Array.from(event.target.files);
-    // Combine existing and new files
     const currentGallery = formState.gallery_images || [];
     const totalImages = currentGallery.length + files.length;
     if (totalImages > 5) {
-      // Only allow up to 5 images
       const allowedFiles = files.slice(0, 5 - currentGallery.length);
-      const imageUrls = allowedFiles.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...imageUrls].slice(0, 5));
-      setFormState(prev => ({
+      const imageUrls = allowedFiles.map((file) => URL.createObjectURL(file));
+      setPreviewImages((prev) => [...prev, ...imageUrls].slice(0, 5));
+      setFormState((prev) => ({
         ...prev,
         gallery_images: [...currentGallery, ...allowedFiles].slice(0, 5),
       }));
     } else {
-      const imageUrls = files.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...imageUrls]);
-      setFormState(prev => ({
+      const imageUrls = files.map((file) => URL.createObjectURL(file));
+      setPreviewImages((prev) => [...prev, ...imageUrls]);
+      setFormState((prev) => ({
         ...prev,
         gallery_images: [...currentGallery, ...files],
       }));
     }
   };
+
   const handleDeleteFeaturedImage = () => {
-    setFormState(prev => ({ ...prev, featured_image: null }));
-    setPreviewImage("");
+    setFormState((prev) => ({ ...prev, featured_image: null }));
+    setPreviewImage('');
   };
+
   const handleDeleteGalleryImage = (index) => {
-    setFormState(prev => {
+    setFormState((prev) => {
       const updated = [...(prev.gallery_images || [])];
       updated.splice(index, 1);
       return { ...prev, gallery_images: updated };
     });
-    setPreviewImages(prev => {
+    setPreviewImages((prev) => {
       const updated = [...prev];
       updated.splice(index, 1);
       return updated;
     });
   };
 
-  // Toggle Featured (new version)
-  const handleToggleFeatured = async (userId, isChecked) => {
-    setLoading(true);
+  // Toggle Featured status
+  const handleToggleFeatured = async (productId, isChecked) => {
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
+        'Content-Type': 'application/json',
+      },
     };
     const payload = {
-      id: userId,
-      is_featured: isChecked ? 1 : 0
+      id: productId,
+      is_featured: isChecked ? 1 : 0,
     };
     try {
-      const response = await axios.put(`${API_URL}/products/makeproductfeatures`, payload, config);
+      // Optimistic update
       setData((prevData) =>
-        prevData.map((user) =>
-          user.id === userId ? { ...user, is_featured: isChecked ? 1 : 0 } : user
-        )
+        prevData.map((p) => (p.id === productId ? { ...p, is_featured: isChecked ? 1 : 0 } : p))
       );
+      await axios.put(`${API_URL}/products/makeproductfeatures`, payload, config);
     } catch (error) {
-      console.error("Error updating featured status:", error.response?.data || error);
-    } finally {
-      setLoading(false);
+      console.error('Error updating featured status:', error.response?.data || error);
+      fetchData({ pagination, sorter });
     }
   };
 
-  // Toggle Today Deal (new version)
-  const handleToggleTodayDeal = async (userId, isChecked) => {
-    setLoading(true);
+  // Toggle Today's Deal status
+  const handleToggleTodayDeal = async (productId, isChecked) => {
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
+        'Content-Type': 'application/json',
+      },
     };
     const payload = {
-      id: userId,
-      is_today_deal: isChecked ? 1 : 0
+      id: productId,
+      is_today_deal: isChecked ? 1 : 0,
     };
     try {
-      const response = await axios.put(`${API_URL}/products/makeproductweeklydeal`, payload, config);
+      // Optimistic update
       setData((prevData) =>
-        prevData.map((user) =>
-          user.id === userId ? { ...user, is_today_deal: isChecked ? 1 : 0 } : user
-        )
+        prevData.map((p) => (p.id === productId ? { ...p, is_today_deal: isChecked ? 1 : 0 } : p))
       );
+      await axios.put(`${API_URL}/products/makeproductweeklydeal`, payload, config);
     } catch (error) {
       console.error("Error updating today's deal status:", error.response?.data || error);
-    } finally {
-      setLoading(false);
+      fetchData({ pagination, sorter });
     }
   };
 
   return {
     // Filters and their setters
-    nameFilter, setNameFilter,
-    categoryFilter, setCategoryFilter,
-    subCategoryFilter, setSubCategoryFilter,
-    vendorFilter, setVendorFilter,
-    isFeaturedFilter, setIsFeaturedFilter,
-    isTodayDealFilter, setIsTodayDealFilter,
+    nameFilter,
+    setNameFilter,
+    categoryFilter,
+    setCategoryFilter,
+    subCategoryFilter,
+    setSubCategoryFilter,
+    vendorFilter,
+    setVendorFilter,
+    isFeaturedFilter,
+    setIsFeaturedFilter,
+    isTodayDealFilter,
+    setIsTodayDealFilter,
     // Data and table logic
-    data, loading, pagination, onTableChange, error,
+    data,
+    loading,
+    pagination,
+    onTableChange,
+    error,
+    refetch: () => fetchData({ pagination, sorter }),
     // Modal and form logic
-    show, selectedUser, showDeleteModal, formState, categories, brands, subCategories, vendors, vendorMap, previewImage, previewImages,
-    handleUpdate, handleDelete, handleClose, handleCloseDeleteModal, handleSave, confirmDelete, handleFormChange,
-    handleImageChange, handleGalleryImagesChange, handleDeleteFeaturedImage, handleDeleteGalleryImage,
-    handleToggleFeatured, handleToggleTodayDeal,
+    show,
+    selectedUser,
+    showDeleteModal,
+    formState,
+    categories,
+    brands,
+    subCategories,
+    vendors,
+    vendorMap,
+    previewImage,
+    previewImages,
+    handleUpdate,
+    handleDelete,
+    handleClose,
+    handleCloseDeleteModal,
+    handleSave,
+    confirmDelete,
+    handleFormChange,
+    handleImageChange,
+    handleGalleryImagesChange,
+    handleDeleteFeaturedImage,
+    handleDeleteGalleryImage,
+    handleToggleFeatured,
+    handleToggleTodayDeal,
   };
 }

@@ -78,14 +78,84 @@ export const getAllSubCategories = async (catID) => {
     return { success: false, error: error.response?.data || "Something went wrong" };
   }
 };
-export const getAllProducts = async () => {
+export const getAllProducts = async (filters = {}) => {
   try {
-    const response = await axios.post("/products/getproducts", {}, config);
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
 
-    return { success: true, data: response.data?.products || [] };
+    let response;
+    try {
+      // Build URL query string: ?productname=...&vendor=...&category=...
+      const queryParams = new URLSearchParams();
+
+      const searchVal = filters.productname || filters.search_string || filters.search || filters.name;
+      if (searchVal && String(searchVal).trim() !== '') {
+        queryParams.append('productname', String(searchVal).trim());
+      }
+
+      const vendorVal = filters.vendor !== undefined ? filters.vendor : filters.vendor_id;
+      if (vendorVal !== undefined && vendorVal !== null && vendorVal !== '') {
+        const vStr = Array.isArray(vendorVal) ? vendorVal.join(',') : String(vendorVal);
+        if (vStr.trim() !== '') queryParams.append('vendor', vStr.trim());
+      }
+
+      const catVal = filters.category !== undefined ? filters.category : filters.category_id;
+      if (catVal !== undefined && catVal !== null && catVal !== '') {
+        const cStr = Array.isArray(catVal) ? catVal.join(',') : String(catVal);
+        if (cStr.trim() !== '') queryParams.append('category', cStr.trim());
+      }
+
+      const subCatVal = filters.subcategory !== undefined ? filters.subcategory : filters.sub_category;
+      if (subCatVal !== undefined && subCatVal !== null && subCatVal !== '') {
+        const scStr = Array.isArray(subCatVal) ? subCatVal.join(',') : String(subCatVal);
+        if (scStr.trim() !== '') queryParams.append('subcategory', scStr.trim());
+      }
+
+      const featuredVal = filters.is_featured !== undefined ? filters.is_featured : filters.featured;
+      if (featuredVal !== undefined && featuredVal !== null && featuredVal !== '') {
+        queryParams.append('is_featured', String(featuredVal));
+      }
+
+      const todayDealVal = filters.is_today_deal !== undefined ? filters.is_today_deal : filters.today_deal;
+      if (todayDealVal !== undefined && todayDealVal !== null && todayDealVal !== '') {
+        queryParams.append('is_today_deal', String(todayDealVal));
+      }
+
+      if (filters.page) queryParams.append('page', String(filters.page));
+      if (filters.limit) queryParams.append('limit', String(filters.limit));
+      if (filters.sortField) queryParams.append('sortField', String(filters.sortField));
+      if (filters.sortOrder) queryParams.append('sortOrder', String(filters.sortOrder));
+
+      const queryString = queryParams.toString();
+      const endpoint = queryString
+        ? `/products/getproductswithfilter?${queryString}`
+        : '/products/getproductswithfilter';
+
+      response = await axios.post(endpoint, { filters }, reqConfig);
+    } catch (filterErr) {
+      // Fallback to legacy endpoint if filter route has issues
+      response = await axios.post("/products/getproducts", {}, reqConfig);
+    }
+
+    const products = response.data?.products || (Array.isArray(response.data) ? response.data : []);
+    const total = response.data?.total ?? response.data?.meta?.total ?? products.length;
+
+    return {
+      success: true,
+      data: {
+        products,
+        total,
+        meta: response.data?.meta || { total, page: filters.page || 1, limit: filters.limit || 10 }
+      }
+    };
   } catch (error) {
     console.error("Failed to fetch products:", error);
-    return { success: false, error: error.response?.data || "Something went wrong" };
+    return { success: false, error: error.response?.data?.message || error.message || "Failed to fetch products" };
   }
 };
 

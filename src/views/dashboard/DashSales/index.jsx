@@ -121,7 +121,12 @@ export default function DashSales() {
 
       let customersCount = 0;
       if (usersRes.status === 'fulfilled' && usersRes.value?.success) {
-        customersCount = (usersRes.value.data || []).length;
+        const userData = usersRes.value.data;
+        if (Array.isArray(userData)) {
+          customersCount = userData.length;
+        } else if (userData && typeof userData === 'object') {
+          customersCount = usersRes.value.total ?? userData.total ?? (Array.isArray(userData.users) ? userData.users.length : 0);
+        }
       }
 
       // Vendor Active / Inactive Parsing
@@ -150,27 +155,34 @@ export default function DashSales() {
 
       let productsCount = 0;
       if (productsRes.status === 'fulfilled' && productsRes.value?.success) {
-        productsCount = (productsRes.value.data || []).length;
+        const prodData = productsRes.value.data;
+        if (Array.isArray(prodData)) {
+          productsCount = prodData.length;
+        } else if (prodData && typeof prodData === 'object') {
+          productsCount = prodData.total ?? prodData.meta?.total ?? (Array.isArray(prodData.products) ? prodData.products.length : 0);
+        } else if (typeof productsRes.value.total === 'number') {
+          productsCount = productsRes.value.total;
+        }
       }
 
       setStats({
-        totalCustomers: customersCount,
-        totalRevenue: calculatedRevenue,
-        totalOrders: totalOrdersCount,
-        deliveredOrders: deliveredCount,
-        inProgressOrders: inProgressCount,
-        pendingOrders: pendingCount,
-        rejectedOrders: rejectedCount,
-        totalVendors: totalVendorsCount,
-        activeVendors: activeVendorsCount,
-        inactiveVendors: inactiveVendorsCount,
-        totalRiders: totalRidersCount,
-        activeRiders: activeRidersCount,
-        inactiveRiders: inactiveRidersCount,
-        totalProducts: productsCount,
+        totalCustomers: Number(customersCount) || 0,
+        totalRevenue: Number(calculatedRevenue) || 0,
+        totalOrders: Number(totalOrdersCount) || 0,
+        deliveredOrders: Number(deliveredCount) || 0,
+        inProgressOrders: Number(inProgressCount) || 0,
+        pendingOrders: Number(pendingCount) || 0,
+        rejectedOrders: Number(rejectedCount) || 0,
+        totalVendors: Number(totalVendorsCount) || 0,
+        activeVendors: Number(activeVendorsCount) || 0,
+        inactiveVendors: Number(inactiveVendorsCount) || 0,
+        totalRiders: Number(totalRidersCount) || 0,
+        activeRiders: Number(activeRidersCount) || 0,
+        inactiveRiders: Number(inactiveRidersCount) || 0,
+        totalProducts: Number(productsCount) || 0,
         monthlySalesData: monthlyRev,
         monthlyOrderCounts: monthlyCounts,
-        recentOrders: ordersList.slice(0, 6),
+        recentOrders: Array.isArray(ordersList) ? ordersList.slice(0, 6) : [],
       });
 
       setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -203,10 +215,10 @@ export default function DashSales() {
         intersect: false,
         y: {
           formatter(y, { seriesIndex }) {
-            if (typeof y !== 'undefined') {
-              return seriesIndex === 0 ? `$${y.toFixed(2)}` : `${y} orders`;
+            if (typeof y !== 'undefined' && y !== null) {
+              return seriesIndex === 0 ? `$${Number(y || 0).toFixed(2)}` : `${y} orders`;
             }
-            return y;
+            return y ?? 0;
           },
         },
       },
@@ -215,12 +227,12 @@ export default function DashSales() {
       {
         name: 'Revenue ($)',
         type: 'column',
-        data: stats.monthlySalesData,
+        data: Array.isArray(stats.monthlySalesData) ? stats.monthlySalesData : Array(12).fill(0),
       },
       {
         name: 'Order Count',
         type: 'line',
-        data: stats.monthlyOrderCounts,
+        data: Array.isArray(stats.monthlyOrderCounts) ? stats.monthlyOrderCounts : Array(12).fill(0),
       },
     ],
   };
@@ -233,13 +245,13 @@ export default function DashSales() {
       labels: ['Completed (Delivered)', 'In Progress', 'Pending', 'Rejected'],
       colors: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'],
       legend: { position: 'bottom', fontSize: '12px' },
-      dataLabels: { enabled: true, formatter: (val) => `${val.toFixed(1)}%` },
+      dataLabels: { enabled: true, formatter: (val) => `${Number(val || 0).toFixed(1)}%` },
     },
     series: [
-      stats.deliveredOrders || (stats.totalOrders === 0 ? 1 : 0),
-      stats.inProgressOrders || 0,
-      stats.pendingOrders || 0,
-      stats.rejectedOrders || 0,
+      Number(stats.deliveredOrders) || (stats.totalOrders === 0 ? 1 : 0),
+      Number(stats.inProgressOrders) || 0,
+      Number(stats.pendingOrders) || 0,
+      Number(stats.rejectedOrders) || 0,
     ],
   };
 
@@ -300,8 +312,8 @@ export default function DashSales() {
     ? 'All-Time Analytics'
     : 'Filtered Date Range';
 
-  const avgOrderValue = stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders).toFixed(2) : '0.00';
-  const completionRate = stats.totalOrders > 0 ? ((stats.deliveredOrders / stats.totalOrders) * 100).toFixed(1) : 0;
+  const avgOrderValue = stats.totalOrders > 0 ? (Number(stats.totalRevenue || 0) / Number(stats.totalOrders || 1)).toFixed(2) : '0.00';
+  const completionRate = stats.totalOrders > 0 ? ((Number(stats.deliveredOrders || 0) / Number(stats.totalOrders || 1)) * 100).toFixed(1) : '0.0';
 
   return (
     <div className="page-container">
@@ -372,7 +384,7 @@ export default function DashSales() {
                 <div className="stat-meta">
                   <div className="stat-label">Revenue ({dateRange.preset === 'today' ? 'Today' : 'Filtered'})</div>
                   <div className="stat-number" style={{ color: '#088b46' }}>
-                    ${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${Number(stats.totalRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="stat-icon" style={{ background: '#dcfce7', color: '#088b46' }}>
@@ -390,7 +402,7 @@ export default function DashSales() {
               >
                 <div className="stat-meta">
                   <div className="stat-label">Completed Orders ({dateRange.preset === 'today' ? 'Today' : 'Filtered'})</div>
-                  <div className="stat-number" style={{ color: '#16a34a' }}>{stats.deliveredOrders}</div>
+                  <div className="stat-number" style={{ color: '#16a34a' }}>{Number(stats.deliveredOrders || 0).toLocaleString()}</div>
                 </div>
                 <div className="stat-icon" style={{ background: '#dcfce7', color: '#16a34a' }}>
                   <CheckCircleOutlined />
@@ -407,10 +419,10 @@ export default function DashSales() {
               >
                 <div className="stat-meta">
                   <div className="stat-label">Orders In Progress</div>
-                  <div className="stat-number" style={{ color: '#0284c7' }}>{stats.inProgressOrders}</div>
+                  <div className="stat-number" style={{ color: '#0284c7' }}>{Number(stats.inProgressOrders || 0).toLocaleString()}</div>
                 </div>
                 <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
-                  <SyncOutlined spin={stats.inProgressOrders > 0} />
+                  <SyncOutlined spin={Number(stats.inProgressOrders || 0) > 0} />
                 </div>
               </div>
             </Tooltip>
@@ -424,7 +436,7 @@ export default function DashSales() {
               >
                 <div className="stat-meta">
                   <div className="stat-label">Pending Orders</div>
-                  <div className="stat-number" style={{ color: '#d97706' }}>{stats.pendingOrders}</div>
+                  <div className="stat-number" style={{ color: '#d97706' }}>{Number(stats.pendingOrders || 0).toLocaleString()}</div>
                 </div>
                 <div className="stat-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
                   <ClockCircleOutlined />
@@ -448,20 +460,20 @@ export default function DashSales() {
                       <span style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                         <ShopOutlined style={{ color: '#d97706', marginRight: 6 }} /> Vendors Overview
                       </span>
-                      <Tag color="gold" style={{ fontWeight: 800, margin: 0 }}>{stats.totalVendors} Total</Tag>
+                      <Tag color="gold" style={{ fontWeight: 800, margin: 0 }}>{Number(stats.totalVendors || 0).toLocaleString()} Total</Tag>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 8, padding: '8px 10px', border: '1px solid #bbf7d0' }}>
                         <span style={{ fontSize: '11px', color: '#166534', fontWeight: 600, display: 'block' }}>
                           <CheckOutlined style={{ marginRight: 4 }} /> Active
                         </span>
-                        <strong style={{ fontSize: '18px', color: '#16a34a' }}>{stats.activeVendors}</strong>
+                        <strong style={{ fontSize: '18px', color: '#16a34a' }}>{Number(stats.activeVendors || 0).toLocaleString()}</strong>
                       </div>
                       <div style={{ flex: 1, background: '#fef2f2', borderRadius: 8, padding: '8px 10px', border: '1px solid #fecaca' }}>
                         <span style={{ fontSize: '11px', color: '#991b1b', fontWeight: 600, display: 'block' }}>
                           <StopOutlined style={{ marginRight: 4 }} /> Inactive
                         </span>
-                        <strong style={{ fontSize: '18px', color: '#dc2626' }}>{stats.inactiveVendors}</strong>
+                        <strong style={{ fontSize: '18px', color: '#dc2626' }}>{Number(stats.inactiveVendors || 0).toLocaleString()}</strong>
                       </div>
                     </div>
                   </Card.Body>
@@ -482,20 +494,20 @@ export default function DashSales() {
                       <span style={{ fontWeight: 700, color: '#334155', fontSize: '13px' }}>
                         <CarOutlined style={{ color: '#9333ea', marginRight: 6 }} /> Riders Overview
                       </span>
-                      <Tag color="purple" style={{ fontWeight: 800, margin: 0 }}>{stats.totalRiders} Total</Tag>
+                      <Tag color="purple" style={{ fontWeight: 800, margin: 0 }}>{Number(stats.totalRiders || 0).toLocaleString()} Total</Tag>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 8, padding: '8px 10px', border: '1px solid #bbf7d0' }}>
                         <span style={{ fontSize: '11px', color: '#166534', fontWeight: 600, display: 'block' }}>
                           <CheckOutlined style={{ marginRight: 4 }} /> Active
                         </span>
-                        <strong style={{ fontSize: '18px', color: '#16a34a' }}>{stats.activeRiders}</strong>
+                        <strong style={{ fontSize: '18px', color: '#16a34a' }}>{Number(stats.activeRiders || 0).toLocaleString()}</strong>
                       </div>
                       <div style={{ flex: 1, background: '#fef2f2', borderRadius: 8, padding: '8px 10px', border: '1px solid #fecaca' }}>
                         <span style={{ fontSize: '11px', color: '#991b1b', fontWeight: 600, display: 'block' }}>
                           <StopOutlined style={{ marginRight: 4 }} /> Inactive
                         </span>
-                        <strong style={{ fontSize: '18px', color: '#dc2626' }}>{stats.inactiveRiders}</strong>
+                        <strong style={{ fontSize: '18px', color: '#dc2626' }}>{Number(stats.inactiveRiders || 0).toLocaleString()}</strong>
                       </div>
                     </div>
                   </Card.Body>
@@ -518,7 +530,7 @@ export default function DashSales() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10 }}>
-                      <strong style={{ fontSize: '22px', color: '#0284c7' }}>{stats.totalCustomers.toLocaleString()}</strong>
+                      <strong style={{ fontSize: '22px', color: '#0284c7' }}>{Number(stats.totalCustomers || 0).toLocaleString()}</strong>
                       <span style={{ fontSize: '11.5px', color: '#64748b' }}>Active App Users</span>
                     </div>
                   </Card.Body>
@@ -541,7 +553,7 @@ export default function DashSales() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10 }}>
-                      <strong style={{ fontSize: '22px', color: '#088b46' }}>{stats.totalProducts.toLocaleString()}</strong>
+                      <strong style={{ fontSize: '22px', color: '#088b46' }}>{Number(stats.totalProducts || 0).toLocaleString()}</strong>
                       <span style={{ fontSize: '11.5px', color: '#64748b' }}>Store Items</span>
                     </div>
                   </Card.Body>
@@ -558,12 +570,12 @@ export default function DashSales() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
                   <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '16px' }}>Monthly Revenue & Orders Trend</h4>
                   <Button type="link" onClick={() => navigate('/all-orders')} style={{ fontWeight: 700, color: '#088b46', padding: 0 }}>
-                    ${stats.totalRevenue.toFixed(2)} Filtered Total <ArrowRightOutlined />
+                    ${Number(stats.totalRevenue || 0).toFixed(2)} Filtered Total <ArrowRightOutlined />
                   </Button>
                 </div>
                 <Row className="pb-2">
                   <div className="col-auto m-b-10" onClick={() => navigate('/all-orders')} style={{ cursor: 'pointer' }}>
-                    <h3 className="mb-1" style={{ fontWeight: 700, color: '#0f172a' }}>${stats.totalRevenue.toFixed(2)}</h3>
+                    <h3 className="mb-1" style={{ fontWeight: 700, color: '#0f172a' }}>${Number(stats.totalRevenue || 0).toFixed(2)}</h3>
                     <span style={{ fontSize: 12, color: '#64748b' }}>Gross Sales ({dateFilterLabel})</span>
                   </div>
                   <div className="col-auto m-b-10" onClick={() => navigate('/all-orders')} style={{ cursor: 'pointer' }}>
@@ -600,7 +612,7 @@ export default function DashSales() {
                       <CheckCircleOutlined style={{ color: '#16a34a', marginRight: 6 }} />
                       Completed (Delivered) Orders:
                     </span>
-                    <strong style={{ color: '#16a34a' }}>{stats.deliveredOrders}</strong>
+                    <strong style={{ color: '#16a34a' }}>{Number(stats.deliveredOrders || 0).toLocaleString()}</strong>
                   </div>
 
                   <div
@@ -611,7 +623,7 @@ export default function DashSales() {
                       <SyncOutlined style={{ color: '#2563eb', marginRight: 6 }} />
                       Orders In Progress:
                     </span>
-                    <strong style={{ color: '#2563eb' }}>{stats.inProgressOrders}</strong>
+                    <strong style={{ color: '#2563eb' }}>{Number(stats.inProgressOrders || 0).toLocaleString()}</strong>
                   </div>
 
                   <div
@@ -622,7 +634,7 @@ export default function DashSales() {
                       <ClockCircleOutlined style={{ color: '#d97706', marginRight: 6 }} />
                       Pending Orders:
                     </span>
-                    <strong style={{ color: '#d97706' }}>{stats.pendingOrders}</strong>
+                    <strong style={{ color: '#d97706' }}>{Number(stats.pendingOrders || 0).toLocaleString()}</strong>
                   </div>
 
                   <div
@@ -633,7 +645,7 @@ export default function DashSales() {
                       <CloseCircleOutlined style={{ color: '#dc2626', marginRight: 6 }} />
                       Rejected Orders:
                     </span>
-                    <strong style={{ color: '#dc2626' }}>{stats.rejectedOrders}</strong>
+                    <strong style={{ color: '#dc2626' }}>{Number(stats.rejectedOrders || 0).toLocaleString()}</strong>
                   </div>
                 </div>
               </div>
@@ -644,7 +656,7 @@ export default function DashSales() {
               <div className="page-content-card">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
                   <h4 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '16px' }}>
-                    Orders ({stats.recentOrders.length}) - {dateFilterLabel}
+                    Orders ({(stats.recentOrders || []).length}) - {dateFilterLabel}
                   </h4>
                   <Button
                     type="link"
@@ -656,7 +668,7 @@ export default function DashSales() {
                 </div>
                 <Table
                   columns={recentOrdersColumns}
-                  dataSource={stats.recentOrders}
+                  dataSource={Array.isArray(stats.recentOrders) ? stats.recentOrders : []}
                   rowKey={(record) => record.order_id || record.id}
                   pagination={false}
                   size="small"
@@ -698,7 +710,7 @@ export default function DashSales() {
                       style={{ background: '#f8fafc', borderRadius: 12, cursor: 'pointer' }}
                     >
                       <Card.Body className="p-3">
-                        <h2 className="m-0" style={{ fontWeight: 800, color: '#0284c7' }}>{stats.inProgressOrders}</h2>
+                        <h2 className="m-0" style={{ fontWeight: 800, color: '#0284c7' }}>{Number(stats.inProgressOrders || 0).toLocaleString()}</h2>
                         <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>In Progress</span>
                         <p style={{ fontSize: 11.5, color: '#64748b', margin: '4px 0 0 0' }}>Orders currently active.</p>
                       </Card.Body>
@@ -714,9 +726,9 @@ export default function DashSales() {
                       <Card.Body className="p-3">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '13.5px' }}>Fulfillment Completion Progress</span>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#088b46' }}>{stats.deliveredOrders} / {stats.totalOrders} Orders</span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#088b46' }}>{Number(stats.deliveredOrders || 0).toLocaleString()} / {Number(stats.totalOrders || 0).toLocaleString()} Orders</span>
                         </div>
-                        <Progress percent={Number(completionRate)} strokeColor="#088b46" status="active" />
+                        <Progress percent={Math.min(100, Math.max(0, Number(completionRate) || 0))} strokeColor="#088b46" status="active" />
                       </Card.Body>
                     </Card>
                   </Col>
