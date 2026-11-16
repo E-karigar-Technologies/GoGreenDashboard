@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   InputNumber,
+  Input,
   Switch,
   Select,
   Button,
@@ -9,7 +10,9 @@ import {
   Alert,
   Spin,
   message,
-  Tooltip
+  Tooltip,
+  Row,
+  Col
 } from 'antd';
 import {
   WalletOutlined,
@@ -21,7 +24,9 @@ import {
   CloseCircleOutlined,
   InfoCircleOutlined,
   CalendarOutlined,
-  DollarOutlined
+  DollarOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
@@ -72,8 +77,12 @@ const WithdrawalSettings = () => {
   const [vendorConfig, setVendorConfig] = useState({
     auto_withdrawal_enabled: true,
     minimum_amount: 50.0,
+    maximum_amount: 5000.0,
     allow_specific_amount: true,
     allow_full_balance: true,
+    quick_withdrawal_enabled: true,
+    quick_withdrawal_fee_percent: 2.5,
+    standard_payout_days: '2-4 business days',
     weekly: {
       id: 1,
       is_enabled: true,
@@ -92,8 +101,12 @@ const WithdrawalSettings = () => {
   const [riderConfig, setRiderConfig] = useState({
     auto_withdrawal_enabled: true,
     minimum_amount: 20.0,
+    maximum_amount: 5000.0,
     allow_specific_amount: true,
     allow_full_balance: true,
+    quick_withdrawal_enabled: true,
+    quick_withdrawal_fee_percent: 2.5,
+    standard_payout_days: '2-4 business days',
     weekly: {
       id: 3,
       is_enabled: true,
@@ -126,8 +139,18 @@ const WithdrawalSettings = () => {
           setVendorConfig({
             auto_withdrawal_enabled: Number(vendor.auto_withdrawal_enabled) === 1,
             minimum_amount: parseFloat(vendor.minimum_amount) || 50.0,
+            maximum_amount: vendor.maximum_amount !== null && vendor.maximum_amount !== undefined
+              ? parseFloat(vendor.maximum_amount)
+              : 5000.0,
             allow_specific_amount: Number(vendor.allow_specific_amount) === 1,
             allow_full_balance: Number(vendor.allow_full_balance) === 1,
+            quick_withdrawal_enabled: vendor.quick_withdrawal_enabled !== undefined
+              ? Number(vendor.quick_withdrawal_enabled) === 1
+              : true,
+            quick_withdrawal_fee_percent: vendor.quick_withdrawal_fee_percent !== undefined
+              ? parseFloat(vendor.quick_withdrawal_fee_percent)
+              : 2.5,
+            standard_payout_days: vendor.standard_payout_days || '2-4 business days',
             weekly: {
               id: vendor.weekly?.id || 1,
               is_enabled: Number(vendor.weekly?.is_enabled) === 1,
@@ -147,8 +170,18 @@ const WithdrawalSettings = () => {
           setRiderConfig({
             auto_withdrawal_enabled: Number(rider.auto_withdrawal_enabled) === 1,
             minimum_amount: parseFloat(rider.minimum_amount) || 20.0,
+            maximum_amount: rider.maximum_amount !== null && rider.maximum_amount !== undefined
+              ? parseFloat(rider.maximum_amount)
+              : 5000.0,
             allow_specific_amount: Number(rider.allow_specific_amount) === 1,
             allow_full_balance: Number(rider.allow_full_balance) === 1,
+            quick_withdrawal_enabled: rider.quick_withdrawal_enabled !== undefined
+              ? Number(rider.quick_withdrawal_enabled) === 1
+              : true,
+            quick_withdrawal_fee_percent: rider.quick_withdrawal_fee_percent !== undefined
+              ? parseFloat(rider.quick_withdrawal_fee_percent)
+              : 2.5,
+            standard_payout_days: rider.standard_payout_days || '2-4 business days',
             weekly: {
               id: rider.weekly?.id || 3,
               is_enabled: Number(rider.weekly?.is_enabled) === 1,
@@ -184,16 +217,60 @@ const WithdrawalSettings = () => {
 
   // Save changes handler for both Vendor & Rider
   const handleSaveAll = async () => {
-    // Validation: Minimum amounts
+    // Validation: Vendor minimum and maximum amounts
     if (vendorConfig.minimum_amount === null || isNaN(vendorConfig.minimum_amount) || vendorConfig.minimum_amount < 0) {
-      const msg = 'Vendor minimum withdrawal amount must be a positive number.';
+      const msg = 'Vendor minimum withdrawal amount must be a non-negative number.';
       setErrorMsg(msg);
       message.error(msg);
       return;
     }
 
+    if (vendorConfig.maximum_amount === null || isNaN(vendorConfig.maximum_amount) || vendorConfig.maximum_amount <= 0) {
+      const msg = 'Vendor maximum withdrawal amount must be a positive number.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    if (vendorConfig.maximum_amount < vendorConfig.minimum_amount) {
+      const msg = 'Vendor maximum withdrawal amount cannot be less than minimum withdrawal amount.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    // Validation: Rider minimum and maximum amounts
     if (riderConfig.minimum_amount === null || isNaN(riderConfig.minimum_amount) || riderConfig.minimum_amount < 0) {
-      const msg = 'Rider minimum withdrawal amount must be a positive number.';
+      const msg = 'Rider minimum withdrawal amount must be a non-negative number.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    if (riderConfig.maximum_amount === null || isNaN(riderConfig.maximum_amount) || riderConfig.maximum_amount <= 0) {
+      const msg = 'Rider maximum withdrawal amount must be a positive number.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    if (riderConfig.maximum_amount < riderConfig.minimum_amount) {
+      const msg = 'Rider maximum withdrawal amount cannot be less than minimum withdrawal amount.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    // Validation: Fee percentages
+    if (vendorConfig.quick_withdrawal_fee_percent < 0 || vendorConfig.quick_withdrawal_fee_percent > 100) {
+      const msg = 'Vendor quick withdrawal fee must be between 0% and 100%.';
+      setErrorMsg(msg);
+      message.error(msg);
+      return;
+    }
+
+    if (riderConfig.quick_withdrawal_fee_percent < 0 || riderConfig.quick_withdrawal_fee_percent > 100) {
+      const msg = 'Rider quick withdrawal fee must be between 0% and 100%.';
       setErrorMsg(msg);
       message.error(msg);
       return;
@@ -221,8 +298,12 @@ const WithdrawalSettings = () => {
       vendor: {
         auto_withdrawal_enabled: vendorConfig.auto_withdrawal_enabled ? 1 : 0,
         minimum_amount: parseFloat(Number(vendorConfig.minimum_amount).toFixed(2)),
+        maximum_amount: parseFloat(Number(vendorConfig.maximum_amount).toFixed(2)),
         allow_specific_amount: vendorConfig.allow_specific_amount ? 1 : 0,
         allow_full_balance: vendorConfig.allow_full_balance ? 1 : 0,
+        quick_withdrawal_enabled: vendorConfig.quick_withdrawal_enabled ? 1 : 0,
+        quick_withdrawal_fee_percent: parseFloat(Number(vendorConfig.quick_withdrawal_fee_percent).toFixed(2)),
+        standard_payout_days: vendorConfig.standard_payout_days,
         weekly: {
           is_enabled: vendorConfig.weekly.is_enabled ? 1 : 0,
           payout_day: vendorConfig.weekly.payout_day
@@ -235,8 +316,12 @@ const WithdrawalSettings = () => {
       rider: {
         auto_withdrawal_enabled: riderConfig.auto_withdrawal_enabled ? 1 : 0,
         minimum_amount: parseFloat(Number(riderConfig.minimum_amount).toFixed(2)),
+        maximum_amount: parseFloat(Number(riderConfig.maximum_amount).toFixed(2)),
         allow_specific_amount: riderConfig.allow_specific_amount ? 1 : 0,
         allow_full_balance: riderConfig.allow_full_balance ? 1 : 0,
+        quick_withdrawal_enabled: riderConfig.quick_withdrawal_enabled ? 1 : 0,
+        quick_withdrawal_fee_percent: parseFloat(Number(riderConfig.quick_withdrawal_fee_percent).toFixed(2)),
+        standard_payout_days: riderConfig.standard_payout_days,
         weekly: {
           is_enabled: riderConfig.weekly.is_enabled ? 1 : 0,
           payout_day: riderConfig.weekly.payout_day
@@ -279,7 +364,11 @@ const WithdrawalSettings = () => {
         next_payout: vendorConfig.weekly.is_enabled
           ? calculateNextPayoutDate('weekly', vendorConfig.weekly.payout_day)
           : '—',
-        minimum_amount: `$${vendorConfig.minimum_amount.toFixed(2)} CAD`,
+        amount_limits: `$${vendorConfig.minimum_amount.toFixed(2)} - $${vendorConfig.maximum_amount.toFixed(2)} CAD`,
+        standard_turnaround: vendorConfig.standard_payout_days || '2-4 business days',
+        quick_withdrawal: vendorConfig.quick_withdrawal_enabled
+          ? `Enabled (${vendorConfig.quick_withdrawal_fee_percent}% fee)`
+          : 'Disabled',
         allowed_options: [
           vendorConfig.allow_specific_amount && 'Specific Amount',
           vendorConfig.allow_full_balance && 'Full Balance'
@@ -295,7 +384,11 @@ const WithdrawalSettings = () => {
         next_payout: vendorConfig.monthly.is_enabled
           ? calculateNextPayoutDate('monthly', vendorConfig.monthly.payout_day)
           : '—',
-        minimum_amount: `$${vendorConfig.minimum_amount.toFixed(2)} CAD`,
+        amount_limits: `$${vendorConfig.minimum_amount.toFixed(2)} - $${vendorConfig.maximum_amount.toFixed(2)} CAD`,
+        standard_turnaround: vendorConfig.standard_payout_days || '2-4 business days',
+        quick_withdrawal: vendorConfig.quick_withdrawal_enabled
+          ? `Enabled (${vendorConfig.quick_withdrawal_fee_percent}% fee)`
+          : 'Disabled',
         allowed_options: [
           vendorConfig.allow_specific_amount && 'Specific Amount',
           vendorConfig.allow_full_balance && 'Full Balance'
@@ -311,7 +404,11 @@ const WithdrawalSettings = () => {
         next_payout: riderConfig.weekly.is_enabled
           ? calculateNextPayoutDate('weekly', riderConfig.weekly.payout_day)
           : '—',
-        minimum_amount: `$${riderConfig.minimum_amount.toFixed(2)} CAD`,
+        amount_limits: `$${riderConfig.minimum_amount.toFixed(2)} - $${riderConfig.maximum_amount.toFixed(2)} CAD`,
+        standard_turnaround: riderConfig.standard_payout_days || '2-4 business days',
+        quick_withdrawal: riderConfig.quick_withdrawal_enabled
+          ? `Enabled (${riderConfig.quick_withdrawal_fee_percent}% fee)`
+          : 'Disabled',
         allowed_options: [
           riderConfig.allow_specific_amount && 'Specific Amount',
           riderConfig.allow_full_balance && 'Full Balance'
@@ -327,7 +424,11 @@ const WithdrawalSettings = () => {
         next_payout: riderConfig.monthly.is_enabled
           ? calculateNextPayoutDate('monthly', riderConfig.monthly.payout_day)
           : '—',
-        minimum_amount: `$${riderConfig.minimum_amount.toFixed(2)} CAD`,
+        amount_limits: `$${riderConfig.minimum_amount.toFixed(2)} - $${riderConfig.maximum_amount.toFixed(2)} CAD`,
+        standard_turnaround: riderConfig.standard_payout_days || '2-4 business days',
+        quick_withdrawal: riderConfig.quick_withdrawal_enabled
+          ? `Enabled (${riderConfig.quick_withdrawal_fee_percent}% fee)`
+          : 'Disabled',
         allowed_options: [
           riderConfig.allow_specific_amount && 'Specific Amount',
           riderConfig.allow_full_balance && 'Full Balance'
@@ -343,7 +444,7 @@ const WithdrawalSettings = () => {
       title: 'User Type',
       dataIndex: 'user_type',
       key: 'user_type',
-      width: 110,
+      width: 100,
       render: (val) => (
         <Tag color={val === 'Vendor' ? 'blue' : 'green'} style={{ fontWeight: 600 }}>
           {val === 'Vendor' ? <ShopOutlined style={{ marginRight: 4 }} /> : <CarOutlined style={{ marginRight: 4 }} />}
@@ -355,11 +456,11 @@ const WithdrawalSettings = () => {
       title: 'Frequency',
       dataIndex: 'frequency',
       key: 'frequency',
-      width: 100,
+      width: 95,
       render: (val) => <Tag color={val === 'Weekly' ? 'purple' : 'cyan'}>{val}</Tag>
     },
     {
-      title: 'Payout Day / Date',
+      title: 'Payout Schedule',
       dataIndex: 'payout_schedule',
       key: 'payout_schedule',
       render: (val) => <strong style={{ color: '#0f172a' }}>{val}</strong>
@@ -371,46 +472,44 @@ const WithdrawalSettings = () => {
       render: (val) => <span style={{ color: '#088b46', fontWeight: 600 }}>{val}</span>
     },
     {
-      title: 'Minimum Amount (CAD)',
-      dataIndex: 'minimum_amount',
-      key: 'minimum_amount',
+      title: 'Min - Max Limits (CAD)',
+      dataIndex: 'amount_limits',
+      key: 'amount_limits',
       render: (val) => <strong style={{ color: '#1e293b' }}>{val}</strong>
     },
     {
-      title: 'Allowed Amount Options',
-      dataIndex: 'allowed_options',
-      key: 'allowed_options',
-      render: (opts) => (
-        <span>
-          {opts && opts.length > 0 ? (
-            opts.map((opt) => (
-              <Tag key={opt} color="geekblue" style={{ fontSize: 11 }}>
-                {opt}
-              </Tag>
-            ))
-          ) : (
-            <Tag color="red">None (Blocked)</Tag>
-          )}
+      title: 'Standard Turnaround',
+      dataIndex: 'standard_turnaround',
+      key: 'standard_turnaround',
+      render: (val) => (
+        <span style={{ color: '#0284c7', fontWeight: 600 }}>
+          <ClockCircleOutlined style={{ marginRight: 4 }} />
+          {val}
         </span>
+      )
+    },
+    {
+      title: 'Quick Withdrawal',
+      dataIndex: 'quick_withdrawal',
+      key: 'quick_withdrawal',
+      render: (val) => (
+        <Tag color={val.startsWith('Enabled') ? 'gold' : 'default'} style={{ fontWeight: 600 }}>
+          <ThunderboltOutlined style={{ marginRight: 4 }} />
+          {val}
+        </Tag>
       )
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 95,
       render: (status) =>
         status === 'Active' ? (
           <Tag color="success" icon={<CheckCircleOutlined />}>Active</Tag>
         ) : (
           <Tag color="default" icon={<CloseCircleOutlined />}>Disabled</Tag>
         )
-    },
-    {
-      title: 'Last Updated',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
-      render: (d) => (d ? dayjs(d).format('MMM D, YYYY • hh:mm A') : 'Default')
     }
   ];
 
@@ -421,9 +520,9 @@ const WithdrawalSettings = () => {
         <div className={styles.titleBox}>
           <h2>
             <WalletOutlined style={{ color: '#088b46', marginRight: 8 }} />
-            Withdrawal Settings
+            Withdrawal Settings & Payout Policies
           </h2>
-          <p>Control automatic withdrawal schedules and withdrawal amount options for Vendor and Rider apps.</p>
+          <p>Configure automated payout schedules, min/max withdrawal caps, standard 2-4 day clearance, and 2.5% quick withdrawal fees.</p>
         </div>
 
         <div className={styles.headerActions}>
@@ -463,17 +562,17 @@ const WithdrawalSettings = () => {
       <div className={styles.infoCard}>
         <div className={styles.infoHeader}>
           <InfoCircleOutlined style={{ color: '#088b46' }} />
-          <span>How Automatic Withdrawals & Amount Options Work</span>
+          <span>Automated Payout Rules, Clearance Timeline & Quick Withdrawals</span>
         </div>
         <div className={styles.infoBody}>
           <div className={styles.infoCol}>
-            <strong>🗓️ Schedules & Frequencies:</strong> Admin can independently enable Weekly and/or Monthly withdrawal schedules for Vendors and Riders. In their respective apps, users choose their preferred frequency among globally enabled options.
+            <strong>🗓️ Standard Automatic Payouts (Within 2 to 4 Days):</strong> When riders or vendors use automatic scheduled withdrawals, payouts are transferred with 0% processing fee and clear within 2 to 4 business days.
           </div>
           <div className={styles.infoCol}>
-            <strong>💵 Specific Amount Option:</strong> User specifies a preferred withdrawal amount (e.g., CA$100.00). The amount must be at least the admin-defined minimum and cannot exceed the available wallet balance when payout executes.
+            <strong>⚡ Express / Quick Withdrawal (2.5% Fee):</strong> If a rider or vendor requests an instant payout instead of waiting 2-4 days, an express fee (e.g. 2.5%) is deducted and funds are disbursed immediately.
           </div>
           <div className={styles.infoCol}>
-            <strong>🏦 All Available Amount Option:</strong> Automatically withdraws 100% of the cleared, eligible wallet balance. Excludes pending earnings, reserved funds, active disputes, or balances already committed to another payout.
+            <strong>🛡️ Min & Max Amount Guardrails:</strong> Users can enter a custom specific amount or request full balance, strictly bound between the minimum and maximum withdrawal thresholds defined below.
           </div>
         </div>
       </div>
@@ -506,22 +605,131 @@ const WithdrawalSettings = () => {
               />
             </div>
 
-            {/* Minimum Amount */}
-            <div className={styles.inputGroup} style={{ marginTop: 14 }}>
-              <label>Minimum Withdrawal Amount (CAD)</label>
-              <InputNumber
-                value={vendorConfig.minimum_amount}
-                onChange={(val) => setVendorConfig({ ...vendorConfig, minimum_amount: val !== null ? val : 0 })}
-                min={0}
-                step={5}
-                precision={2}
-                prefix="$"
-                addonAfter="CAD"
-                style={{ width: '100%' }}
-              />
-              <span className={styles.hint}>
-                Vendors cannot withdraw an amount below this threshold.
-              </span>
+            {/* Amount Guardrails: Min and Max Amount Inputs */}
+            <div className={styles.sectionBlock} style={{ marginTop: 14 }}>
+              <div className={styles.sectionTitle}>Withdrawal Amount Limits (CAD)</div>
+              <Row gutter={12}>
+                <Col xs={24} sm={12}>
+                  <div className={styles.inputGroup}>
+                    <label>Minimum Amount (CAD)</label>
+                    <InputNumber
+                      value={vendorConfig.minimum_amount}
+                      onChange={(val) => setVendorConfig({ ...vendorConfig, minimum_amount: val !== null ? val : 0 })}
+                      min={0}
+                      step={5}
+                      precision={2}
+                      prefix="$"
+                      addonAfter="CAD"
+                      style={{ width: '100%' }}
+                    />
+                    <span className={styles.hint}>
+                      Vendors cannot withdraw below this minimum.
+                    </span>
+                  </div>
+                </Col>
+
+                <Col xs={24} sm={12}>
+                  <div className={styles.inputGroup}>
+                    <label>Maximum Amount (CAD)</label>
+                    <InputNumber
+                      value={vendorConfig.maximum_amount}
+                      onChange={(val) => setVendorConfig({ ...vendorConfig, maximum_amount: val !== null ? val : 5000 })}
+                      min={vendorConfig.minimum_amount || 0}
+                      step={100}
+                      precision={2}
+                      prefix="$"
+                      addonAfter="CAD"
+                      style={{ width: '100%' }}
+                    />
+                    <span className={styles.hint}>
+                      Capped limit per withdrawal request.
+                    </span>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            {/* Standard Automatic Withdrawal Timeline (2 to 4 Days) */}
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <ClockCircleOutlined style={{ color: '#16a34a', fontSize: 16 }} />
+                <strong style={{ color: '#15803d', fontSize: '13px' }}>
+                  Standard Automatic Turnaround: 2 to 4 Business Days
+                </strong>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: '#166534', lineHeight: 1.4 }}>
+                Vendors with automatic withdrawal enabled receive their scheduled payouts directly in their bank account within 2 to 4 business days at <strong>0% fee</strong>.
+              </p>
+            </div>
+
+            {/* Quick / Instant Withdrawal Settings (2.5% Fee) */}
+            <div
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: 8,
+                padding: '14px 16px',
+                marginBottom: 18,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ThunderboltOutlined style={{ color: '#d97706', fontSize: 17 }} />
+                  <span style={{ fontWeight: 700, color: '#92400e', fontSize: '13.5px' }}>
+                    Quick / Instant Withdrawal (Express Fee)
+                  </span>
+                </div>
+                <Switch
+                  checked={vendorConfig.quick_withdrawal_enabled}
+                  onChange={(checked) => setVendorConfig({ ...vendorConfig, quick_withdrawal_enabled: checked })}
+                  style={{ backgroundColor: vendorConfig.quick_withdrawal_enabled ? '#d97706' : undefined }}
+                />
+              </div>
+
+              {vendorConfig.quick_withdrawal_enabled && (
+                <div>
+                  <div className={styles.inputGroup} style={{ marginBottom: 8 }}>
+                    <label style={{ color: '#78350f', fontSize: '12.5px' }}>
+                      Quick Withdrawal Processing Fee (%)
+                    </label>
+                    <InputNumber
+                      value={vendorConfig.quick_withdrawal_fee_percent}
+                      onChange={(val) =>
+                        setVendorConfig({
+                          ...vendorConfig,
+                          quick_withdrawal_fee_percent: val !== null ? val : 2.5
+                        })
+                      }
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      precision={2}
+                      addonAfter="%"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11.5px',
+                      color: '#92400e',
+                      background: '#ffffff',
+                      border: '1px dashed #fcd34d',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                    }}
+                  >
+                    💡 <strong>Fee Example:</strong> On a $100.00 quick withdrawal, a {vendorConfig.quick_withdrawal_fee_percent}% (${(100 * (vendorConfig.quick_withdrawal_fee_percent / 100)).toFixed(2)}) fee is charged. Vendor receives <strong>${(100 - 100 * (vendorConfig.quick_withdrawal_fee_percent / 100)).toFixed(2)} CAD</strong> immediately.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Allowed Amount Options */}
@@ -671,22 +879,131 @@ const WithdrawalSettings = () => {
               />
             </div>
 
-            {/* Minimum Amount */}
-            <div className={styles.inputGroup} style={{ marginTop: 14 }}>
-              <label>Minimum Withdrawal Amount (CAD)</label>
-              <InputNumber
-                value={riderConfig.minimum_amount}
-                onChange={(val) => setRiderConfig({ ...riderConfig, minimum_amount: val !== null ? val : 0 })}
-                min={0}
-                step={5}
-                precision={2}
-                prefix="$"
-                addonAfter="CAD"
-                style={{ width: '100%' }}
-              />
-              <span className={styles.hint}>
-                Riders cannot withdraw an amount below this threshold.
-              </span>
+            {/* Amount Guardrails: Min and Max Amount Inputs */}
+            <div className={styles.sectionBlock} style={{ marginTop: 14 }}>
+              <div className={styles.sectionTitle}>Withdrawal Amount Limits (CAD)</div>
+              <Row gutter={12}>
+                <Col xs={24} sm={12}>
+                  <div className={styles.inputGroup}>
+                    <label>Minimum Amount (CAD)</label>
+                    <InputNumber
+                      value={riderConfig.minimum_amount}
+                      onChange={(val) => setRiderConfig({ ...riderConfig, minimum_amount: val !== null ? val : 0 })}
+                      min={0}
+                      step={5}
+                      precision={2}
+                      prefix="$"
+                      addonAfter="CAD"
+                      style={{ width: '100%' }}
+                    />
+                    <span className={styles.hint}>
+                      Riders cannot withdraw below this minimum.
+                    </span>
+                  </div>
+                </Col>
+
+                <Col xs={24} sm={12}>
+                  <div className={styles.inputGroup}>
+                    <label>Maximum Amount (CAD)</label>
+                    <InputNumber
+                      value={riderConfig.maximum_amount}
+                      onChange={(val) => setRiderConfig({ ...riderConfig, maximum_amount: val !== null ? val : 5000 })}
+                      min={riderConfig.minimum_amount || 0}
+                      step={100}
+                      precision={2}
+                      prefix="$"
+                      addonAfter="CAD"
+                      style={{ width: '100%' }}
+                    />
+                    <span className={styles.hint}>
+                      Capped limit per withdrawal request.
+                    </span>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            {/* Standard Automatic Withdrawal Timeline (2 to 4 Days) */}
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <ClockCircleOutlined style={{ color: '#16a34a', fontSize: 16 }} />
+                <strong style={{ color: '#15803d', fontSize: '13px' }}>
+                  Standard Automatic Turnaround: 2 to 4 Business Days
+                </strong>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: '#166534', lineHeight: 1.4 }}>
+                Riders with automatic withdrawal enabled receive their scheduled payouts directly in their bank account within 2 to 4 business days at <strong>0% fee</strong>.
+              </p>
+            </div>
+
+            {/* Quick / Instant Withdrawal Settings (2.5% Fee) */}
+            <div
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: 8,
+                padding: '14px 16px',
+                marginBottom: 18,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ThunderboltOutlined style={{ color: '#d97706', fontSize: 17 }} />
+                  <span style={{ fontWeight: 700, color: '#92400e', fontSize: '13.5px' }}>
+                    Quick / Instant Withdrawal (Express Fee)
+                  </span>
+                </div>
+                <Switch
+                  checked={riderConfig.quick_withdrawal_enabled}
+                  onChange={(checked) => setRiderConfig({ ...riderConfig, quick_withdrawal_enabled: checked })}
+                  style={{ backgroundColor: riderConfig.quick_withdrawal_enabled ? '#d97706' : undefined }}
+                />
+              </div>
+
+              {riderConfig.quick_withdrawal_enabled && (
+                <div>
+                  <div className={styles.inputGroup} style={{ marginBottom: 8 }}>
+                    <label style={{ color: '#78350f', fontSize: '12.5px' }}>
+                      Quick Withdrawal Processing Fee (%)
+                    </label>
+                    <InputNumber
+                      value={riderConfig.quick_withdrawal_fee_percent}
+                      onChange={(val) =>
+                        setRiderConfig({
+                          ...riderConfig,
+                          quick_withdrawal_fee_percent: val !== null ? val : 2.5
+                        })
+                      }
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      precision={2}
+                      addonAfter="%"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11.5px',
+                      color: '#92400e',
+                      background: '#ffffff',
+                      border: '1px dashed #fcd34d',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                    }}
+                  >
+                    💡 <strong>Fee Example:</strong> On a $100.00 quick withdrawal, a {riderConfig.quick_withdrawal_fee_percent}% (${(100 * (riderConfig.quick_withdrawal_fee_percent / 100)).toFixed(2)}) fee is charged. Rider receives <strong>${(100 - 100 * (riderConfig.quick_withdrawal_fee_percent / 100)).toFixed(2)} CAD</strong> immediately.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Allowed Amount Options */}
@@ -852,4 +1169,3 @@ const WithdrawalSettings = () => {
 };
 
 export default WithdrawalSettings;
-
