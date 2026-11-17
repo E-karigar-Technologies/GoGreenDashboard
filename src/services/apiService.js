@@ -1778,6 +1778,75 @@ export const updateWithdrawalSettings = async (payload) => {
 };
 
 /**
+ * Fetch simulated automated payout preview (GET /api/admin/simulate-automated-payouts/preview)
+ */
+export const getSimulatePayoutsPreview = async () => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/admin/simulate-automated-payouts/preview', reqConfig);
+    } catch (err) {
+      response = await axios.get('/admin/simulate-automated-payouts/preview', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Simulated payout preview retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Failed to get simulate payouts preview:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to get simulated payout preview',
+    };
+  }
+};
+
+/**
+ * Execute simulated automated payout cycle (POST /api/admin/simulate-automated-payouts)
+ */
+export const executeSimulatePayouts = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.post('/api/admin/simulate-automated-payouts', payload, reqConfig);
+    } catch (err) {
+      response = await axios.post('/admin/simulate-automated-payouts', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data,
+      summary: response.data?.summary,
+      message: response.data?.message || 'Simulated automated payout distribution executed successfully'
+    };
+  } catch (error) {
+    console.error('Failed to execute simulated automated payouts:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to execute simulated automated payouts',
+    };
+  }
+};
+
+/**
  * Fetch user withdrawal preference (GET /api/withdrawal/preferences)
  */
 export const getUserWithdrawalPreferences = async (params = {}) => {

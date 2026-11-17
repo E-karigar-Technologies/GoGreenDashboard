@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   InputNumber,
   Input,
@@ -12,7 +13,14 @@ import {
   message,
   Tooltip,
   Row,
-  Col
+  Col,
+  Modal,
+  Radio,
+  Statistic,
+  Card,
+  Space,
+  Divider,
+  Result
 } from 'antd';
 import {
   WalletOutlined,
@@ -26,12 +34,22 @@ import {
   CalendarOutlined,
   DollarOutlined,
   ThunderboltOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  RocketOutlined,
+  ExperimentOutlined,
+  PlayCircleOutlined,
+  EyeOutlined,
+  ArrowRightOutlined,
+  BankOutlined,
+  CheckOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   getWithdrawalSettings,
-  updateWithdrawalSettings
+  updateWithdrawalSettings,
+  getSimulatePayoutsPreview,
+  executeSimulatePayouts
 } from '../../services/apiService';
 import styles from './withdrawalSettings.module.scss';
 
@@ -126,6 +144,19 @@ const WithdrawalSettings = () => {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const navigate = useNavigate();
+
+  // Simulation State
+  const [simModalVisible, setSimModalVisible] = useState(false);
+  const [simLoading, setSimLoading] = useState(false);
+  const [simExecuting, setSimExecuting] = useState(false);
+  const [simPreviewData, setSimPreviewData] = useState(null);
+  const [simTargetType, setSimTargetType] = useState('all'); // 'all', 'vendor', 'rider'
+  const [simPayoutSpeed, setSimPayoutSpeed] = useState('standard'); // 'standard', 'quick'
+  const [simMarkCompleted, setSimMarkCompleted] = useState(true);
+  const [simExecutionResult, setSimExecutionResult] = useState(null);
+  const [selectedSimKeys, setSelectedSimKeys] = useState([]);
+
   // Fetch settings from API
   const fetchSettings = async () => {
     setLoading(true);
@@ -213,7 +244,62 @@ const WithdrawalSettings = () => {
 
   useEffect(() => {
     fetchSettings();
+    // Load simulation preview for dashboard stats
+    getSimulatePayoutsPreview()
+      .then((res) => {
+        if (res?.success && res?.data) {
+          setSimPreviewData(res.data);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  // Open simulation modal and fetch fresh preview
+  const handleOpenSimulation = async () => {
+    setSimModalVisible(true);
+    setSimLoading(true);
+    setSimExecutionResult(null);
+    try {
+      const res = await getSimulatePayoutsPreview();
+      if (res.success && res.data) {
+        setSimPreviewData(res.data);
+      } else {
+        message.error(res.error || 'Failed to load payout simulation preview');
+      }
+    } catch (err) {
+      console.error(err);
+      message.error('Error loading simulation preview');
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
+  // Run the simulation cycle
+  const handleExecuteSimulation = async () => {
+    setSimExecuting(true);
+    try {
+      const payload = {
+        target_type: simTargetType,
+        payout_speed: simPayoutSpeed,
+        mark_as_completed: simMarkCompleted
+      };
+      const res = await executeSimulatePayouts(payload);
+      if (res.success) {
+        message.success(res.message || 'Simulated automated payout distribution executed successfully!');
+        setSimExecutionResult(res.data || res);
+        // Refresh simulation preview
+        const freshPreview = await getSimulatePayoutsPreview();
+        if (freshPreview.success) setSimPreviewData(freshPreview.data);
+      } else {
+        message.error(res.error || 'Simulation execution failed');
+      }
+    } catch (err) {
+      console.error(err);
+      message.error('Error executing payout simulation');
+    } finally {
+      setSimExecuting(false);
+    }
+  };
 
   // Save changes handler for both Vendor & Rider
   const handleSaveAll = async () => {
@@ -1129,7 +1215,143 @@ const WithdrawalSettings = () => {
           </div>
         </div>
 
-        {/* Section 4: Current Withdrawal Configuration Table */}
+        {/* Section 4: Automated Payment Distribution Simulator (Live Demonstration Mode) */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%, #eff6ff 100%)',
+            border: '1px solid #bbf7d0',
+            borderRadius: 12,
+            padding: '24px 28px',
+            marginBottom: 24,
+            boxShadow: '0 4px 12px rgba(8, 139, 70, 0.05)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: 16,
+              marginBottom: 18,
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 8,
+                    background: '#088b46',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: 18,
+                  }}
+                >
+                  <RocketOutlined />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
+                    Automated Payment Distribution Simulator
+                  </h3>
+                  <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 2 }}>
+                    Demonstrate how the system automatically calculates wallet earnings, enforces minimum/maximum limits, applies standard (2-4 days) or quick (2.5% fee) rules, and logs mock bank deposits without a payment gateway.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Space wrap>
+              <Button
+                icon={<EyeOutlined />}
+                onClick={() => navigate('/vendor-withdrawals')}
+                style={{ borderRadius: 6, fontWeight: 600 }}
+              >
+                Vendor Payouts Table
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                onClick={handleOpenSimulation}
+                style={{
+                  backgroundColor: '#088b46',
+                  borderColor: '#088b46',
+                  borderRadius: 6,
+                  fontWeight: 700,
+                  boxShadow: '0 2px 6px rgba(8, 139, 70, 0.25)',
+                }}
+              >
+                Launch Payout Simulator
+              </Button>
+            </Space>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} md={6}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Eligible Vendors
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#088b46', marginTop: 4 }}>
+                  {simPreviewData?.summary?.eligible_vendors_count ?? 2} Vendors
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                  Pool: ₹{(simPreviewData?.summary?.total_vendor_payout ?? 6751.35).toLocaleString()} (Min ₹{vendorConfig.minimum_amount})
+                </div>
+              </div>
+            </Col>
+
+            <Col xs={24} sm={12} md={6}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Eligible Riders
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#0284c7', marginTop: 4 }}>
+                  {simPreviewData?.summary?.eligible_riders_count ?? 2} Riders
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                  Pool: ₹{(simPreviewData?.summary?.total_rider_payout ?? 5072.2).toLocaleString()} (Min ₹{riderConfig.minimum_amount})
+                </div>
+              </div>
+            </Col>
+
+            <Col xs={24} sm={12} md={6}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Total Distribution Pool
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
+                  ₹{(simPreviewData?.summary?.total_distribution_amount ?? 11823.55).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                  Capped up to ₹{vendorConfig.maximum_amount.toLocaleString()} / beneficiary
+                </div>
+              </div>
+            </Col>
+
+            <Col xs={24} sm={12} md={6}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Demonstration Mode
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <Tag color="success" style={{ fontWeight: 700, padding: '2px 8px', fontSize: 11.5 }}>
+                    ✓ Ready to Simulate
+                  </Tag>
+                </div>
+                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
+                  Generates mock UTR & updates ledger
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </div>
+
+        {/* Section 5: Current Withdrawal Configuration Table */}
         <div className={styles.tableCard}>
           <div className={styles.tableTitle}>
             Current Withdrawal Configuration Overview
@@ -1163,6 +1385,400 @@ const WithdrawalSettings = () => {
             Save All Changes
           </Button>
         </div>
+
+        {/* Modal: Automated Payout Distribution Simulator */}
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+              <RocketOutlined style={{ color: '#088b46', fontSize: 18 }} />
+              Automated Payout Distribution Simulator
+              <Tag color="cyan" style={{ marginLeft: 6, fontWeight: 600 }}>Demo Mode</Tag>
+            </div>
+          }
+          open={simModalVisible}
+          onCancel={() => setSimModalVisible(false)}
+          width={920}
+          footer={null}
+          destroyOnClose
+        >
+          {simLoading ? (
+            <div style={{ textAlign: 'center', padding: '50px 0' }}>
+              <Spin size="large" tip="Calculating live beneficiary balances and payout rules..." />
+            </div>
+          ) : simExecutionResult ? (
+            /* Results Screen */
+            <div>
+              <Alert
+                type="success"
+                showIcon
+                message={
+                  <span style={{ fontWeight: 700, fontSize: 14.5 }}>
+                    Automated Payout Distribution Executed Successfully!
+                  </span>
+                }
+                description={
+                  <div style={{ fontSize: 12.5, marginTop: 4 }}>
+                    {simExecutionResult.message || `Processed ${simExecutionResult.summary?.total_processed} beneficiaries.`}
+                    {' '}Available wallet balances have been deducted and records logged to the payout ledger.
+                  </div>
+                }
+                style={{ borderRadius: 8, marginBottom: 20 }}
+              />
+
+              {/* Result Summary Metrics */}
+              <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+                <Col xs={12} sm={6}>
+                  <Card size="small" style={{ borderRadius: 8, background: '#f8fafc', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Beneficiaries</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
+                      {simExecutionResult.summary?.total_processed || 0}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                      {simExecutionResult.summary?.vendors_count || 0} Vendors • {simExecutionResult.summary?.riders_count || 0} Riders
+                    </div>
+                  </Card>
+                </Col>
+
+                <Col xs={12} sm={6}>
+                  <Card size="small" style={{ borderRadius: 8, background: '#f8fafc', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Gross Distributed</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#2563eb', marginTop: 4 }}>
+                      ₹{(simExecutionResult.summary?.total_gross || 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>Capped at maximum</div>
+                  </Card>
+                </Col>
+
+                <Col xs={12} sm={6}>
+                  <Card size="small" style={{ borderRadius: 8, background: '#f8fafc', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Fee Deducted</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#d97706', marginTop: 4 }}>
+                      ₹{(simExecutionResult.summary?.total_fee || 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                      {simExecutionResult.summary?.payout_speed === 'quick' ? '2.5% Quick Fee' : '0% Standard Fee'}
+                    </div>
+                  </Card>
+                </Col>
+
+                <Col xs={12} sm={6}>
+                  <Card size="small" style={{ borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#166534', fontWeight: 600, textTransform: 'uppercase' }}>Net Deposited</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a', marginTop: 4 }}>
+                      ₹{(simExecutionResult.summary?.total_net || 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#166534' }}>Transferred to bank</div>
+                  </Card>
+                </Col>
+              </Row>
+
+              {/* Processed Transactions Table */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+                  Generated Transaction Ledger (Simulated Bank Records)
+                </div>
+                <Table
+                  dataSource={simExecutionResult.processed_records || []}
+                  rowKey="uid"
+                  pagination={{ pageSize: 5 }}
+                  size="small"
+                  bordered
+                  columns={[
+                    {
+                      title: 'Payout UID',
+                      dataIndex: 'uid',
+                      key: 'uid',
+                      width: 130,
+                      render: (uid, record) => (
+                        <div>
+                          <strong style={{ color: '#0f172a' }}>{uid}</strong>
+                          <div>
+                            <Tag color={record.type === 'vendor' ? 'purple' : 'cyan'} style={{ fontSize: 10, marginTop: 2 }}>
+                              {record.type === 'vendor' ? 'Vendor' : 'Rider'}
+                            </Tag>
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      title: 'Beneficiary',
+                      key: 'name',
+                      render: (_, record) => (
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#0f172a' }}>{record.name}</div>
+                          {record.store_name && (
+                            <div style={{ fontSize: 11.5, color: '#64748b' }}>Store: {record.store_name}</div>
+                          )}
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                            {record.bank_name} ({record.account_masked})
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      title: 'Gross Payout',
+                      dataIndex: 'gross_amount',
+                      key: 'gross',
+                      align: 'right',
+                      width: 110,
+                      render: (val) => <span style={{ fontWeight: 600 }}>₹{parseFloat(val).toFixed(2)}</span>
+                    },
+                    {
+                      title: 'Fee Deducted',
+                      dataIndex: 'fee_amount',
+                      key: 'fee',
+                      align: 'right',
+                      width: 110,
+                      render: (val, record) => (
+                        <span style={{ color: Number(val) > 0 ? '#d97706' : '#64748b', fontWeight: 600 }}>
+                          ₹{parseFloat(val).toFixed(2)} ({record.fee_percent}%)
+                        </span>
+                      )
+                    },
+                    {
+                      title: 'Net Deposited',
+                      dataIndex: 'net_amount',
+                      key: 'net',
+                      align: 'right',
+                      width: 120,
+                      render: (val) => (
+                        <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 13.5 }}>
+                          ₹{parseFloat(val).toFixed(2)}
+                        </span>
+                      )
+                    },
+                    {
+                      title: 'Mock Bank Ref / UTR',
+                      dataIndex: 'transaction_reference',
+                      key: 'txn_ref',
+                      width: 180,
+                      render: (ref) => (
+                        <Tag color="geekblue" style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
+                          {ref}
+                        </Tag>
+                      )
+                    }
+                  ]}
+                />
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+                <Button
+                  onClick={() => setSimExecutionResult(null)}
+                  icon={<HistoryOutlined />}
+                  style={{ borderRadius: 6 }}
+                >
+                  Configure & Run Another
+                </Button>
+                <Space>
+                  <Button
+                    icon={<EyeOutlined />}
+                    onClick={() => {
+                      setSimModalVisible(false);
+                      navigate('/vendor-withdrawals');
+                    }}
+                    style={{ borderRadius: 6 }}
+                  >
+                    View in Vendor Withdrawals
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => setSimModalVisible(false)}
+                    style={{ backgroundColor: '#088b46', borderColor: '#088b46', borderRadius: 6, fontWeight: 600 }}
+                  >
+                    Done
+                  </Button>
+                </Space>
+              </div>
+            </div>
+          ) : (
+            /* Configuration & Preview Screen */
+            <div>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '16px 18px', marginBottom: 20 }}>
+                <Row gutter={[16, 16]}>
+                  {/* Option 1: Beneficiary Target */}
+                  <Col xs={24} md={12}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
+                      Target Beneficiaries:
+                    </label>
+                    <Radio.Group
+                      value={simTargetType}
+                      onChange={(e) => setSimTargetType(e.target.value)}
+                      buttonStyle="solid"
+                      style={{ width: '100%', display: 'flex' }}
+                    >
+                      <Radio.Button value="all" style={{ flex: 1, textAlign: 'center' }}>All (Vendors & Riders)</Radio.Button>
+                      <Radio.Button value="vendor" style={{ flex: 1, textAlign: 'center' }}>Vendors Only</Radio.Button>
+                      <Radio.Button value="rider" style={{ flex: 1, textAlign: 'center' }}>Riders Only</Radio.Button>
+                    </Radio.Group>
+                  </Col>
+
+                  {/* Option 2: Payout Speed */}
+                  <Col xs={24} md={12}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
+                      Turnaround Policy to Demonstrate:
+                    </label>
+                    <Radio.Group
+                      value={simPayoutSpeed}
+                      onChange={(e) => setSimPayoutSpeed(e.target.value)}
+                      buttonStyle="solid"
+                      style={{ width: '100%', display: 'flex' }}
+                    >
+                      <Radio.Button value="standard" style={{ flex: 1, textAlign: 'center' }}>
+                        Standard (0% Fee • 2-4 Days)
+                      </Radio.Button>
+                      <Radio.Button value="quick" style={{ flex: 1, textAlign: 'center' }}>
+                        Quick (2.5% Fee • Instant)
+                      </Radio.Button>
+                    </Radio.Group>
+                  </Col>
+                </Row>
+
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Switch
+                      checked={simMarkCompleted}
+                      onChange={setSimMarkCompleted}
+                      size="small"
+                      style={{ backgroundColor: simMarkCompleted ? '#088b46' : undefined }}
+                    />
+                    <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                      Mark as 'Completed' immediately with mock bank UTR reference
+                    </span>
+                  </div>
+                  <Tag color={simPayoutSpeed === 'quick' ? 'orange' : 'green'} style={{ fontWeight: 600, margin: 0 }}>
+                    {simPayoutSpeed === 'quick' ? '⚡ 2.5% Priority Fee Deducted' : '⏳ Standard 2-4 Days Settlement'}
+                  </Tag>
+                </div>
+              </div>
+
+              {/* Eligible Beneficiaries Preview Table */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                    Eligible Beneficiaries ({
+                      (simTargetType === 'rider' ? 0 : (simPreviewData?.vendors || []).filter(v => v.is_eligible).length) +
+                      (simTargetType === 'vendor' ? 0 : (simPreviewData?.riders || []).filter(r => r.is_eligible).length)
+                    } Ready for Payout)
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                    Criteria: Balance &ge; Min amount (Capped at ₹{vendorConfig.maximum_amount})
+                  </div>
+                </div>
+
+                <Table
+                  dataSource={[
+                    ...(simTargetType === 'rider' ? [] : (simPreviewData?.vendors || []).filter(v => v.is_eligible).map(v => ({ ...v, key: `vendor-${v.user_id}` }))),
+                    ...(simTargetType === 'vendor' ? [] : (simPreviewData?.riders || []).filter(r => r.is_eligible).map(r => ({ ...r, key: `rider-${r.user_id}` })))
+                  ]}
+                  size="small"
+                  bordered
+                  pagination={{ pageSize: 4 }}
+                  columns={[
+                    {
+                      title: 'Role',
+                      dataIndex: 'type',
+                      key: 'type',
+                      width: 90,
+                      align: 'center',
+                      render: (type) => (
+                        <Tag color={type === 'vendor' ? 'purple' : 'cyan'} style={{ fontWeight: 600, margin: 0 }}>
+                          {type === 'vendor' ? 'Vendor' : 'Rider'}
+                        </Tag>
+                      )
+                    },
+                    {
+                      title: 'Beneficiary & Store',
+                      key: 'name',
+                      render: (_, record) => (
+                        <div>
+                          <strong style={{ color: '#0f172a' }}>{record.name}</strong>
+                          {record.store_name && (
+                            <div style={{ fontSize: 11.5, color: '#64748b' }}>Store: {record.store_name}</div>
+                          )}
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                            {record.bank_details?.bank_name} ({record.bank_details?.account_number})
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      title: 'Available Balance',
+                      dataIndex: 'available_balance',
+                      key: 'bal',
+                      align: 'right',
+                      width: 120,
+                      render: (val) => <span>₹{parseFloat(val).toFixed(2)}</span>
+                    },
+                    {
+                      title: 'Gross Payout',
+                      dataIndex: 'proposed_amount',
+                      key: 'gross',
+                      align: 'right',
+                      width: 115,
+                      render: (val) => <strong style={{ color: '#2563eb' }}>₹{parseFloat(val).toFixed(2)}</strong>
+                    },
+                    {
+                      title: simPayoutSpeed === 'quick' ? 'Fee (2.5%)' : 'Fee (0%)',
+                      key: 'fee',
+                      align: 'right',
+                      width: 110,
+                      render: (_, record) => {
+                        const fee = simPayoutSpeed === 'quick'
+                          ? (record.proposed_amount * 0.025).toFixed(2)
+                          : '0.00';
+                        return (
+                          <span style={{ color: Number(fee) > 0 ? '#d97706' : '#64748b', fontWeight: 600 }}>
+                            ₹{fee}
+                          </span>
+                        );
+                      }
+                    },
+                    {
+                      title: 'Net Deposited',
+                      key: 'net',
+                      align: 'right',
+                      width: 120,
+                      render: (_, record) => {
+                        const fee = simPayoutSpeed === 'quick' ? record.proposed_amount * 0.025 : 0;
+                        const net = (record.proposed_amount - fee).toFixed(2);
+                        return (
+                          <span style={{ color: '#16a34a', fontWeight: 700 }}>
+                            ₹{net}
+                          </span>
+                        );
+                      }
+                    }
+                  ]}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+                <Button onClick={() => setSimModalVisible(false)} style={{ borderRadius: 6 }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlayCircleOutlined />}
+                  loading={simExecuting}
+                  onClick={handleExecuteSimulation}
+                  style={{
+                    backgroundColor: '#088b46',
+                    borderColor: '#088b46',
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    padding: '0 20px',
+                    height: 38
+                  }}
+                >
+                  Execute Automated Payout Cycle
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
       </Spin>
     </div>
   );
