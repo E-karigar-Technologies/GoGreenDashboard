@@ -320,6 +320,41 @@ const menuItems = {
         }
       ]
     },
+    // Offers & Promotions Group
+    {
+      id: 'offers-group',
+      type: 'group',
+      icon: 'icon-support',
+      children: [
+        {
+          id: 'manage-offers',
+          title: 'Offers & Promos',
+          type: 'collapse',
+          icon: 'material-icons-two-tone',
+          iconname: 'local_offer',
+          children: [
+            {
+              id: 'all-offers',
+              title: 'All Offers',
+              type: 'item',
+              url: '/offers',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'view_list'
+            },
+            {
+              id: 'create-offer',
+              title: 'Create Offer',
+              type: 'item',
+              url: '/create-offer',
+              classes: 'nav-item',
+              icon: 'material-icons-two-tone',
+              iconname: 'add_circle'
+            }
+          ]
+        }
+      ]
+    },
     // Customer Settings Group
     {
       id: 'customer-settings-group',

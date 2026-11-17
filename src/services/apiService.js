@@ -2061,3 +2061,274 @@ export const updateVendorOrderTimingSettings = async (payload) => {
     };
   }
 };
+
+// ==============================================================
+// CUSTOMER OFFERS & PROMOTIONS API SERVICES
+// ==============================================================
+
+/**
+ * Fetch all promotional offers with summary metrics (GET /api/offers)
+ */
+export const getOffers = async (params = {}) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+      params,
+    };
+
+    let response;
+    try {
+      response = await axios.get('/api/offers', reqConfig);
+    } catch (err) {
+      response = await axios.get('/offers', reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      summary: response.data?.summary || null,
+      message: response.data?.message || 'Offers retrieved successfully',
+    };
+  } catch (error) {
+    console.error('Failed to get offers:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to retrieve offers',
+    };
+  }
+};
+
+/**
+ * Fetch single offer by ID (GET /api/offers/:id)
+ */
+export const getOfferById = async (id) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get(`/api/offers/${id}`, reqConfig);
+    } catch (err) {
+      response = await axios.get(`/offers/${id}`, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error('Failed to get offer by ID:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to retrieve offer details',
+    };
+  }
+};
+
+/**
+ * Create a new offer (POST /api/offers)
+ * Accepts either FormData (with file) or JSON object
+ */
+export const createOffer = async (payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.post('/api/offers', payload, reqConfig);
+    } catch (err) {
+      response = await axios.post('/offers', payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Offer created successfully!',
+    };
+  } catch (error) {
+    console.error('Failed to create offer:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to create offer',
+    };
+  }
+};
+
+/**
+ * Update an existing offer (PUT /api/offers/:id)
+ */
+export const updateOffer = async (id, payload) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': isFormData ? 'multipart/form-data' : 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.put(`/api/offers/${id}`, payload, reqConfig);
+    } catch (err) {
+      response = await axios.put(`/offers/${id}`, payload, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Offer updated successfully!',
+    };
+  } catch (error) {
+    console.error('Failed to update offer:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to update offer',
+    };
+  }
+};
+
+/**
+ * Toggle offer active / inactive status (PATCH /api/offers/:id/status)
+ */
+export const toggleOfferStatus = async (id, status) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.patch(`/api/offers/${id}/status`, { status }, reqConfig);
+    } catch (err) {
+      response = await axios.patch(`/offers/${id}/status`, { status }, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+      message: response.data?.message || 'Status updated successfully',
+    };
+  } catch (error) {
+    console.error('Failed to toggle offer status:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to toggle status',
+    };
+  }
+};
+
+/**
+ * Delete an offer (DELETE /api/offers/:id)
+ */
+export const deleteOffer = async (id) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.delete(`/api/offers/${id}`, reqConfig);
+    } catch (err) {
+      response = await axios.delete(`/offers/${id}`, reqConfig);
+    }
+
+    return {
+      success: true,
+      message: response.data?.message || 'Offer deleted successfully',
+    };
+  } catch (error) {
+    console.error('Failed to delete offer:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to delete offer',
+    };
+  }
+};
+
+/**
+ * Fetch all customers who have chosen / applied this offer (GET /api/offers/:id/customers)
+ */
+export const getOfferCustomers = async (offerId) => {
+  try {
+    const freshToken = localStorage.getItem('token');
+    const reqConfig = {
+      headers: {
+        Authorization: freshToken ? `Bearer ${freshToken}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    let response;
+    try {
+      response = await axios.get(`/api/offers/${offerId}/customers`, reqConfig);
+    } catch (err) {
+      response = await axios.get(`/offers/${offerId}/customers`, reqConfig);
+    }
+
+    return {
+      success: true,
+      data: response.data?.customers || [],
+      total_count: response.data?.total_count || 0,
+      offer_id: response.data?.offer_id || offerId,
+    };
+  } catch (error) {
+    console.error('Failed to fetch offer customers:', error);
+    return {
+      success: false,
+      data: [],
+      error: error.response?.data?.message || error.response?.data || error.message || 'Failed to fetch offer customers',
+    };
+  }
+};
+
+/**
+ * Customer / Demo Cart Tester: Validate offer code and calculate savings
+ */
+export const validateCustomerOffer = async (offerCode, cartTotal) => {
+  try {
+    const response = await axios.post('/api/offers/customer/apply', {
+      offer_code: offerCode,
+      cart_total: cartTotal,
+    });
+
+    return {
+      success: true,
+      data: response.data?.data,
+      message: response.data?.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message || 'Offer code is invalid or not applicable',
+    };
+  }
+};

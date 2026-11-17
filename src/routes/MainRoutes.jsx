@@ -63,6 +63,8 @@ const AddAppBanner = lazy(() => import('../views/homeApp-banner/addappbanner'));
 const AllAppBanner = lazy(() => import('../views/homeApp-banner/allappbanner'));
 const Unverifiedusers = lazy(() => import('../views/users/unverifiedusers'));
 const AllCustomers = lazy(() => import('../views/users/customers/allCustomers'));
+const AllOffers = lazy(() => import('../views/offers/AllOffers'));
+const CreateOffer = lazy(() => import('../views/offers/CreateOffer'));
 
 const MainRoutes = {
   path: '/',
@@ -285,6 +287,22 @@ const MainRoutes = {
         {
           path: '/rider-delivery-charges',
           element: <RiderDeliveryCharges />
+        },
+        {
+          path: '/offers',
+          element: <AllOffers />
+        },
+        {
+          path: '/all-offers',
+          element: <AllOffers />
+        },
+        {
+          path: '/create-offer',
+          element: <CreateOffer />
+        },
+        {
+          path: '/edit-offer/:id',
+          element: <CreateOffer />
         },
         {
           path: '/settings',
